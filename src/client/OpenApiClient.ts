@@ -6,10 +6,15 @@
  *   Signed (swap and order routes): X-APIKEY + timestamp + client_id + X-Signature (private key signature)
  */
 
+import { createRequire } from "node:module";
+
 import { buildAuthQuery, buildMessage, detectAlgorithm, sign } from "./signer.js";
 
 const RATE_LIMIT_RETRY_BUFFER_MS = 1000;
 const DEFAULT_RATE_LIMIT_AUTO_RETRY_MAX_WAIT_MS = 5000;
+
+const { version: CLI_VERSION } = createRequire(import.meta.url)("../../package.json") as { version: string };
+const USER_AGENT = `gmgn-cli/${CLI_VERSION}`;
 
 interface PreparedRequest {
   method: string;
@@ -530,6 +535,7 @@ export class OpenApiClient {
       const headers: Record<string, string> = {
         "X-APIKEY": this.apiKey,
         "Content-Type": "application/json",
+        "User-Agent": USER_AGENT,
       };
       const bodyStr = body !== null ? JSON.stringify(body) : null;
       return {
@@ -565,6 +571,7 @@ export class OpenApiClient {
         "X-APIKEY": this.apiKey,
         "X-Signature": signature,
         "Content-Type": "application/json",
+        "User-Agent": USER_AGENT,
       };
       return {
         method,
