@@ -86,11 +86,9 @@ When a request returns `429`:
    ```
    Tell the user: *"This is your Ed25519 public key. Go to **https://gmgn.ai/ai**, paste it into the API key creation form, then send me the API Key value shown on the page."*
 
-2. Wait for the user's API key, then configure:
+2. Wait for the user's API key, then save it with `gmgn-cli config` (creates `~/.config/gmgn/.env` and sets `chmod 600` automatically — do not hand-edit the file):
    ```bash
-   mkdir -p ~/.config/gmgn
-   echo 'GMGN_API_KEY=<key_from_user>' > ~/.config/gmgn/.env
-   chmod 600 ~/.config/gmgn/.env
+   gmgn-cli config set-key <key_from_user>
    ```
 
 ## `market kline` Parameters
@@ -146,7 +144,7 @@ The response is an object with a `list` array. Each element in `list` is one can
 | `--order-by <field>` | Sort field: `default` / `swaps` / `marketcap` / `history_highest_market_cap` / `liquidity` / `volume` / `holder_count` / `smart_degen_count` / `renowned_count` / `gas_fee` / `price` / `change1m` / `change5m` / `change1h` / `creation_timestamp` |
 | `--direction <asc\|desc>` | Sort direction (default `desc`) |
 | `--filter <tag...>` | Repeatable filter tags (chain-specific). **⚠️ SOL defaults: `renounced frozen`; BSC/Base/ETH defaults: `not_honeypot verified renounced`.** Omitting `--filter` is NOT "no filter" — chain defaults always apply. **sol** tags: `renounced` / `frozen` / `burn` / `token_burnt` / `has_social` / `not_social_dup` / `not_image_dup` / `dexscr_update_link` / `not_wash_trading` / `is_internal_market` / `is_out_market`. **evm** tags: `not_honeypot` / `verified` / `renounced` / `locked` / `token_burnt` / `has_social` / `not_social_dup` / `not_image_dup` / `dexscr_update_link` / `is_internal_market` / `is_out_market` |
-| `--platform <name...>` | Repeatable platform filter (chain-specific). **sol**: `Pump.fun` / `pump_mayhem` / `pump_mayhem_agent` / `pump_agent` / `letsbonk` / `bonkers` / `bags` / `memoo` / `liquid` / `bankr` / `zora` / `surge` / `anoncoin` / `moonshot_app` / `wendotdev` / `heaven` / `sugar` / `token_mill` / `believe` / `trendsfun` / `trends_fun` / `jup_studio` / `Moonshot` / `boop` / `xstocks` / `ray_launchpad` / `meteora_virtual_curve` / `pool_ray` / `pool_meteora` / `pool_pump_amm` / `pool_orca`. **bsc**: `fourmeme` / `fourmeme_agent` / `bn_fourmeme` / `flap` / `clanker` / `lunafun` / `pool_uniswap` / `pool_pancake`. **base**: `clanker` / `bankr` / `flaunch` / `zora` / `zora_creator` / `baseapp` / `basememe` / `virtuals_v2` / `klik`. **eth**: no platform filter (omit `--platform` for ETH) |
+| `--platform <name...>` | Repeatable platform filter (chain-specific). **sol**: `Pump.fun` / `pump_mayhem` / `pump_mayhem_agent` / `pump_agent` / `letsbonk` / `bonkers` / `bags` / `memoo` / `liquid` / `bankr` / `zora` / `surge` / `anoncoin` / `moonshot_app` / `wendotdev` / `heaven` / `sugar` / `token_mill` / `believe` / `trendsfun` / `trends_fun` / `jup_studio` / `Moonshot` / `boop` / `xstocks` / `ray_launchpad` / `meteora_virtual_curve` / `pool_ray` / `pool_meteora` / `pool_pump_amm` / `pool_orca`. **bsc**: `fourmeme` / `fourmeme_agent` / `bn_fourmeme` / `four_xmode_agent` / `cubepeg` / `likwid` / `goplus_creator` / `goplus_skills` / `openfour` / `flap` / `flap_stocks` / `flap_aioracle` / `clanker` / `lunafun` / `pool_uniswap` / `pool_pancake`. **base**: `clanker` / `bankr` / `flaunch` / `zora` / `zora_creator` / `baseapp` / `basememe` / `virtuals_v2` / `klik`. **eth**: no platform filter (omit `--platform` for ETH) |
 
 ## Usage Examples
 
@@ -242,16 +240,20 @@ gmgn-cli market trending \
   --platform fourmeme --platform four_xmode_agent \
   --order-by volume --limit 50 --raw
 
-# BSC 5m hottest — fourmeme family, sorted by volume
+# BSC 5m hottest — all BSC launchpads, sorted by volume
 gmgn-cli market trending \
   --chain bsc --interval 5m \
   --platform fourmeme --platform fourmeme_agent --platform bn_fourmeme --platform four_xmode_agent \
+  --platform cubepeg --platform likwid --platform goplus_creator --platform goplus_skills --platform openfour \
+  --platform flap --platform flap_stocks --platform flap_aioracle --platform clanker --platform lunafun \
   --order-by volume --limit 50 --raw
 
-# BSC 1h trending — fourmeme with safety filters
+# BSC 1h trending — all BSC launchpads with safety filters
 gmgn-cli market trending \
   --chain bsc --interval 1h \
   --platform fourmeme --platform fourmeme_agent --platform bn_fourmeme --platform four_xmode_agent \
+  --platform cubepeg --platform likwid --platform goplus_creator --platform goplus_skills --platform openfour \
+  --platform flap --platform flap_stocks --platform flap_aioracle --platform clanker --platform lunafun \
   --filter not_honeypot --filter verified \
   --order-by volume --limit 20 --raw
 ```
@@ -745,25 +747,33 @@ gmgn-cli market trenches --chain sol --raw \
 # All three categories at once
 gmgn-cli market trenches --chain bsc --raw \
   --type new_creation --type near_completion --type completed \
-  --launchpad-platform fourmeme --launchpad-platform fourmeme_agent --launchpad-platform bn_fourmeme --launchpad-platform four_xmode_agent --launchpad-platform flap --launchpad-platform clanker --launchpad-platform lunafun \
+  --launchpad-platform fourmeme --launchpad-platform fourmeme_agent --launchpad-platform bn_fourmeme --launchpad-platform four_xmode_agent \
+  --launchpad-platform cubepeg --launchpad-platform likwid --launchpad-platform goplus_creator --launchpad-platform goplus_skills --launchpad-platform openfour \
+  --launchpad-platform flap --launchpad-platform flap_stocks --launchpad-platform flap_aioracle --launchpad-platform clanker --launchpad-platform lunafun \
   --limit 80
 
 # New creation only
 gmgn-cli market trenches --chain bsc --raw \
   --type new_creation \
-  --launchpad-platform fourmeme --launchpad-platform fourmeme_agent --launchpad-platform bn_fourmeme --launchpad-platform four_xmode_agent --launchpad-platform flap --launchpad-platform clanker --launchpad-platform lunafun \
+  --launchpad-platform fourmeme --launchpad-platform fourmeme_agent --launchpad-platform bn_fourmeme --launchpad-platform four_xmode_agent \
+  --launchpad-platform cubepeg --launchpad-platform likwid --launchpad-platform goplus_creator --launchpad-platform goplus_skills --launchpad-platform openfour \
+  --launchpad-platform flap --launchpad-platform flap_stocks --launchpad-platform flap_aioracle --launchpad-platform clanker --launchpad-platform lunafun \
   --limit 80
 
 # Near completion only
 gmgn-cli market trenches --chain bsc --raw \
   --type near_completion \
-  --launchpad-platform fourmeme --launchpad-platform fourmeme_agent --launchpad-platform bn_fourmeme --launchpad-platform four_xmode_agent --launchpad-platform flap --launchpad-platform clanker --launchpad-platform lunafun \
+  --launchpad-platform fourmeme --launchpad-platform fourmeme_agent --launchpad-platform bn_fourmeme --launchpad-platform four_xmode_agent \
+  --launchpad-platform cubepeg --launchpad-platform likwid --launchpad-platform goplus_creator --launchpad-platform goplus_skills --launchpad-platform openfour \
+  --launchpad-platform flap --launchpad-platform flap_stocks --launchpad-platform flap_aioracle --launchpad-platform clanker --launchpad-platform lunafun \
   --limit 80
 
 # Completed (open market) only
 gmgn-cli market trenches --chain bsc --raw \
   --type completed \
-  --launchpad-platform fourmeme --launchpad-platform fourmeme_agent --launchpad-platform bn_fourmeme --launchpad-platform four_xmode_agent --launchpad-platform flap --launchpad-platform clanker --launchpad-platform lunafun \
+  --launchpad-platform fourmeme --launchpad-platform fourmeme_agent --launchpad-platform bn_fourmeme --launchpad-platform four_xmode_agent \
+  --launchpad-platform cubepeg --launchpad-platform likwid --launchpad-platform goplus_creator --launchpad-platform goplus_skills --launchpad-platform openfour \
+  --launchpad-platform flap --launchpad-platform flap_stocks --launchpad-platform flap_aioracle --launchpad-platform clanker --launchpad-platform lunafun \
   --limit 80
 ```
 
