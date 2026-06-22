@@ -459,7 +459,7 @@ gmgn-cli track smartmoney [--chain <chain>] [--limit <n>] [--side <side>] [--raw
 
 ## order quote
 
-Get a swap quote without submitting a transaction. All supported quote chains use signed auth and require `GMGN_PRIVATE_KEY`.
+Get a swap quote without submitting a transaction. Uses normal auth — only `GMGN_API_KEY` is required, no `GMGN_PRIVATE_KEY` needed.
 
 ```bash
 npx gmgn-cli order quote \
@@ -474,8 +474,8 @@ npx gmgn-cli order quote \
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` (all require `GMGN_PRIVATE_KEY` for quote) |
-| `--from` | Yes | Wallet address (must match API Key binding) |
+| `--chain` | Yes | `sol` / `bsc` / `base` |
+| `--from` | Yes | Wallet address |
 | `--input-token` | Yes | Input token contract address |
 | `--output-token` | Yes | Output token contract address |
 | `--amount` | Yes | Input amount (smallest unit) |

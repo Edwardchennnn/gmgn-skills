@@ -93,8 +93,8 @@ EOF
 
 | Mode | Commands | Requirements |
 |------|----------|--------------|
-| Normal | token / market / portfolio (except holdings) / track kol / track smartmoney | `GMGN_API_KEY` only, no signature |
-| Critical | swap / order / portfolio holdings / track follow-wallet | `GMGN_API_KEY` + `GMGN_PRIVATE_KEY` — CLI handles signing automatically |
+| Normal | token / market / portfolio (except holdings) / track kol / track smartmoney / **order quote** | `GMGN_API_KEY` only, no signature |
+| Critical | swap / order (except order quote) / portfolio holdings / track follow-wallet | `GMGN_API_KEY` + `GMGN_PRIVATE_KEY` — CLI handles signing automatically |
 
 ## SKILL.md Authoring Rules
 
