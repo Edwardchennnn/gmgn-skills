@@ -475,7 +475,7 @@ export class OpenApiClient {
     slippage: number
   ): Promise<unknown> {
     const query = { chain, from_address, input_token, output_token, input_amount, slippage };
-    return this.authSignedRequest("GET", "/v1/trade/quote", query, null);
+    return this.authExistRequest("GET", "/v1/trade/quote", query);
   }
 
   // ---- Swap endpoints (signed auth) ----
