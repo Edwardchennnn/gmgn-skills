@@ -6,7 +6,7 @@ metadata:
   cliHelp: "gmgn-cli swap --help"
 ---
 
-**BEFORE RUNNING ANY COMMAND: Check whether `GMGN_API_KEY` exists in `<cwd>/.env` or `~/.config/gmgn/.env`. If found in either location, proceed normally. If not found in either location, stop and follow the `gmgn-config` skill to complete setup first.**
+**BEFORE RUNNING ANY COMMAND: Check whether `GMGN_API_KEY` exists in `<cwd>/.env` or `~/.config/gmgn/.env`. If found in either location, proceed normally. If not found in either location, (1) run `gmgn-cli config` and show the output to the user; (2) once the user sends the API Key, run `gmgn-cli config --apply <KEY>` to complete configuration and verification, then show the output to the user.**
 
 **IMPORTANT: Always use `gmgn-cli` commands below. Do NOT use web search, WebFetch, curl, or visit gmgn.ai — all swap operations must go through the CLI. The CLI handles signing and submission automatically.**
 
@@ -73,7 +73,6 @@ Currency tokens are the base/native assets of each chain. They are used to buy o
 | `base` | ETH (native, `0x0000000000000000000000000000000000000000`), USDC (`0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`) |
 | `eth`  | ETH (native, `0x0000000000000000000000000000000000000000`) |
 
-
 ## Prerequisites
 
 `GMGN_API_KEY` must be configured in `~/.config/gmgn/.env`. `GMGN_PRIVATE_KEY` is additionally required for `swap` and `order` subcommands other than `order quote`. The private key must correspond to the wallet bound to the API Key.
@@ -103,31 +102,6 @@ When a request returns `429`:
 - The CLI may wait and retry once automatically for short cooldowns on read-only commands such as `order quote` and `order get`. If it still fails, stop and tell the user the exact retry time instead of sending more requests.
 - For `RATE_LIMIT_EXCEEDED` or `RATE_LIMIT_BANNED`, repeated requests during the cooldown can extend the ban by 5 seconds each time, up to 5 minutes.
 - `POST /v1/trade/swap` also has an error-count limiter. Repeatedly triggering the same business error, especially `40003701` (insufficient token balance), can return `ERROR_RATE_LIMIT_BLOCKED`. When this happens, do not retry until the reset time and fix the underlying request first.
-
-**First-time setup** (if credentials are not configured):
-
-1. Generate key pair and show the public key to the user:
-   ```bash
-   openssl genpkey -algorithm ed25519 -out /tmp/gmgn_private.pem 2>/dev/null && \
-     openssl pkey -in /tmp/gmgn_private.pem -pubout 2>/dev/null
-   ```
-   Tell the user: *"This is your Ed25519 public key. Go to **https://gmgn.ai/ai**, paste it into the API key creation form (enable swap capability), then send me the API Key value shown on the page."*
-
-2. Wait for the user's API key, then configure both credentials:
-   ```bash
-   mkdir -p ~/.config/gmgn
-   echo 'GMGN_API_KEY=<key_from_user>' > ~/.config/gmgn/.env
-   echo 'GMGN_PRIVATE_KEY="<pem_content_from_step_1>"' >> ~/.config/gmgn/.env
-   chmod 600 ~/.config/gmgn/.env
-   ```
-
-### Credential Model
-
-- Both `GMGN_API_KEY` and `GMGN_PRIVATE_KEY` are read from the `.env` file by the CLI at startup. They are **never passed as command-line arguments** and never appear in shell command strings.
-- `GMGN_PRIVATE_KEY` is used exclusively for **local message signing** — the private key never leaves the machine. The CLI computes an Ed25519 or RSA-SHA256 signature in-process and transmits only the base64-encoded result in the `X-Signature` request header.
-- `GMGN_API_KEY` is transmitted in the `X-APIKEY` request header to GMGN's servers over HTTPS.
-
----
 
 ## `swap` Usage
 

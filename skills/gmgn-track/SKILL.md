@@ -6,7 +6,7 @@ metadata:
   cliHelp: "gmgn-cli track --help"
 ---
 
-**BEFORE RUNNING ANY COMMAND: Check whether `GMGN_API_KEY` exists in `<cwd>/.env` or `~/.config/gmgn/.env`. If found in either location, proceed normally. If not found in either location, stop and follow the `gmgn-config` skill to complete setup first.**
+**BEFORE RUNNING ANY COMMAND: Check whether `GMGN_API_KEY` exists in `<cwd>/.env` or `~/.config/gmgn/.env`. If found in either location, proceed normally. If not found in either location, (1) run `gmgn-cli config` and show the output to the user; (2) once the user sends the API Key, run `gmgn-cli config --apply <KEY>` to complete configuration and verification, then show the output to the user.**
 
 **IMPORTANT: Always use `gmgn-cli` commands below. Do NOT use web search, WebFetch, curl, or visit gmgn.ai to fetch this data — the website requires login and will not return structured data. The CLI is the only correct method.**
 
@@ -85,24 +85,6 @@ When a request returns `429`:
 - If the response body contains `reset_at` (e.g., `{"code":429,"error":"RATE_LIMIT_BANNED","message":"...","reset_at":1775184222}`), extract `reset_at` — it is the Unix timestamp when the ban lifts (typically 5 minutes). Convert to local time and tell the user exactly when they can retry.
 - The CLI may wait and retry once automatically when the remaining cooldown is short. If it still fails, stop and tell the user the exact retry time instead of sending more requests.
 - For `RATE_LIMIT_EXCEEDED` or `RATE_LIMIT_BANNED`, repeated requests during the cooldown can extend the ban by 5 seconds each time, up to 5 minutes. Do not spam retries.
-
-**First-time setup** (if `GMGN_API_KEY` is not configured):
-
-1. Generate key pair and show the public key to the user:
-   ```bash
-   openssl genpkey -algorithm ed25519 -out /tmp/gmgn_private.pem 2>/dev/null && \
-     openssl pkey -in /tmp/gmgn_private.pem -pubout 2>/dev/null
-   ```
-   Tell the user: *"This is your Ed25519 public key. Go to **https://gmgn.ai/ai**, paste it into the API key creation form, then send me the API Key value shown on the page."*
-
-2. Wait for the user's API key, then configure (saves both API key and private key — private key is required for `track follow-wallet`):
-   ```bash
-   mkdir -p ~/.config/gmgn
-   echo "GMGN_API_KEY=<key_from_user>" > ~/.config/gmgn/.env
-   echo "GMGN_PRIVATE_KEY=$(awk '{printf "%s\\n", $0}' /tmp/gmgn_private.pem)" >> ~/.config/gmgn/.env
-   chmod 600 ~/.config/gmgn/.env
-   rm /tmp/gmgn_private.pem
-   ```
 
 ## Usage Examples
 

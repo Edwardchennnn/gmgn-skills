@@ -6,7 +6,7 @@ metadata:
   cliHelp: "gmgn-cli cooking --help"
 ---
 
-**BEFORE RUNNING ANY COMMAND: Check whether `GMGN_API_KEY` exists in `<cwd>/.env` or `~/.config/gmgn/.env`. If found in either location, proceed normally. If not found in either location, stop and follow the `gmgn-config` skill to complete setup first.**
+**BEFORE RUNNING ANY COMMAND: Check whether `GMGN_API_KEY` exists in `<cwd>/.env` or `~/.config/gmgn/.env`. If found in either location, proceed normally. If not found in either location, (1) run `gmgn-cli config` and show the output to the user; (2) once the user sends the API Key, run `gmgn-cli config --apply <KEY>` to complete configuration and verification, then show the output to the user.**
 
 **IMPORTANT: Always use `gmgn-cli` commands below. Do NOT use web search, WebFetch, curl, or visit gmgn.ai — all token creation operations must go through the CLI. The CLI handles signing and submission automatically.**
 
@@ -101,29 +101,6 @@ When a request returns `429`:
 - If the response body contains `reset_at` (e.g., `{"code":429,"error":"RATE_LIMIT_BANNED","message":"...","reset_at":1775184222}`), extract `reset_at` — it is the Unix timestamp when the ban lifts (typically 5 minutes). Convert to local time and tell the user exactly when they can retry.
 - `cooking create` is a real transaction: **never loop or auto-resubmit** after a `429`. Wait until the reset time, then ask for confirmation again before retrying.
 - For `RATE_LIMIT_EXCEEDED` or `RATE_LIMIT_BANNED`, repeated requests during cooldown extend the ban by 5 seconds each time, up to 5 minutes.
-
-**First-time setup** (if credentials are not configured):
-
-1. Generate key pair and show the public key to the user:
-   ```bash
-   openssl genpkey -algorithm ed25519 -out /tmp/gmgn_private.pem 2>/dev/null && \
-     openssl pkey -in /tmp/gmgn_private.pem -pubout 2>/dev/null
-   ```
-   Tell the user: *"This is your Ed25519 public key. Go to **https://gmgn.ai/ai**, paste it into the API key creation form (enable swap/cooking capability), then send me the API Key value shown on the page."*
-
-2. Wait for the user's API key, then configure both credentials:
-   ```bash
-   mkdir -p ~/.config/gmgn
-   echo 'GMGN_API_KEY=<key_from_user>' > ~/.config/gmgn/.env
-   echo 'GMGN_PRIVATE_KEY="<pem_content_from_step_1>"' >> ~/.config/gmgn/.env
-   chmod 600 ~/.config/gmgn/.env
-   ```
-
-### Credential Model
-
-- `GMGN_PRIVATE_KEY` is used exclusively for **local message signing** — the private key never leaves the machine. The CLI computes an Ed25519 signature in-process and transmits only the base64-encoded result in the `X-Signature` request header.
-- `GMGN_API_KEY` is transmitted in the `X-APIKEY` header over HTTPS.
-- Neither credential is ever passed as a command-line argument.
 
 ## `cooking stats` Usage
 
