@@ -9,10 +9,10 @@ metadata:
 **BEFORE RUNNING ANY COMMAND: Check whether `GMGN_API_KEY` exists in `<cwd>/.env` or `~/.config/gmgn/.env`. If found in either location, proceed normally. If not found in either location, stop and run `gmgn-cli config` first — this generates an Ed25519 key pair and outputs a pre-filled link. Show the link to the user and ask them to create their API Key. Once the user sends back the API Key, write `GMGN_API_KEY` and `GMGN_PRIVATE_KEY` together into `~/.config/gmgn/.env` using the following commands, then proceed:**
 
 ```bash
-PRIVATE_KEY=$(awk '/-----BEGIN PRIVATE KEY-----/{p=1} p{printf "%s\\n", $0} /-----END PRIVATE KEY-----/{p=0}' ~/.config/gmgn/keypair.pem)
+PRIVATE_KEY=$(python3 -c "import re; c=open('$HOME/.config/gmgn/keypair.pem').read(); m=re.search(r'(-----BEGIN PRIVATE KEY-----.*?-----END PRIVATE KEY-----)', c, re.DOTALL); print(m.group(1).replace('\n', '\\\\n') if m else '', end='')")
 grep -v "^GMGN_API_KEY=\|^GMGN_PRIVATE_KEY=" ~/.config/gmgn/.env 2>/dev/null > /tmp/gmgn_env_tmp
-echo "GMGN_API_KEY=<key_from_user>" >> /tmp/gmgn_env_tmp
-echo "GMGN_PRIVATE_KEY=$PRIVATE_KEY" >> /tmp/gmgn_env_tmp
+printf '%s\n' "GMGN_API_KEY=<key_from_user>" >> /tmp/gmgn_env_tmp
+printf '%s\n' "GMGN_PRIVATE_KEY=$PRIVATE_KEY" >> /tmp/gmgn_env_tmp
 mv /tmp/gmgn_env_tmp ~/.config/gmgn/.env
 chmod 600 ~/.config/gmgn/.env
 ```
