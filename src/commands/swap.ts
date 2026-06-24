@@ -149,9 +149,9 @@ export function registerSwapCommands(program: Command): void {
 
   order
     .command("quote")
-    .description("Get a swap quote without submitting a transaction (signed auth — requires GMGN_PRIVATE_KEY)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth (requires GMGN_PRIVATE_KEY)")
-    .requiredOption("--from <address>", "Wallet address (must match API Key binding)")
+    .description("Get a swap quote without submitting a transaction (exist auth — GMGN_API_KEY only, no private key needed)")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth")
+    .requiredOption("--from <address>", "Wallet address")
     .requiredOption("--input-token <address>", "Input token contract address")
     .requiredOption("--output-token <address>", "Output token contract address")
     .requiredOption("--amount <amount>", "Input amount (smallest unit)")
