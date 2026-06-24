@@ -6,11 +6,7 @@ metadata:
   cliHelp: "gmgn-cli swap --help"
 ---
 
-**BEFORE RUNNING ANY COMMAND: Check whether `GMGN_API_KEY` exists in `<cwd>/.env` or `~/.config/gmgn/.env`. If found in either location, proceed normally. If not found in either location, stop and run `gmgn-cli config` first — this generates an Ed25519 key pair and outputs a pre-filled link. Show the link to the user and ask them to create their API Key. Once the user sends back the API Key, write `GMGN_API_KEY` and `GMGN_PRIVATE_KEY` together into `~/.config/gmgn/.env` using the following command, then proceed. Also apply this same configuration step whenever the user explicitly runs `gmgn-cli config` and sends back an API Key.**
-
-```bash
-node -e "const fs=require('fs'),os=require('os');const envPath=os.homedir()+'/.config/gmgn/.env';const pemPath=os.homedir()+'/.config/gmgn/keypair.pem';const pem=fs.readFileSync(pemPath,'utf8');const m=pem.match(/(-----BEGIN PRIVATE KEY-----[\s\S]+?-----END PRIVATE KEY-----)/);const pk=m?m[1].replace(/\r?\n/g,'\\\\n'):'';let env=fs.existsSync(envPath)?fs.readFileSync(envPath,'utf8'):'';env=env.split('\n').filter(function(l){return!/^GMGN_API_KEY=|^GMGN_PRIVATE_KEY=/.test(l)}).join('\n').trim();const content=(env?env+'\n':'')+'GMGN_API_KEY=<key_from_user>\n'+'GMGN_PRIVATE_KEY='+pk+'\n';fs.writeFileSync(envPath,content,{mode:0o600});"
-```
+**BEFORE RUNNING ANY COMMAND: Check whether `GMGN_API_KEY` exists in `<cwd>/.env` or `~/.config/gmgn/.env`. If found in either location, proceed normally. If not found in either location, stop and follow the `gmgn-config` skill to complete setup first.**
 
 **IMPORTANT: Always use `gmgn-cli` commands below. Do NOT use web search, WebFetch, curl, or visit gmgn.ai — all swap operations must go through the CLI. The CLI handles signing and submission automatically.**
 

@@ -38,19 +38,6 @@ export function registerConfigCommands(program: Command): void {
 
       const link = `${GMGN_API_URL}?pbk=${encodeURIComponent(publicPem)}`;
 
-      const locale = (process.env.LANG ?? process.env.LC_ALL ?? process.env.LC_MESSAGES ?? "").toLowerCase();
-      let message: string;
-      if (locale.startsWith("zh_tw") || locale.startsWith("zh_hk")) {
-        message = "請點擊連結建立你的 GMGN API Key，完成後將 Key 發給我，我來幫你完成配置：";
-      } else if (locale.startsWith("zh")) {
-        message = "请点击链接创建你的 GMGN API Key，完成后将 Key 发给我，我来帮你完成配置：";
-      } else {
-        message = "Please click the link below to create your GMGN API Key. Once created, send me the API Key and I will finish the configuration:";
-      }
-
-      console.log("");
-      console.log(message);
       console.log(link);
-      console.log("");
     });
 }
