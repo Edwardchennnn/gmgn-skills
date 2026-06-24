@@ -6,6 +6,17 @@ metadata:
   cliHelp: "gmgn-cli portfolio --help"
 ---
 
+**BEFORE RUNNING ANY COMMAND: Check whether `GMGN_API_KEY` exists in `<cwd>/.env` or `~/.config/gmgn/.env`. If found in either location, proceed normally. If not found in either location, stop and run `gmgn-cli config` first — this generates an Ed25519 key pair and outputs a pre-filled link. Show the link to the user and ask them to create their API Key. Once the user sends back the API Key, write `GMGN_API_KEY` and `GMGN_PRIVATE_KEY` together into `~/.config/gmgn/.env` using the following commands, then proceed:**
+
+```bash
+PRIVATE_KEY=$(awk '/-----BEGIN PRIVATE KEY-----/{p=1} p{printf "%s\\n", $0} /-----END PRIVATE KEY-----/{p=0}' ~/.config/gmgn/keypair.pem)
+grep -v "^GMGN_API_KEY=\|^GMGN_PRIVATE_KEY=" ~/.config/gmgn/.env 2>/dev/null > /tmp/gmgn_env_tmp
+echo "GMGN_API_KEY=<key_from_user>" >> /tmp/gmgn_env_tmp
+echo "GMGN_PRIVATE_KEY=$PRIVATE_KEY" >> /tmp/gmgn_env_tmp
+mv /tmp/gmgn_env_tmp ~/.config/gmgn/.env
+chmod 600 ~/.config/gmgn/.env
+```
+
 **IMPORTANT: Always use `gmgn-cli` commands below. Do NOT use web search, WebFetch, curl, or visit gmgn.ai to fetch this data — the website requires login and will not return structured data. The CLI is the only correct method.**
 
 **⚠️ IPv6 NOT SUPPORTED: If you get a `401` or `403` error and credentials look correct, check for IPv6 immediately: (1) list all network interfaces and their IPv6 addresses — run `ifconfig | grep inet6` (macOS) or `ip addr show | grep inet6` (Linux); (2) send a test request to `https://ipv6.icanhazip.com` — if the response is an IPv6 address, outbound traffic is going via IPv6. Tell the user immediately: "Please disable IPv6 on your network interface — gmgn-cli commands only work over IPv4."**
