@@ -18,3 +18,8 @@ dist
 
 # Internal / testing (not for public release)
 testing/
+
+# Local Claude Code configs (dev environment only)
+.claude/
+.agents/
+skills-lock.json
