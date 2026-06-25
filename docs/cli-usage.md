@@ -120,18 +120,21 @@ npx gmgn-cli market trending \
   [--direction asc|desc] \
   [--filter <tag>] \
   [--platform <name>] \
+  [--min-<metric> <n>] [--max-<metric> <n>] \
   [--raw]
 ```
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` |
-| `--interval` | Yes | `1h` / `3h` / `6h` / `24h` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` |
+| `--interval` | Yes | `1m` / `5m` / `1h` / `6h` / `24h` |
 | `--limit` | No | Number of results (default 100, max 100) |
 | `--order-by` | No | Sort field: `volume` / `swaps` / `liquidity` / `marketcap` / `holders` / `price` / `change` / `change1m` / `change5m` / `change1h` / `renowned_count` / `smart_degen_count` / `bluechip_owner_percentage` / `rank` / `creation_timestamp` / `square_mentions` / `history_highest_market_cap` / `gas_fee` |
 | `--direction` | No | Sort direction: `asc` / `desc` (default `desc`) |
-| `--filter` | No | Filter tag (repeatable): `has_social` / `not_risk` / `not_honeypot` / `verified` / `locked` / `renounced` / `distributed` / `frozen` / `burn` / `token_burnt` / `creator_hold` / `creator_close` / `creator_add_liquidity` / `creator_remove_liquidity` / `creator_sell` / `creator_buy` / `not_wash_trading` / `not_social_dup` / `not_image_dup` / `is_internal_market` / `is_out_market` |
+| `--filter` | No | Filter tag (repeatable): `has_social` / `not_risk` / `not_honeypot` / `verified` / `locked` / `renounced` / `distributed` / `frozen` / `burn` / `token_burnt` / `creator_hold` / `creator_close` / `creator_add_liquidity` / `creator_remove_liquidity` / `creator_sell` / `creator_buy` / `not_wash_trading` / `not_social_dup` / `not_image_dup` / `is_internal_market` / `is_out_market`. The gmgn web client also sends aliases `social_not_duplicate` / `img_not_duplicate` / `is_burnt` / `launching` / `migrated`, which are accepted but only the canonical tags change behavior. |
 | `--platform` | No | Platform filter (repeatable). Omit (or pass an empty list) to include **all** platforms. Available values depend on chain — see below. |
+| `--min-<metric>` / `--max-<metric>` | No | Numeric range filters (inclusive). Supported metrics: `volume` / `liquidity` / `marketcap` / `history-highest-marketcap` / `swaps` / `holder-count` / `gas-fee` / `renowned-count` / `smart-degen-count` / `bot-degen-count` / `visiting-count` / `price-change-percent` / `insider-rate` / `bundler-rate` / `entrapment-ratio` / `top10-holder-rate` / `top70-sniper-hold-rate` / `dev-team-hold-rate`. Unknown metrics are ignored by the service. |
+| `--min-created` / `--max-created` | No | Token-age window, duration string (`1m` / `6h` / `7d`). `--min-created` is a minimum age (excludes younger tokens); `--max-created` a maximum age (excludes older tokens). |
 
 **`sol` platforms:** `Pump.fun` / `pump_mayhem` / `pump_mayhem_agent` / `pump_agent` / `letsbonk` / `bonkers` / `bags` / `memoo` / `liquid` / `bankr` / `zora` / `surge` / `anoncoin` / `moonshot_app` / `wendotdev` / `heaven` / `sugar` / `token_mill` / `believe` / `trendsfun` / `trends_fun` / `jup_studio` / `Moonshot` / `boop` / `xstocks` / `ray_launchpad` / `meteora_virtual_curve` / `pool_ray` / `pool_meteora` / `pool_pump_amm` / `pool_orca`
 

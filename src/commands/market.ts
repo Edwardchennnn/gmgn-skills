@@ -48,7 +48,7 @@ export function registerMarketCommands(program: Command): void {
       printResult(data, opts.raw);
     });
 
-  market
+  const trendingCmd = market
     .command("trending")
     .description("Get trending token swap data")
     .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth")
@@ -58,20 +58,40 @@ export function registerMarketCommands(program: Command): void {
     .option("--direction <dir>", "Sort direction: asc / desc")
     .option("--filter <tag...>", "Filter tags, repeatable. sol: renounced / frozen / has_social / not_wash_trading / ... evm: not_honeypot / verified / renounced / locked / ... (see docs for full list)")
     .option("--platform <name...>", "Platform filter, repeatable. sol: Pump.fun / letsbonk / moonshot_app / ... bsc: fourmeme / four_xmode_agent / cubepeg / likwid / goplus_creator / goplus_skills / openfour / flap / flap_stocks / flap_aioracle / clanker / ... base: clanker / flaunch / zora / ... eth: trench / clanker / klik / livo / stroid / pool_uniswap_v2 / pool_uniswap_v3 / printr (see docs for full list)")
-    .option("--raw", "Output raw JSON")
-    .action(async (opts) => {
-      validateChain(opts.chain);
-      const extra: Record<string, string | number | string[]> = {};
-      if (opts.limit != null) extra["limit"] = opts.limit;
-      if (opts.orderBy) extra["order_by"] = opts.orderBy;
-      if (opts.direction) extra["direction"] = opts.direction;
-      if (opts.filter?.length) extra["filters"] = opts.filter;
-      if (opts.platform?.length) extra["platforms"] = opts.platform;
+    .option("--raw", "Output raw JSON");
 
-      const client = new OpenApiClient(getConfig());
-      const data = await client.getTrendingSwaps(opts.chain, opts.interval, extra).catch(exitOnError);
-      printResult(data, opts.raw);
-    });
+  // Dynamically register all server-side min_*/max_* range filter flags
+  for (const def of RANK_RANGE_FIELDS) {
+    const flag = def.api.replace(/_/g, "-");
+    if (def.type === "int") {
+      trendingCmd.option(`--${flag} <${def.type}>`, def.desc, parseInt);
+    } else if (def.type === "float") {
+      trendingCmd.option(`--${flag} <${def.type}>`, def.desc, parseFloat);
+    } else {
+      trendingCmd.option(`--${flag} <value>`, def.desc);
+    }
+  }
+
+  trendingCmd.action(async (opts) => {
+    validateChain(opts.chain);
+    const extra: Record<string, string | number | string[]> = {};
+    if (opts.limit != null) extra["limit"] = opts.limit;
+    if (opts.orderBy) extra["order_by"] = opts.orderBy;
+    if (opts.direction) extra["direction"] = opts.direction;
+    if (opts.filter?.length) extra["filters"] = opts.filter;
+    if (opts.platform?.length) extra["platforms"] = opts.platform;
+
+    // Apply server-side min_*/max_* range filters
+    const optsMap = opts as Record<string, unknown>;
+    for (const def of RANK_RANGE_FIELDS) {
+      const val = optsMap[apiFieldToCliKey(def.api)];
+      if (val != null) extra[def.api] = val as string | number;
+    }
+
+    const client = new OpenApiClient(getConfig());
+    const data = await client.getTrendingSwaps(opts.chain, opts.interval, extra).catch(exitOnError);
+    printResult(data, opts.raw);
+  });
 
   const trenchesCmd = market
     .command("trenches")
@@ -268,6 +288,52 @@ const TRENCHES_FILTER_FIELDS: TrenchesFilterField[] = [
   { api: "max_twitter_rename_count",  type: "int",   desc: "Max Twitter rename count" },
   { api: "min_tg_call_count",         type: "int",   desc: "Min Telegram call count" },
   { api: "max_tg_call_count",         type: "int",   desc: "Max Telegram call count" },
+];
+
+// Server-side numeric range filters for `market trending` (/v1/market/rank).
+// Passed through as min_<metric>/max_<metric> query params; the service applies the
+// metrics it understands and ignores the rest. min_created/max_created are token-age
+// windows expressed as duration strings (e.g. 1m / 6h / 7d) — note these use m/h/d,
+// NOT the s/m form used by trenches; min_created is a minimum age, max_created a maximum.
+const RANK_RANGE_FIELDS: TrenchesFilterField[] = [
+  { api: "min_volume",                    type: "float", desc: "Min trading volume (USD)" },
+  { api: "max_volume",                    type: "float", desc: "Max trading volume (USD)" },
+  { api: "min_liquidity",                 type: "float", desc: "Min liquidity (USD)" },
+  { api: "max_liquidity",                 type: "float", desc: "Max liquidity (USD)" },
+  { api: "min_marketcap",                 type: "float", desc: "Min market cap (USD)" },
+  { api: "max_marketcap",                 type: "float", desc: "Max market cap (USD)" },
+  { api: "min_history_highest_marketcap", type: "float", desc: "Min historical highest market cap (USD)" },
+  { api: "max_history_highest_marketcap", type: "float", desc: "Max historical highest market cap (USD)" },
+  { api: "min_swaps",                     type: "int",   desc: "Min swap count" },
+  { api: "max_swaps",                     type: "int",   desc: "Max swap count" },
+  { api: "min_holder_count",              type: "int",   desc: "Min holder count" },
+  { api: "max_holder_count",              type: "int",   desc: "Max holder count" },
+  { api: "min_gas_fee",                   type: "float", desc: "Min gas fee" },
+  { api: "max_gas_fee",                   type: "float", desc: "Max gas fee" },
+  { api: "min_renowned_count",            type: "int",   desc: "Min KOL / renowned wallet count" },
+  { api: "max_renowned_count",            type: "int",   desc: "Max KOL / renowned wallet count" },
+  { api: "min_smart_degen_count",         type: "int",   desc: "Min smart-money holder count" },
+  { api: "max_smart_degen_count",         type: "int",   desc: "Max smart-money holder count" },
+  { api: "min_bot_degen_count",           type: "int",   desc: "Min bot-degen wallet count" },
+  { api: "max_bot_degen_count",           type: "int",   desc: "Max bot-degen wallet count" },
+  { api: "min_visiting_count",            type: "int",   desc: "Min visitor count" },
+  { api: "max_visiting_count",            type: "int",   desc: "Max visitor count" },
+  { api: "min_price_change_percent",      type: "float", desc: "Min price change ratio over the interval" },
+  { api: "max_price_change_percent",      type: "float", desc: "Max price change ratio over the interval" },
+  { api: "min_insider_rate",              type: "float", desc: "Min insider trading ratio (0–1); tokens lacking this field are excluded" },
+  { api: "max_insider_rate",              type: "float", desc: "Max insider trading ratio (0–1); tokens lacking this field are excluded" },
+  { api: "min_bundler_rate",              type: "float", desc: "Min bundle-bot trading ratio (0–1); tokens lacking this field are excluded" },
+  { api: "max_bundler_rate",              type: "float", desc: "Max bundle-bot trading ratio (0–1); tokens lacking this field are excluded" },
+  { api: "min_entrapment_ratio",          type: "float", desc: "Min entrapment trading ratio (0–1); tokens lacking this field are excluded" },
+  { api: "max_entrapment_ratio",          type: "float", desc: "Max entrapment trading ratio (0–1); tokens lacking this field are excluded" },
+  { api: "min_top10_holder_rate",         type: "float", desc: "Min top-10 holder concentration (0–1)" },
+  { api: "max_top10_holder_rate",         type: "float", desc: "Max top-10 holder concentration (0–1)" },
+  { api: "min_top70_sniper_hold_rate",    type: "float", desc: "Min top-70 sniper holding ratio (0–1)" },
+  { api: "max_top70_sniper_hold_rate",    type: "float", desc: "Max top-70 sniper holding ratio (0–1)" },
+  { api: "min_dev_team_hold_rate",        type: "float", desc: "Min dev-team holding ratio (0–1); also excludes creator-close tokens" },
+  { api: "max_dev_team_hold_rate",        type: "float", desc: "Max dev-team holding ratio (0–1)" },
+  { api: "min_created",                   type: "string", desc: "Min token age (minimum age), duration string e.g. 1m / 6h / 7d" },
+  { api: "max_created",                   type: "string", desc: "Max token age (maximum age), duration string e.g. 600m / 24h" },
 ];
 
 // Named filter presets using actual server-side API field names

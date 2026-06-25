@@ -461,6 +461,13 @@ gmgn-cli market trending \
   --order-by volume --limit 20 \
   --filter not_risk --filter not_honeypot
 
+# Trending with numeric range filters (min_*/max_* are forwarded as query params)
+gmgn-cli market trending \
+  --chain sol --interval 1h \
+  --min-liquidity 10000 --max-liquidity 1000000 \
+  --max-created 30m --min-smart-degen-count 1 \
+  --order-by volume --limit 30
+
 gmgn-cli market trenches \
   --chain sol \
   --type new_creation --type near_completion --type completed \

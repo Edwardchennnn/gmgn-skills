@@ -146,6 +146,32 @@ The response is an object with a `list` array. Each element in `list` is one can
 | `--filter <tag...>` | Repeatable filter tags (chain-specific). **⚠️ SOL defaults: `renounced frozen`; BSC/Base/ETH defaults: `not_honeypot verified renounced`.** Omitting `--filter` is NOT "no filter" — chain defaults always apply. **sol** tags: `renounced` / `frozen` / `burn` / `token_burnt` / `has_social` / `not_social_dup` / `not_image_dup` / `dexscr_update_link` / `not_wash_trading` / `is_internal_market` / `is_out_market`. **evm** tags: `not_honeypot` / `verified` / `renounced` / `locked` / `token_burnt` / `has_social` / `not_social_dup` / `not_image_dup` / `dexscr_update_link` / `is_internal_market` / `is_out_market` |
 | `--platform <name...>` | Repeatable platform filter (chain-specific). **sol**: `Pump.fun` / `pump_mayhem` / `pump_mayhem_agent` / `pump_agent` / `letsbonk` / `bonkers` / `bags` / `memoo` / `liquid` / `bankr` / `zora` / `surge` / `anoncoin` / `moonshot_app` / `wendotdev` / `heaven` / `sugar` / `token_mill` / `believe` / `trendsfun` / `trends_fun` / `jup_studio` / `Moonshot` / `boop` / `xstocks` / `ray_launchpad` / `meteora_virtual_curve` / `pool_ray` / `pool_meteora` / `pool_pump_amm` / `pool_orca`. **bsc**: `fourmeme` / `fourmeme_agent` / `bn_fourmeme` / `four_xmode_agent` / `cubepeg` / `likwid` / `goplus_creator` / `goplus_skills` / `openfour` / `flap` / `flap_stocks` / `flap_aioracle` / `clanker` / `lunafun` / `pool_uniswap` / `pool_pancake`. **base**: `clanker` / `bankr` / `flaunch` / `zora` / `zora_creator` / `baseapp` / `basememe` / `virtuals_v2` / `klik`. **eth**: `trench` / `clanker` / `klik` / `livo` / `stroid` / `pool_uniswap_v2` / `pool_uniswap_v3` / `printr` |
 
+### `market trending` Range Filters
+
+Optional `--min-*` / `--max-*` flags apply server-side numeric range filtering (inclusive). Unknown metrics are ignored by the service.
+
+| Option | Description |
+|--------|-------------|
+| `--min-volume` / `--max-volume` | Trading volume (USD) |
+| `--min-liquidity` / `--max-liquidity` | Liquidity (USD) |
+| `--min-marketcap` / `--max-marketcap` | Market cap (USD) |
+| `--min-history-highest-marketcap` / `--max-history-highest-marketcap` | Historical highest market cap (USD) |
+| `--min-swaps` / `--max-swaps` | Swap count |
+| `--min-holder-count` / `--max-holder-count` | Holder count |
+| `--min-gas-fee` / `--max-gas-fee` | Gas fee |
+| `--min-renowned-count` / `--max-renowned-count` | KOL / renowned wallet count |
+| `--min-smart-degen-count` / `--max-smart-degen-count` | Smart-money holder count |
+| `--min-bot-degen-count` / `--max-bot-degen-count` | Bot-degen wallet count |
+| `--min-visiting-count` / `--max-visiting-count` | Visitor count |
+| `--min-price-change-percent` / `--max-price-change-percent` | Price change ratio over the interval |
+| `--min-insider-rate` / `--max-insider-rate` | Insider trading ratio (0–1); tokens lacking this field are excluded |
+| `--min-bundler-rate` / `--max-bundler-rate` | Bundle-bot trading ratio (0–1); tokens lacking this field are excluded |
+| `--min-entrapment-ratio` / `--max-entrapment-ratio` | Entrapment trading ratio (0–1); tokens lacking this field are excluded |
+| `--min-top10-holder-rate` / `--max-top10-holder-rate` | Top-10 holder concentration (0–1) |
+| `--min-top70-sniper-hold-rate` / `--max-top70-sniper-hold-rate` | Top-70 sniper holding ratio (0–1) |
+| `--min-dev-team-hold-rate` / `--max-dev-team-hold-rate` | Dev-team holding ratio (0–1); `--min-dev-team-hold-rate` also excludes creator-close tokens |
+| `--min-created` / `--max-created` | Token age window, duration string `1m` / `6h` / `7d`. `--min-created` is a minimum age (excludes younger tokens); `--max-created` a maximum age (excludes older tokens) |
+
 ## Usage Examples
 
 ### Kline
@@ -275,6 +301,28 @@ gmgn-cli market trending \
   --chain eth --interval 24h \
   --filter not_honeypot --filter verified \
   --order-by smart_degen_count --limit 20 --raw
+```
+
+### Trending — Numeric Range Filters
+
+```bash
+# SOL 1h trending — liquidity 10k–1M, market cap above 50k, sorted by volume
+gmgn-cli market trending \
+  --chain sol --interval 1h \
+  --min-liquidity 10000 --max-liquidity 1000000 --min-marketcap 50000 \
+  --order-by volume --limit 30 --raw
+
+# SOL 5m hottest — fresh tokens (under 30 min old) with smart money interest
+gmgn-cli market trending \
+  --chain sol --interval 5m \
+  --max-created 30m --min-smart-degen-count 1 \
+  --order-by volume --limit 50 --raw
+
+# SOL 1h trending — exclude high-insider / high-bundler tokens
+gmgn-cli market trending \
+  --chain sol --interval 1h \
+  --max-insider-rate 0.3 --max-bundler-rate 0.3 \
+  --order-by volume --limit 20 --raw
 ```
 
 ### Trending — Base by Launchpad Platform

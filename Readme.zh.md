@@ -491,6 +491,13 @@ gmgn-cli market trending \
   --order-by volume --limit 20 \
   --filter not_risk --filter not_honeypot
 
+# 热门榜 + 数值范围过滤（min_*/max_* 以查询参数透传）
+gmgn-cli market trending \
+  --chain sol --interval 1h \
+  --min-liquidity 10000 --max-liquidity 1000000 \
+  --max-created 30m --min-smart-degen-count 1 \
+  --order-by volume --limit 30
+
 # 战壕新币列表
 gmgn-cli market trenches \
   --chain sol \
