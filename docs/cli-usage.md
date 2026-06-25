@@ -101,7 +101,7 @@ npx gmgn-cli market kline \
 |--------|----------|-------------|
 | `--chain` | Yes | `sol` / `bsc` / `base` |
 | `--address` | Yes | Token contract address |
-| `--resolution` | Yes | Candlestick resolution: `1m` / `5m` / `15m` / `1h` / `4h` / `1d` |
+| `--resolution` | Yes | Candlestick resolution: `30s` / `1m` / `5m` / `15m` / `1h` / `4h` / `1d` |
 | `--from` | No | Start time (Unix seconds) |
 | `--to` | No | End time (Unix seconds) |
 

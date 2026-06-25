@@ -1,7 +1,7 @@
 ---
 name: gmgn-market
 description: Get crypto and meme token price charts (K-line, candlestick, OHLCV), trending meme coin rankings by volume, and newly launched tokens on launchpads (pump.fun, fourmeme, letsbonk, Raydium, etc.) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks for price chart, trending tokens, what's pumping, hot coins, new launches, token signals, or wants to discover early-stage opportunities.
-argument-hint: "kline --chain <sol|bsc|base|eth> --address <token_address> --resolution <1m|5m|15m|1h|4h|1d> [--from <unix_ts>] [--to <unix_ts>] | trending --chain <sol|bsc|base|eth> --interval <1m|5m|1h|6h|24h> | trenches --chain <sol|bsc|base> | signal --chain <sol|bsc>"
+argument-hint: "kline --chain <sol|bsc|base|eth> --address <token_address> --resolution <30s|1m|5m|15m|1h|4h|1d> [--from <unix_ts>] [--to <unix_ts>] | trending --chain <sol|bsc|base|eth> --interval <1m|5m|1h|6h|24h> | trenches --chain <sol|bsc|base> | signal --chain <sol|bsc>"
 metadata:
   cliHelp: "gmgn-cli market --help"
 ---
@@ -97,7 +97,7 @@ When a request returns `429`:
 |-----------|----------|-------------|
 | `--chain` | Yes | `sol` / `bsc` / `base` / `eth` |
 | `--address` | Yes | Token contract address |
-| `--resolution` | Yes | Candlestick resolution: `1m` / `5m` / `15m` / `1h` / `4h` / `1d` |
+| `--resolution` | Yes | Candlestick resolution: `30s` / `1m` / `5m` / `15m` / `1h` / `4h` / `1d` |
 | `--from` | No | Start time (Unix seconds) |
 | `--to` | No | End time (Unix seconds) |
 
