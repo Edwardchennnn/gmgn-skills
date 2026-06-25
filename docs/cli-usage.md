@@ -139,6 +139,8 @@ npx gmgn-cli market trending \
 
 **`base` platforms:** `clanker` / `bankr` / `flaunch` / `zora` / `zora_creator` / `baseapp` / `basememe` / `virtuals_v2` / `klik`
 
+**`eth` platforms:** `trench` / `clanker` / `klik` / `livo` / `stroid` / `pool_uniswap_v2` / `pool_uniswap_v3` / `printr`
+
 ---
 
 ## portfolio holdings
@@ -289,7 +291,7 @@ npx gmgn-cli market trenches --chain <chain> [--type <type...>] [--launchpad-pla
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` |
 | `--type` | No | Categories to query, repeatable: `new_creation` / `near_completion` / `completed` (default: all three) |
 | `--launchpad-platform` | No | Launchpad platform filter, repeatable (default: all platforms for the chain) |
 | `--limit` | No | Max results per category, max 80 (default: 80) |

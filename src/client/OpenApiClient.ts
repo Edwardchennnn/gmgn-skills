@@ -820,12 +820,17 @@ const TRENCHES_PLATFORMS: Record<string, string[]> = {
     "clanker", "bankr", "flaunch", "zora", "zora_creator",
     "baseapp", "basememe", "virtuals_v2", "klik",
   ],
+  eth: [
+    "trench", "clanker", "klik", "livo", "stroid",
+    "pool_uniswap_v2", "pool_uniswap_v3", "printr",
+  ],
 };
 
 const TRENCHES_QUOTE_ADDRESS_TYPES: Record<string, number[]> = {
   sol:  [4, 5, 3, 1, 13, 0],
   bsc:  [6, 7, 1, 16, 8, 3, 9, 10, 2, 17, 18, 0],
   base: [11, 3, 12, 13, 0],
+  eth:  [20, 11, 8, 3, 12, 1, 0],
 };
 
 function buildTrenchesBody(chain: string, types?: string[], platforms?: string[], limit?: number, filters?: Record<string, number | string>): Record<string, unknown> {

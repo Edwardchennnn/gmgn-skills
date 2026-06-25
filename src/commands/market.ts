@@ -57,7 +57,7 @@ export function registerMarketCommands(program: Command): void {
     .option("--order-by <field>", "Sort field: default / volume / swaps / marketcap / holder_count / price / change1h / ... (see docs for full list)")
     .option("--direction <dir>", "Sort direction: asc / desc")
     .option("--filter <tag...>", "Filter tags, repeatable. sol: renounced / frozen / has_social / not_wash_trading / ... evm: not_honeypot / verified / renounced / locked / ... (see docs for full list)")
-    .option("--platform <name...>", "Platform filter, repeatable. sol: Pump.fun / letsbonk / moonshot_app / ... bsc: fourmeme / four_xmode_agent / cubepeg / likwid / goplus_creator / goplus_skills / openfour / flap / flap_stocks / flap_aioracle / clanker / ... base: clanker / flaunch / zora / ... (see docs for full list)")
+    .option("--platform <name...>", "Platform filter, repeatable. sol: Pump.fun / letsbonk / moonshot_app / ... bsc: fourmeme / four_xmode_agent / cubepeg / likwid / goplus_creator / goplus_skills / openfour / flap / flap_stocks / flap_aioracle / clanker / ... base: clanker / flaunch / zora / ... eth: trench / clanker / klik / livo / stroid / pool_uniswap_v2 / pool_uniswap_v3 / printr (see docs for full list)")
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
       validateChain(opts.chain);
@@ -76,7 +76,7 @@ export function registerMarketCommands(program: Command): void {
   const trenchesCmd = market
     .command("trenches")
     .description("Get Trenches token data (new creation, near completion, completed)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth")
     .option("--type <type...>", "Categories to query, repeatable: new_creation / near_completion / completed (default: all three)")
     .option("--launchpad-platform <platform...>", "Launchpad platform filter, repeatable (default: all platforms for the chain)")
     .option("--limit <n>", "Max results per category, max 80 (default: 80)", parseInt)
