@@ -97,9 +97,14 @@ export function registerConfigCommands(program: Command): void {
     .description("Generate an Ed25519 key pair and output a pre-filled GMGN API Key creation link, or apply an API Key");
 
   cmd
+    .option("--check", "Check if GMGN_API_KEY is configured (exit 0 = found, exit 1 = not found)")
     .option("--apply <api_key>", "Write API Key + private key to ~/.config/gmgn/.env and verify")
     .action(async (opts) => {
       const lang = detectLang();
+
+      if (opts.check) {
+        process.exit(process.env.GMGN_API_KEY ? 0 : 1);
+      }
 
       if (opts.apply) {
         // --apply: read private key from keypair.pem, write .env, verify
