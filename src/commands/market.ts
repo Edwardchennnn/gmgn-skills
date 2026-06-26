@@ -293,8 +293,12 @@ const TRENCHES_FILTER_FIELDS: TrenchesFilterField[] = [
 // Server-side numeric range filters for `market trending` (/v1/market/rank).
 // Passed through as min_<metric>/max_<metric> query params; the service applies the
 // metrics it understands and ignores the rest. min_created/max_created are token-age
-// windows expressed as duration strings (e.g. 1m / 6h / 7d) — note these use m/h/d,
+// windows expressed as duration strings (e.g. 30m / 6h / 7d) — note these use m/h/d,
 // NOT the s/m form used by trenches; min_created is a minimum age, max_created a maximum.
+// The raw upstream rank interface accepts minutes only; the openapi-service does not
+// forward this field — it evaluates the age window itself (cutoff = now - duration,
+// native for m/h/d), so h/d are valid through this CLI. Passed through verbatim
+// (string); a bare number with no unit suffix is rejected.
 const RANK_RANGE_FIELDS: TrenchesFilterField[] = [
   { api: "min_volume",                    type: "float", desc: "Min trading volume (USD)" },
   { api: "max_volume",                    type: "float", desc: "Max trading volume (USD)" },
@@ -332,8 +336,8 @@ const RANK_RANGE_FIELDS: TrenchesFilterField[] = [
   { api: "max_top70_sniper_hold_rate",    type: "float", desc: "Max top-70 sniper holding ratio (0–1)" },
   { api: "min_dev_team_hold_rate",        type: "float", desc: "Min dev-team holding ratio (0–1); also excludes creator-close tokens" },
   { api: "max_dev_team_hold_rate",        type: "float", desc: "Max dev-team holding ratio (0–1)" },
-  { api: "min_created",                   type: "string", desc: "Min token age (minimum age), duration string e.g. 1m / 6h / 7d" },
-  { api: "max_created",                   type: "string", desc: "Max token age (maximum age), duration string e.g. 600m / 24h" },
+  { api: "min_created",                   type: "string", desc: "Min token age (minimum age). Duration with unit suffix m/h/d, e.g. 30m / 6h / 7d (h/d evaluated server-side; raw upstream takes minutes only). A bare number with no unit is rejected." },
+  { api: "max_created",                   type: "string", desc: "Max token age (maximum age). Duration with unit suffix m/h/d, e.g. 600m / 24h (h/d evaluated server-side; raw upstream takes minutes only). A bare number with no unit is rejected." },
 ];
 
 // Named filter presets using actual server-side API field names

@@ -134,7 +134,7 @@ npx gmgn-cli market trending \
 | `--filter` | No | Filter tag (repeatable): `has_social` / `not_risk` / `not_honeypot` / `verified` / `locked` / `renounced` / `distributed` / `frozen` / `burn` / `token_burnt` / `creator_hold` / `creator_close` / `creator_add_liquidity` / `creator_remove_liquidity` / `creator_sell` / `creator_buy` / `not_wash_trading` / `not_social_dup` / `not_image_dup` / `is_internal_market` / `is_out_market`. The gmgn web client also sends aliases `social_not_duplicate` / `img_not_duplicate` / `is_burnt` / `launching` / `migrated`, which are accepted but only the canonical tags change behavior. |
 | `--platform` | No | Platform filter (repeatable). Omit (or pass an empty list) to include **all** platforms. Available values depend on chain — see below. |
 | `--min-<metric>` / `--max-<metric>` | No | Numeric range filters (inclusive). Supported metrics: `volume` / `liquidity` / `marketcap` / `history-highest-marketcap` / `swaps` / `holder-count` / `gas-fee` / `renowned-count` / `smart-degen-count` / `bot-degen-count` / `visiting-count` / `price-change-percent` / `insider-rate` / `bundler-rate` / `entrapment-ratio` / `top10-holder-rate` / `top70-sniper-hold-rate` / `dev-team-hold-rate`. Unknown metrics are ignored by the service. |
-| `--min-created` / `--max-created` | No | Token-age window, duration string (`1m` / `6h` / `7d`). `--min-created` is a minimum age (excludes younger tokens); `--max-created` a maximum age (excludes older tokens). |
+| `--min-created` / `--max-created` | No | Token-age window, duration string with a `m` (minutes) / `h` (hours) / `d` (days) suffix, e.g. `30m` / `6h` / `7d`. `--min-created` is a minimum age (excludes younger tokens); `--max-created` a maximum age (excludes older tokens). The raw upstream rank interface accepts minutes only; the openapi-service does not forward this field — it evaluates the age window itself (cutoff = now − duration, native for `m`/`h`/`d`), so `6h`/`7d` work here. A bare number with no unit suffix is not accepted. |
 
 **`sol` platforms:** `Pump.fun` / `pump_mayhem` / `pump_mayhem_agent` / `pump_agent` / `letsbonk` / `bonkers` / `bags` / `memoo` / `liquid` / `bankr` / `zora` / `surge` / `anoncoin` / `moonshot_app` / `wendotdev` / `heaven` / `sugar` / `token_mill` / `believe` / `trendsfun` / `trends_fun` / `jup_studio` / `Moonshot` / `boop` / `xstocks` / `ray_launchpad` / `meteora_virtual_curve` / `pool_ray` / `pool_meteora` / `pool_pump_amm` / `pool_orca`
 
@@ -296,8 +296,16 @@ npx gmgn-cli market trenches --chain <chain> [--type <type...>] [--launchpad-pla
 |--------|----------|-------------|
 | `--chain` | Yes | `sol` / `bsc` / `base` / `eth` |
 | `--type` | No | Categories to query, repeatable: `new_creation` / `near_completion` / `completed` (default: all three) |
-| `--launchpad-platform` | No | Launchpad platform filter, repeatable (default: all platforms for the chain) |
+| `--launchpad-platform` | No | Launchpad platform filter, repeatable (default: all platforms for the chain). Values depend on chain — see below. |
 | `--limit` | No | Max results per category, max 80 (default: 80) |
+
+**`sol` platforms:** `Pump.fun` / `pump_mayhem` / `pump_mayhem_agent` / `pump_agent` / `letsbonk` / `bonkers` / `bags` / `memoo` / `liquid` / `bankr` / `zora` / `surge` / `anoncoin` / `moonshot_app` / `wendotdev` / `heaven` / `sugar` / `token_mill` / `believe` / `trendsfun` / `trends_fun` / `jup_studio` / `Moonshot` / `boop` / `ray_launchpad` / `meteora_virtual_curve` / `xstocks`
+
+**`bsc` platforms:** `fourmeme` / `fourmeme_agent` / `bn_fourmeme` / `four_xmode_agent` / `cubepeg` / `likwid` / `goplus_creator` / `goplus_skills` / `openfour` / `flap` / `flap_stocks` / `flap_aioracle` / `clanker` / `lunafun`
+
+**`base` platforms:** `clanker` / `bankr` / `flaunch` / `zora` / `zora_creator` / `baseapp` / `basememe` / `virtuals_v2` / `klik`
+
+**`eth` platforms:** `trench` / `clanker` / `klik` / `livo` / `stroid` / `pool_uniswap_v2` / `pool_uniswap_v3` / `printr`
 
 **Response:** `data.new_creation`, `data.pump`, `data.completed` — each is an array of `RankItem` (same structure as `market trending` rank items). **Note: `data.pump` in the response corresponds to `--type near_completion` in the request. The API always returns this category under the key `pump`, not `near_completion`.**
 

@@ -170,7 +170,7 @@ Optional `--min-*` / `--max-*` flags apply server-side numeric range filtering (
 | `--min-top10-holder-rate` / `--max-top10-holder-rate` | Top-10 holder concentration (0–1) |
 | `--min-top70-sniper-hold-rate` / `--max-top70-sniper-hold-rate` | Top-70 sniper holding ratio (0–1) |
 | `--min-dev-team-hold-rate` / `--max-dev-team-hold-rate` | Dev-team holding ratio (0–1); `--min-dev-team-hold-rate` also excludes creator-close tokens |
-| `--min-created` / `--max-created` | Token age window, duration string `1m` / `6h` / `7d`. `--min-created` is a minimum age (excludes younger tokens); `--max-created` a maximum age (excludes older tokens) |
+| `--min-created` / `--max-created` | Token age window, duration string with a `m` (minutes) / `h` (hours) / `d` (days) suffix, e.g. `30m` / `6h` / `7d`. `--min-created` is a minimum age (excludes younger tokens); `--max-created` a maximum age (excludes older tokens). **Note:** the raw upstream rank interface accepts minutes only; the openapi-service does not forward this field — it evaluates the age window itself (cutoff = now − duration, computed natively for `m`/`h`/`d`), so `6h` / `7d` work here. Always include a unit suffix — a bare number is **not** accepted. |
 
 ## Usage Examples
 
@@ -284,15 +284,23 @@ gmgn-cli market trending \
   --order-by volume --limit 20 --raw
 ```
 
-### Trending — ETH (No Platform Filter)
+### Trending — ETH by Launchpad Platform
 
 ```bash
-# ETH 1h trending — all tokens, sorted by volume
+# ETH 1h trending — all platforms, sorted by volume
 gmgn-cli market trending --chain eth --interval 1h --order-by volume --limit 20
 
-# ETH 1h trending — with safety filters
+# ETH 1h trending — specific platforms only
 gmgn-cli market trending \
   --chain eth --interval 1h \
+  --platform trench --platform clanker --platform klik \
+  --order-by volume --limit 50 --raw
+
+# ETH 1h trending — all ETH platforms with safety filters
+gmgn-cli market trending \
+  --chain eth --interval 1h \
+  --platform trench --platform clanker --platform klik --platform livo --platform stroid \
+  --platform pool_uniswap_v2 --platform pool_uniswap_v3 --platform printr \
   --filter not_honeypot --filter verified \
   --order-by volume --limit 20 --raw
 
@@ -552,6 +560,15 @@ Use field combinations to determine what stage a token is in. This affects how s
 | `--sort-by` | No | Client-side sort per category: `smart_degen_count` / `renowned_count` / `volume_24h` / `volume_1h` / `swaps_24h` / `swaps_1h` / `rug_ratio` / `holder_count` / `usd_market_cap` / `created_timestamp` |
 | `--direction` | No | Sort direction: `asc` / `desc` (default: `desc`; `asc` for `rug_ratio`) |
 | `--min-*` / `--max-*` | No | Server-side filter range flags — see Filter Fields Reference below |
+
+**`--launchpad-platform` values by chain** (omit `--launchpad-platform` to use all of the chain's platforms):
+
+| Chain | Platforms |
+|-------|-----------|
+| `sol`  | `Pump.fun` / `pump_mayhem` / `pump_mayhem_agent` / `pump_agent` / `letsbonk` / `bonkers` / `bags` / `memoo` / `liquid` / `bankr` / `zora` / `surge` / `anoncoin` / `moonshot_app` / `wendotdev` / `heaven` / `sugar` / `token_mill` / `believe` / `trendsfun` / `trends_fun` / `jup_studio` / `Moonshot` / `boop` / `ray_launchpad` / `meteora_virtual_curve` / `xstocks` |
+| `bsc`  | `fourmeme` / `fourmeme_agent` / `bn_fourmeme` / `four_xmode_agent` / `cubepeg` / `likwid` / `goplus_creator` / `goplus_skills` / `openfour` / `flap` / `flap_stocks` / `flap_aioracle` / `clanker` / `lunafun` |
+| `base` | `clanker` / `bankr` / `flaunch` / `zora` / `zora_creator` / `baseapp` / `basememe` / `virtuals_v2` / `klik` |
+| `eth`  | `trench` / `clanker` / `klik` / `livo` / `stroid` / `pool_uniswap_v2` / `pool_uniswap_v3` / `printr` |
 
 ### Filter Presets
 
@@ -850,6 +867,28 @@ gmgn-cli market trenches --chain base --raw \
 gmgn-cli market trenches --chain base --raw \
   --type completed \
   --launchpad-platform clanker --launchpad-platform bankr --launchpad-platform flaunch --launchpad-platform zora --launchpad-platform zora_creator --launchpad-platform baseapp --launchpad-platform basememe --launchpad-platform virtuals_v2 --launchpad-platform klik \
+  --limit 80
+```
+
+### ETH Trenches Examples
+
+```bash
+# All three categories at once
+gmgn-cli market trenches --chain eth --raw \
+  --type new_creation --type near_completion --type completed \
+  --launchpad-platform trench --launchpad-platform clanker --launchpad-platform klik --launchpad-platform livo --launchpad-platform stroid --launchpad-platform pool_uniswap_v2 --launchpad-platform pool_uniswap_v3 --launchpad-platform printr \
+  --limit 80
+
+# New creation only
+gmgn-cli market trenches --chain eth --raw \
+  --type new_creation \
+  --launchpad-platform trench --launchpad-platform clanker --launchpad-platform klik --launchpad-platform livo --launchpad-platform stroid --launchpad-platform pool_uniswap_v2 --launchpad-platform pool_uniswap_v3 --launchpad-platform printr \
+  --limit 80
+
+# Completed (open market) only
+gmgn-cli market trenches --chain eth --raw \
+  --type completed \
+  --launchpad-platform trench --launchpad-platform clanker --launchpad-platform klik --launchpad-platform livo --launchpad-platform stroid --launchpad-platform pool_uniswap_v2 --launchpad-platform pool_uniswap_v3 --launchpad-platform printr \
   --limit 80
 ```
 
