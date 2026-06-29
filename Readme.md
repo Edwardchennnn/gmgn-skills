@@ -485,6 +485,16 @@ gmgn-cli market signal --chain sol --signal-type 12 --raw
 # Token signals — multi-group: smart money OR large buys in parallel
 gmgn-cli market signal --chain sol \
   --groups '[{"signal_type":[12]},{"signal_type":[14,16]}]' --raw
+
+# Hot searches — most-searched tokens (default 7-chain set, 24h)
+gmgn-cli market hot-searches --raw
+
+# Hot searches — SOL only, 1h window, top 50
+gmgn-cli market hot-searches --chain sol --interval 1h --limit 50 --raw
+
+# Hot searches — SOL with range filters (same metric names as trending)
+gmgn-cli market hot-searches --chain sol --interval 1h \
+  --min-liquidity 10000 --min-smart-degen-count 1 --raw
 ```
 
 ### Portfolio

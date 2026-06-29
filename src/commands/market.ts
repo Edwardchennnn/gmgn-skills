@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { OpenApiClient, TokenSignalGroup } from "../client/OpenApiClient.js";
+import { OpenApiClient, TokenSignalGroup, HotSearchesParam } from "../client/OpenApiClient.js";
 import { getConfig } from "../config.js";
 import { exitOnError, printResult } from "../output.js";
 import { validateAddress, validateChain } from "../validate.js";
@@ -203,7 +203,73 @@ export function registerMarketCommands(program: Command): void {
       const data = await client.getTokenSignalV2(opts["chain"] as string, groups).catch(exitOnError);
       printResult(data, opts["raw"] as boolean | undefined);
     });
+
+  const hotSearchesCmd = market
+    .command("hot-searches")
+    .description("Get the hot-search ranking (most-searched tokens) for one or more chains")
+    .option("--chain <chain...>", "Chain(s), repeatable: sol / bsc / base / eth / monad / megaeth / hyperevm / tron (default: all 7 chains)")
+    .option("--interval <interval>", "Time window: 1m / 5m / 1h / 6h / 24h (default 24h)", "24h")
+    .option("--limit <n>", "Max results per chain (default 500)", parseInt)
+    .option("--filter <tag...>", "Boolean filter tags, repeatable. sol defaults: renounced / frozen; EVM defaults: not_honeypot / verified / renounced")
+    .option("--params <json>", "Full params override: JSON array of param objects — overrides --chain/--interval/--limit/--filter and all range flags when provided")
+    .option("--raw", "Output raw JSON");
+
+  // Reuse the same min_*/max_* range flags as `market trending` — the hot_searches
+  // endpoint accepts the identical rank-style metric names inside `filter` and
+  // translates them server-side per interval (min_created/max_created are durations).
+  for (const def of RANK_RANGE_FIELDS) {
+    const flag = def.api.replace(/_/g, "-");
+    if (def.type === "int") {
+      hotSearchesCmd.option(`--${flag} <${def.type}>`, def.desc, parseInt);
+    } else if (def.type === "float") {
+      hotSearchesCmd.option(`--${flag} <${def.type}>`, def.desc, parseFloat);
+    } else if (def.type === "duration") {
+      hotSearchesCmd.option(`--${flag} <duration>`, def.desc, parseDuration);
+    } else {
+      hotSearchesCmd.option(`--${flag} <value>`, def.desc);
+    }
+  }
+
+  hotSearchesCmd.action(async (opts) => {
+    const interval = String(opts.interval);
+    if (!HOT_SEARCHES_INTERVALS.has(interval)) {
+      console.error(`[gmgn-cli] Invalid --interval "${interval}". Must be one of: ${[...HOT_SEARCHES_INTERVALS].join(", ")}`);
+      process.exit(1);
+    }
+
+    let params: HotSearchesParam[];
+    if (opts.params != null) {
+      try {
+        params = JSON.parse(opts.params as string) as HotSearchesParam[];
+      } catch {
+        console.error(`[gmgn-cli] --params must be a valid JSON array, e.g. '[{"chain":"sol","interval":"24h","filters":["renounced","frozen"],"limit":500,"min_liquidity":1000}]'`);
+        process.exit(1);
+      }
+    } else {
+      // Empty params lets the server apply its default 7-chain config. Filter fields
+      // are flattened directly onto each param (no nested `filter` object).
+      const optsMap = opts as Record<string, unknown>;
+      const chains: string[] = opts.chain?.length ? (opts.chain as string[]) : [];
+      params = chains.map((chain) => {
+        const param: HotSearchesParam = { label: "hot-search", chain, interval };
+        if (opts.filter?.length) param.filters = opts.filter as string[];
+        if (opts.limit != null) param.limit = opts.limit as number;
+        // Fold in any rank-style min_*/max_* range flags (incl. min_created/max_created).
+        for (const def of RANK_RANGE_FIELDS) {
+          const val = optsMap[apiFieldToCliKey(def.api)];
+          if (val != null) param[def.api] = val as number | string;
+        }
+        return param;
+      });
+    }
+
+    const client = new OpenApiClient(getConfig());
+    const data = await client.getHotSearches(params).catch(exitOnError);
+    printResult(data, opts.raw);
+  });
 }
+
+const HOT_SEARCHES_INTERVALS = new Set(["1m", "5m", "1h", "6h", "24h"]);
 
 // ---- Trenches filter field definitions ----
 

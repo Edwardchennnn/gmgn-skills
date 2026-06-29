@@ -362,6 +362,34 @@ gmgn-cli market signal --chain sol --groups '<json_array>' [--raw]
 
 ---
 
+## market hot-searches
+
+Query the hot-search ranking — the most-searched tokens, ranked by `visiting_count` (search heat). Cross-chain top-500; one request can cover several chains at once. API Key auth only.
+
+```bash
+# Default 7-chain set (sol/bsc/base/eth/hyperevm/megaeth/monad, each 24h):
+gmgn-cli market hot-searches [--raw]
+
+# Specific chain(s) and interval:
+gmgn-cli market hot-searches --chain <chain...> [--interval <1m|5m|1h|6h|24h>] [--limit <n>] [--filter <tag...>] [--min-* <n>] [--max-* <n>] [--raw]
+
+# Full per-param override (JSON array):
+gmgn-cli market hot-searches --params '<json_array>' [--raw]
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `--chain` | No | Repeatable: `sol` / `bsc` / `base` / `eth` / `monad` / `megaeth` / `hyperevm` / `tron`. Omit for the default 7-chain set. |
+| `--interval` | No | `1m` / `5m` / `1h` / `6h` / `24h` (default `24h`). Applies to every `--chain`. |
+| `--limit` | No | Max results per chain (default `500`). |
+| `--filter` | No | Repeatable **boolean** filter tags (downstream `filter.filters`). sol defaults: `renounced` / `frozen`; EVM defaults: `not_honeypot` / `verified` / `renounced`. Recognised tags: `renounced` / `frozen` (sol) / `is_burnt` / `token_burnt` / `not_wash_trading` / `not_honeypot` (EVM) / `verified` (EVM) / `locked` (EVM) / `has_social` / `distribed` / `not_risk` / `img_not_duplicate` / `social_not_duplicate` / `creator_hold` / `creator_close` / `dexscr_update_link` / `launching` / `migrated` / `hide_b20` (base) / `hide_non_b20` (base). Unknown tags are silent no-ops. |
+| `--min-*` / `--max-*` | No | Numeric range bounds, **same metric names as `market trending`** (`--min-liquidity`, `--max-marketcap`, `--min-volume`, `--min-swaps`, `--min-smart-degen-count`, …, plus `--min-created`/`--max-created` durations). Translated server-side per `--interval`. `price_change_percent` only applies to `1m`/`5m`/`1h`. |
+| `--params` | No | Full JSON array override — overrides `--chain` / `--interval` / `--limit` / `--filter` and range flags when provided. Filter fields are flattened onto each param (no nested `filter` object): a param accepts `filters`, `limit`, `min_created`/`max_created`, and rank-style `min_<metric>`/`max_<metric>` keys. |
+
+**Response:** `data` is an array of `(interval, chain)` blocks; each block has `interval`, `chain`, `version`, and `tokens`. `tokens` uses the **same long-form fields as `market trending`** (`address`, `symbol`, `visiting_count`, `market_cap`, …) — the server maps the upstream shortcodes for you — and each token carries a 1-based `rank`. Ranked by search heat (`visiting_count`), max 500 per chain. **Note:** `--chain all` is not valid — pass `--chain` multiple times to aggregate across chains. Boolean tag names differ from `market trending`: this path uses `launching`/`migrated` and `img_not_duplicate`/`social_not_duplicate`.
+
+---
+
 ## track follow-tokens
 
 Query the followed token list for a wallet. Returns a paginated list of tokens the wallet has bookmarked on GMGN, with full market data. API Key auth only.

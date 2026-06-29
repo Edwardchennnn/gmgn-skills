@@ -179,6 +179,20 @@ export interface TokenSignalGroup {
   max_create_or_open_ts?: string;
 }
 
+// HotSearchesParam carries its filter fields flattened (no nested `filter` object):
+// label/interval/chain plus optional `filters` boolean tags, `limit`, and rank-style
+// numeric range bounds (min_<metric>/max_<metric>) incl. min_created/max_created.
+// Extra range keys are forwarded verbatim; the service translates metric names per
+// interval. See `market hot-searches` docs for the supported metric list.
+export interface HotSearchesParam {
+  label?: string;
+  interval: string;       // "1m" | "5m" | "1h" | "6h" | "24h"
+  chain: string;          // "sol" | "bsc" | "base" | "eth" | "monad" | "megaeth" | "hyperevm" | "tron"
+  filters?: string[];
+  limit?: number;
+  [key: string]: string[] | number | string | undefined;
+}
+
 export interface PumpFeeShareInfo {
   provider: string;       // "solana" | "twitter" | "github"
   username: string;       // platform username; a SOL address when provider = "solana"
@@ -428,6 +442,10 @@ export class OpenApiClient {
 
   async getTokenSignalV2(chain: string, groups: TokenSignalGroup[]): Promise<unknown> {
     return this.authExistRequest("POST", "/v1/market/token_signal", {}, { chain, groups });
+  }
+
+  async getHotSearches(params: HotSearchesParam[]): Promise<unknown> {
+    return this.authExistRequest("POST", "/v1/market/hot_searches", {}, { params });
   }
 
   // ---- User endpoints (exist auth) ----
