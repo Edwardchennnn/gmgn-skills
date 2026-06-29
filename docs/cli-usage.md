@@ -362,6 +362,33 @@ gmgn-cli market signal --chain sol --groups '<json_array>' [--raw]
 
 ---
 
+## market hot-searches
+
+Query the hot-search ranking — the most-searched tokens, ranked by `visiting_count` (search heat). Cross-chain top-500; one request can cover several chains at once. API Key auth only.
+
+```bash
+# Default 7-chain set (sol/bsc/base/eth/hyperevm/megaeth/monad, each 24h):
+gmgn-cli market hot-searches [--raw]
+
+# Specific chain(s) and interval:
+gmgn-cli market hot-searches --chain <chain...> [--interval <1m|5m|1h|6h|24h>] [--limit <n>] [--filter <tag...>] [--raw]
+
+# Full per-param override (JSON array):
+gmgn-cli market hot-searches --params '<json_array>' [--raw]
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `--chain` | No | Repeatable: `sol` / `bsc` / `base` / `eth` / `monad` / `megaeth` / `hyperevm` / `tron`. Omit for the default 7-chain set. |
+| `--interval` | No | `1m` / `5m` / `1h` / `6h` / `24h` (default `24h`). Applies to every `--chain`. |
+| `--limit` | No | Max results per chain (default `500`). |
+| `--filter` | No | Repeatable filter tags. sol defaults: `renounced` / `frozen`; EVM defaults: `not_honeypot` / `verified` / `renounced`. |
+| `--params` | No | Full JSON array override — overrides `--chain` / `--interval` / `--limit` / `--filter` when provided. |
+
+**Response:** `data` is an array of `(interval, chain)` blocks; each block has `interval`, `chain`, `filter_id`, `version`, and `tokens`. `tokens` is sorted by `score` desc (primary ranking key is `visiting_count`), max 500 per chain. Token fields use the same shortcode scheme as `trending` / `metas` (e.g. `a`=address, `s`=symbol, `v_c`=visiting_count, `sc`=score, `mc`=market_cap). **Note:** `--chain all` is not valid — pass `--chain` multiple times to aggregate across chains.
+
+---
+
 ## track follow-tokens
 
 Query the followed token list for a wallet. Returns a paginated list of tokens the wallet has bookmarked on GMGN, with full market data. API Key auth only.

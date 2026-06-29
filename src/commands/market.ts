@@ -1,5 +1,5 @@
 import { Command } from "commander";
-import { OpenApiClient, TokenSignalGroup } from "../client/OpenApiClient.js";
+import { OpenApiClient, TokenSignalGroup, HotSearchesParam } from "../client/OpenApiClient.js";
 import { getConfig } from "../config.js";
 import { exitOnError, printResult } from "../output.js";
 import { validateAddress, validateChain } from "../validate.js";
@@ -203,7 +203,51 @@ export function registerMarketCommands(program: Command): void {
       const data = await client.getTokenSignalV2(opts["chain"] as string, groups).catch(exitOnError);
       printResult(data, opts["raw"] as boolean | undefined);
     });
+
+  market
+    .command("hot-searches")
+    .description("Get the hot-search ranking (most-searched tokens) for one or more chains")
+    .option("--chain <chain...>", "Chain(s), repeatable: sol / bsc / base / eth / monad / megaeth / hyperevm / tron (default: all 7 chains)")
+    .option("--interval <interval>", "Time window: 1m / 5m / 1h / 6h / 24h (default 24h)", "24h")
+    .option("--limit <n>", "Max results per chain (default 500)", parseInt)
+    .option("--filter <tag...>", "Filter tags, repeatable. sol defaults: renounced / frozen; EVM defaults: not_honeypot / verified / renounced")
+    .option("--params <json>", "Full params override: JSON array of param objects — overrides --chain/--interval/--limit/--filter when provided")
+    .option("--raw", "Output raw JSON")
+    .action(async (opts) => {
+      const interval = String(opts.interval);
+      if (!HOT_SEARCHES_INTERVALS.has(interval)) {
+        console.error(`[gmgn-cli] Invalid --interval "${interval}". Must be one of: ${[...HOT_SEARCHES_INTERVALS].join(", ")}`);
+        process.exit(1);
+      }
+
+      let params: HotSearchesParam[];
+      if (opts.params != null) {
+        try {
+          params = JSON.parse(opts.params as string) as HotSearchesParam[];
+        } catch {
+          console.error(`[gmgn-cli] --params must be a valid JSON array, e.g. '[{"chain":"sol","interval":"24h","filter":{"filters":["renounced","frozen"],"limit":500}}]'`);
+          process.exit(1);
+        }
+      } else {
+        // Empty params lets the server apply its default 7-chain config.
+        const chains: string[] = opts.chain?.length ? (opts.chain as string[]) : [];
+        params = chains.map((chain) => {
+          const param: HotSearchesParam = { label: "hot-search", chain, interval };
+          const filter: { filters?: string[]; limit?: number } = {};
+          if (opts.filter?.length) filter.filters = opts.filter as string[];
+          if (opts.limit != null) filter.limit = opts.limit as number;
+          if (Object.keys(filter).length) param.filter = filter;
+          return param;
+        });
+      }
+
+      const client = new OpenApiClient(getConfig());
+      const data = await client.getHotSearches(params).catch(exitOnError);
+      printResult(data, opts.raw);
+    });
 }
+
+const HOT_SEARCHES_INTERVALS = new Set(["1m", "5m", "1h", "6h", "24h"]);
 
 // ---- Trenches filter field definitions ----
 

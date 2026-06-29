@@ -1,7 +1,7 @@
 ---
 name: gmgn-market
-description: Get crypto and meme token price charts (K-line, candlestick, OHLCV), trending meme coin rankings by volume, and newly launched tokens on launchpads (pump.fun, fourmeme, letsbonk, Raydium, etc.) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks for price chart, trending tokens, what's pumping, hot coins, new launches, token signals, or wants to discover early-stage opportunities.
-argument-hint: "kline --chain <sol|bsc|base|eth> --address <token_address> --resolution <30s|1m|5m|15m|1h|4h|1d> [--from <unix_ts>] [--to <unix_ts>] | trending --chain <sol|bsc|base|eth> --interval <1m|5m|1h|6h|24h> | trenches --chain <sol|bsc|base|eth> | signal --chain <sol|bsc>"
+description: Get crypto and meme token price charts (K-line, candlestick, OHLCV), trending meme coin rankings by volume, newly launched tokens on launchpads (pump.fun, fourmeme, letsbonk, Raydium, etc.), and the hot-search ranking (most-searched tokens) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks for price chart, trending tokens, what's pumping, hot coins, most searched tokens, new launches, token signals, or wants to discover early-stage opportunities.
+argument-hint: "kline --chain <sol|bsc|base|eth> --address <token_address> --resolution <30s|1m|5m|15m|1h|4h|1d> [--from <unix_ts>] [--to <unix_ts>] | trending --chain <sol|bsc|base|eth> --interval <1m|5m|1h|6h|24h> | trenches --chain <sol|bsc|base|eth> | signal --chain <sol|bsc> | hot-searches [--chain <sol|bsc|base|eth|monad|megaeth|hyperevm|tron...>] [--interval <1m|5m|1h|6h|24h>]"
 metadata:
   cliHelp: "gmgn-cli market --help"
 ---
@@ -49,10 +49,11 @@ Use the `gmgn-cli` tool to query K-line data for a token, browse trending tokens
 | `market trending` | Trending tokens ranked by swap activity — use `--interval` to specify the time window (e.g. `1m` for 1-minute hottest, `1h` for 1-hour trending) |
 | `market trenches` | Newly launched launchpad platform tokens — **use this when the user asks for "new tokens", "just launched tokens", "latest tokens on pump.fun/letsbonk"**. Three categories: `new_creation` (just created), `near_completion` (bonding curve almost full), `completed` (graduated to open market / DEX) |
 | `market signal` | Real-time token signal feed — price spikes, smart money buys, large buys, Dex ads, CTO events, and more. Results sorted by `trigger_at` descending. **sol / bsc only. Max 50 results per group.** |
+| `market hot-searches` | Hot-search ranking — the most-searched tokens, ranked by `visiting_count` (search heat). **Use this when the user asks "what tokens are people searching for", "most searched tokens", "hot search list", "热搜榜".** Supports multiple chains in a single request. |
 
 ## Supported Chains
 
-`sol` / `bsc` / `base` / `eth` (kline / trending / trenches; signal: `sol` / `bsc` only)
+`sol` / `bsc` / `base` / `eth` (kline / trending / trenches; signal: `sol` / `bsc` only; hot-searches: `sol` / `bsc` / `base` / `eth` / `monad` / `megaeth` / `hyperevm` / `tron`)
 
 ## Prerequisites
 
@@ -69,6 +70,7 @@ All market routes used by this skill go through GMGN's leaky-bucket limiter with
 | `market trending` | `GET /v1/market/rank` | 1 |
 | `market trenches` | `POST /v1/trenches` | 3 |
 | `market signal` | `POST /v1/market/token_signal` | 3 |
+| `market hot-searches` | `POST /v1/market/hot_searches` | 3 |
 
 When a request returns `429`:
 
@@ -1041,12 +1043,98 @@ gmgn-cli market signal --chain sol \
   --groups '[{"signal_type":[12,13],"mc_min":100000},{"signal_type":[6,7],"mc_min":50000,"mc_max":1000000}]' --raw
 ```
 
+## `market hot-searches` Parameters
+
+Returns the hot-search ranking — the tokens people are searching for most right now, ranked by `visiting_count` (search heat). Cross-chain top-500 ranking; one request can cover several chains at once. **Use this for "most searched tokens", "hot search list", "热搜榜", "what is everyone looking at"** — this is distinct from `market trending` (ranked by swap activity), which answers "what is being traded most."
+
+| Option | Description |
+|--------|-------------|
+| `--chain <chain...>` | Repeatable. `sol` / `bsc` / `base` / `eth` / `monad` / `megaeth` / `hyperevm` / `tron`. **Omit to query the default 7-chain set** (sol / bsc / base / eth / hyperevm / megaeth / monad, each at `24h` with chain-appropriate safety filters). |
+| `--interval <interval>` | `1m` / `5m` / `1h` / `6h` / `24h` (default `24h`). Applies to every `--chain` provided. |
+| `--limit <n>` | Max results per chain (default `500`). |
+| `--filter <tag...>` | Repeatable filter tags. **sol** defaults: `renounced` / `frozen`; **EVM** defaults: `not_honeypot` / `verified` / `renounced`. Same tag vocabulary as `market trending`. |
+| `--params <json>` | Full override: a JSON array of param objects. When provided, `--chain` / `--interval` / `--limit` / `--filter` are ignored. Each object: `{ "label": "...", "chain": "...", "interval": "...", "filter": { "filters": [...], "limit": 500 } }`. |
+
+**Notes on behaviour:**
+
+- `--chain all` is **not** valid. To aggregate across chains, pass `--chain` multiple times (or omit `--chain` for the default 7-chain set).
+- When you pass `--chain` but omit `--filter`, the **server** applies the chain-appropriate default filters — so each chain is filtered even without an explicit `--filter`.
+- Different chains return different counts: a chain's token count depends on how many of its tokens made the global top-500 (sol is usually the largest; monad / megaeth are small).
+
+## `market hot-searches` Response Fields
+
+The response `data` is an array. Each element is one `(interval, chain)` result block:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `interval` | string | The interval for this block |
+| `chain` | string | The chain for this block |
+| `filter_id` | string | Upstream filter identifier (for WebSocket subscription) |
+| `version` | string | Subscription version — persist it for WebSocket reconnect |
+| `tokens` | array | Ranked tokens, sorted by `score` desc, max 500 |
+
+**Token fields use shortcodes** (same scheme as `trending` / `metas`). Common ones:
+
+| shortcode | Field | Description |
+|-----------|-------|-------------|
+| `a` | address | Token contract address |
+| `c` | chain | Chain |
+| `itv` | interval | Interval this token belongs to |
+| `nm` | name | Token name |
+| `s` | symbol | Token symbol |
+| `p` | price | Current price (USD) |
+| `v_c` | visiting_count | **Primary sort key — search / visit heat** |
+| `sc` | score | fs_trending composite score (secondary sort key) |
+| `mc` | market_cap | Market cap (USD) |
+| `v` | volume | Volume in this interval (USD) |
+| `lq` | liquidity | Liquidity (USD) |
+| `bu` | buys | Buy count |
+| `se` | sells | Sell count |
+| `sw` | swaps | Total swap count |
+| `ot` | open_timestamp | Open market time (Unix seconds) |
+| `hd` | holder_count | Holder count |
+
+The full field set (100+ items) shares the same shortcode vocabulary as `trending` / `metas`.
+
+### `market hot-searches` Usage Examples
+
+```bash
+# Default 7-chain hot-search ranking (sol/bsc/base/eth/hyperevm/megaeth/monad, each 24h)
+gmgn-cli market hot-searches --raw
+
+# SOL only, 24h hot-search list
+gmgn-cli market hot-searches --chain sol --interval 24h --raw
+
+# SOL + BSC + Base, 1h window, top 50 per chain
+gmgn-cli market hot-searches --chain sol --chain bsc --chain base --interval 1h --limit 50 --raw
+
+# SOL with custom filters
+gmgn-cli market hot-searches --chain sol --interval 24h \
+  --filter renounced --filter frozen --raw
+
+# Full per-param override via JSON (different filters per chain)
+gmgn-cli market hot-searches --raw --params '[
+  {"label":"hot-search","chain":"sol","interval":"24h","filter":{"filters":["renounced","frozen"],"limit":500}},
+  {"label":"hot-search","chain":"bsc","interval":"24h","filter":{"filters":["not_honeypot","verified","renounced"],"limit":500}}
+]'
+```
+
+### `market hot-searches` — Output Format
+
+Present per chain, ranked by `visiting_count` (search heat):
+
+```
+🔥 Hot Searches — {chain} ({interval})
+# | Symbol | Price | MCap | Volume | Search Heat (v_c) | Liq
+```
+
 ---
 
 ## Notes
 
 - `market kline`: `--from` and `--to` are Unix timestamps in **seconds** — CLI converts to milliseconds automatically
 - `market trending`: `--filter` and `--platform` are repeatable flags
+- `market hot-searches`: `--chain` and `--filter` are repeatable flags; omit `--chain` to query the default 7-chain set
 - All commands use exist auth (API Key only, no signature)
 - If the user doesn't provide kline timestamps, calculate them from the current time based on their desired time range
 - Use `--raw` to get single-line JSON for further processing
