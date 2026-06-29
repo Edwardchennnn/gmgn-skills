@@ -1052,8 +1052,66 @@ Returns the hot-search ranking — the tokens people are searching for most righ
 | `--chain <chain...>` | Repeatable. `sol` / `bsc` / `base` / `eth` / `monad` / `megaeth` / `hyperevm` / `tron`. **Omit to query the default 7-chain set** (sol / bsc / base / eth / hyperevm / megaeth / monad, each at `24h` with chain-appropriate safety filters). |
 | `--interval <interval>` | `1m` / `5m` / `1h` / `6h` / `24h` (default `24h`). Applies to every `--chain` provided. |
 | `--limit <n>` | Max results per chain (default `500`). |
-| `--filter <tag...>` | Repeatable filter tags. **sol** defaults: `renounced` / `frozen`; **EVM** defaults: `not_honeypot` / `verified` / `renounced`. Same tag vocabulary as `market trending`. |
-| `--params <json>` | Full override: a JSON array of param objects. When provided, `--chain` / `--interval` / `--limit` / `--filter` are ignored. Each object: `{ "label": "...", "chain": "...", "interval": "...", "filter": { "filters": [...], "limit": 500 } }`. |
+| `--filter <tag...>` | Repeatable **boolean** filter tags (the downstream `filter.filters` array). **⚠️ SOL defaults: `renounced frozen`; EVM defaults: `not_honeypot verified renounced`.** Omitting `--filter` is NOT "no filter" — the server applies chain defaults. See the Filter Tags table below for the exact vocabulary. |
+| `--min-* / --max-* <n>` | Numeric range bounds, **same metric names as `market trending`** (e.g. `--min-liquidity`, `--max-marketcap`, `--min-smart-degen-count`). Translated server-side per `--interval`. `--min-created` / `--max-created` are token-age durations. See the Range Filters table below. |
+| `--params <json>` | Full override: a JSON array of param objects. When provided, `--chain` / `--interval` / `--limit` / `--filter` and all range flags are ignored. Filter fields are **flattened onto each param** (no nested `filter` object): `{ "label": "...", "chain": "...", "interval": "...", "filters": [...], "limit": 500, "min_liquidity": 1000 }` — a param accepts `filters`, `limit`, `min_created`/`max_created`, and rank-style `min_<metric>`/`max_<metric>` keys. |
+
+### `market hot-searches` Filter Tags (`--filter` / `filter.filters`)
+
+The downstream (gmgn rank filter-service) evaluates each tag as an AND condition — a token must pass **every** tag to stay in the list. **Unknown tags are silently accepted but do nothing** (pass-through), so an unrecognised tag will NOT filter anything — spelling matters. This tag set is the filter-service vocabulary and differs slightly from `market trending`'s tag names (see the alias note below).
+
+**These are the only recognised tags** (anything else is a no-op):
+
+| Tag | Chains | Passes when |
+|----------------------|-------------|-------------|
+| `renounced` | sol / EVM | sol: mint authority renounced (`renounced_mint == 1`); EVM: owner renounced (`is_renounced == 1`; lenient — nil passes) |
+| `frozen` | sol only | freeze authority renounced (`renounced_freeze_account == 1`); non-sol always fails |
+| `is_burnt` | all | LP pool burned (`burn_status == "burn"`) |
+| `token_burnt` | all | creator burned tokens (`dev_token_burn_ratio > 0`) |
+| `not_wash_trading` | all | not flagged as wash trading |
+| `not_honeypot` | EVM | not a honeypot (`is_honeypot == 0`; lenient — nil passes) |
+| `verified` | EVM | contract open-source (`is_open_source == 1`; lenient — nil passes) |
+| `locked` | EVM | liquidity locked ≥ 50% (`lock_percent >= 0.5`) |
+| `has_social` | all | has Twitter, Telegram, or Website |
+| `distribed` | all | top-10 holder rate in (0, 0.3] (well distributed) |
+| `not_risk` | all | composite low-risk filter (sol: liquidity≥4000 + mint renounced + top10<0.3 + freeze renounced + LP burned; EVM: not honeypot + liquidity≥4000 + open-source + renounced + lock≥0.5) |
+| `img_not_duplicate` | all | avatar image not duplicated (`image_dup == "0"`) |
+| `social_not_duplicate` | all | social links not shared (`twitter_dup == 0 && telegram_dup == 0 && website_dup == 0`) |
+| `creator_hold` | all | dev still holding (not `creator_close`) |
+| `creator_close` | all | dev sold/closed (`creator_token_status == "creator_close"`) |
+| `dexscr_update_link` | all | social links updated on DexScreener (`> 0`) |
+| `launching` | all | still on the launchpad bonding curve (`launchpad_status == "0"`); pair with `migrated` to allow both |
+| `migrated` | all | graduated / migrated to DEX (`launchpad_status == "1"`); pair with `launching` to allow both |
+| `hide_b20` | base only | token standard is not `b20` (no-op on non-base) |
+| `hide_non_b20` | base only | token standard is `b20` (no-op on non-base) |
+
+> **⚠️ Different names than `market trending`.** This path uses `launching` / `migrated` (NOT `is_internal_market` / `is_out_market`) and `img_not_duplicate` / `social_not_duplicate` (NOT `not_image_dup` / `not_social_dup`). Tags that `market trending` supports but this endpoint does **not** recognise (they become silent no-ops here): `dexscr_ad`, `dexscr_trending_bar`, `dexscr_boost`, `cto_flag`, `is_internal_market`, `is_out_market`, `not_image_dup`, `not_social_dup`.
+
+### `market hot-searches` Range Filters (`--min-*` / `--max-*`)
+
+Numeric bounds use the **same rank-style metric names as `market trending`**. They are sent flattened on each param and translated server-side to the downstream field for the param's `--interval`. Closed intervals; metrics the downstream cannot read are dropped (not silent no-ops on the wire — they are removed before the request).
+
+| Flag pair | Type | Metric |
+|------------------------------------------------------------|----------|--------|
+| `--min-volume` / `--max-volume` | float | Trading volume (USD) — bound to the `--interval` window |
+| `--min-swaps` / `--max-swaps` | int | Swap count — bound to the `--interval` window |
+| `--min-price-change-percent` / `--max-price-change-percent` | float | Price change ratio — **only `1m` / `5m` / `1h`; dropped for `6h` / `24h`** |
+| `--min-liquidity` / `--max-liquidity` | float | Liquidity (USD) |
+| `--min-marketcap` / `--max-marketcap` | float | Market cap (USD) |
+| `--min-history-highest-marketcap` / `--max-history-highest-marketcap` | float | All-time-high market cap (USD) |
+| `--min-holder-count` / `--max-holder-count` | int | Holder count |
+| `--min-gas-fee` / `--max-gas-fee` | float | Gas fee |
+| `--min-renowned-count` / `--max-renowned-count` | int | KOL / renowned holder count |
+| `--min-smart-degen-count` / `--max-smart-degen-count` | int | Smart-money holder count |
+| `--min-bot-degen-count` / `--max-bot-degen-count` | int | Bot-degen wallet count |
+| `--min-visiting-count` / `--max-visiting-count` | int | Visitor count |
+| `--min-insider-rate` / `--max-insider-rate` | float | Insider trading ratio (0–1); tokens lacking this field are excluded |
+| `--min-bundler-rate` / `--max-bundler-rate` | float | Bundle-bot trading ratio (0–1); tokens lacking this field are excluded |
+| `--min-entrapment-ratio` / `--max-entrapment-ratio` | float | Entrapment trading ratio (0–1); tokens lacking this field are excluded |
+| `--min-top10-holder-rate` / `--max-top10-holder-rate` | float | Top-10 holder concentration (0–1) |
+| `--min-top70-sniper-hold-rate` / `--max-top70-sniper-hold-rate` | float | Top-70 sniper holding ratio (0–1) |
+| `--min-dev-team-hold-rate` / `--max-dev-team-hold-rate` | float | Dev-team holding ratio (0–1) |
+| `--min-created` / `--max-created` | duration | Token age window (`30m` / `6h` / `7d`). `min_created` = minimum age; `max_created` = maximum age |
 
 **Notes on behaviour:**
 
@@ -1069,32 +1127,26 @@ The response `data` is an array. Each element is one `(interval, chain)` result 
 |-------|------|-------------|
 | `interval` | string | The interval for this block |
 | `chain` | string | The chain for this block |
-| `filter_id` | string | Upstream filter identifier (for WebSocket subscription) |
 | `version` | string | Subscription version — persist it for WebSocket reconnect |
-| `tokens` | array | Ranked tokens, sorted by `score` desc, max 500 |
+| `tokens` | array | Ranked tokens (search heat desc), max 500. Each token carries a 1-based `rank` |
 
-**Token fields use shortcodes** (same scheme as `trending` / `metas`). Common ones:
+**Token fields are the same long-form fields as `market trending`** — the server maps the upstream shortcodes for you, so you read `visiting_count` / `market_cap` / `symbol` directly (NOT `v_c` / `mc` / `s`). Key fields:
 
-| shortcode | Field | Description |
-|-----------|-------|-------------|
-| `a` | address | Token contract address |
-| `c` | chain | Chain |
-| `itv` | interval | Interval this token belongs to |
-| `nm` | name | Token name |
-| `s` | symbol | Token symbol |
-| `p` | price | Current price (USD) |
-| `v_c` | visiting_count | **Primary sort key — search / visit heat** |
-| `sc` | score | fs_trending composite score (secondary sort key) |
-| `mc` | market_cap | Market cap (USD) |
-| `v` | volume | Volume in this interval (USD) |
-| `lq` | liquidity | Liquidity (USD) |
-| `bu` | buys | Buy count |
-| `se` | sells | Sell count |
-| `sw` | swaps | Total swap count |
-| `ot` | open_timestamp | Open market time (Unix seconds) |
-| `hd` | holder_count | Holder count |
+| Field | Description |
+|-------|-------------|
+| `address` | Token contract address |
+| `chain` | Chain |
+| `name` / `symbol` | Token name / ticker |
+| `price` | Current price (USD) |
+| `visiting_count` | **Primary ranking key — search / visit heat** |
+| `market_cap` | Market cap (USD) |
+| `volume` | Volume in this interval (USD) |
+| `liquidity` | Liquidity (USD) |
+| `swaps` / `buys` / `sells` | Swap / buy / sell counts |
+| `holder_count` | Holder count |
+| `rank` | 1-based position within the block |
 
-The full field set (100+ items) shares the same shortcode vocabulary as `trending` / `metas`.
+See the [`market trending` Response Fields](#market-trending-response-fields) section above for the full field set — hot-searches tokens use the identical `RankItem` shape.
 
 ### `market hot-searches` Usage Examples
 
@@ -1108,14 +1160,22 @@ gmgn-cli market hot-searches --chain sol --interval 24h --raw
 # SOL + BSC + Base, 1h window, top 50 per chain
 gmgn-cli market hot-searches --chain sol --chain bsc --chain base --interval 1h --limit 50 --raw
 
-# SOL with custom filters
+# SOL with custom boolean filters
 gmgn-cli market hot-searches --chain sol --interval 24h \
   --filter renounced --filter frozen --raw
 
-# Full per-param override via JSON (different filters per chain)
+# SOL 1h hot-searches with numeric range filters (same metric names as `market trending`)
+gmgn-cli market hot-searches --chain sol --interval 1h \
+  --min-liquidity 10000 --min-volume 5000 --min-smart-degen-count 1 --raw
+
+# Range filter by token age + market cap
+gmgn-cli market hot-searches --chain sol --interval 24h \
+  --max-created 7d --min-marketcap 50000 --raw
+
+# Full per-param override via JSON (different filters per chain, incl. ranges)
 gmgn-cli market hot-searches --raw --params '[
-  {"label":"hot-search","chain":"sol","interval":"24h","filter":{"filters":["renounced","frozen"],"limit":500}},
-  {"label":"hot-search","chain":"bsc","interval":"24h","filter":{"filters":["not_honeypot","verified","renounced"],"limit":500}}
+  {"label":"hot-search","chain":"sol","interval":"24h","filters":["renounced","frozen"],"limit":500,"min_liquidity":10000},
+  {"label":"hot-search","chain":"bsc","interval":"24h","filters":["not_honeypot","verified","renounced"],"limit":500}
 ]'
 ```
 
@@ -1125,7 +1185,7 @@ Present per chain, ranked by `visiting_count` (search heat):
 
 ```
 🔥 Hot Searches — {chain} ({interval})
-# | Symbol | Price | MCap | Volume | Search Heat (v_c) | Liq
+# | Symbol | Price | MCap | Volume | Search Heat (visiting_count) | Liq
 ```
 
 ---
@@ -1134,7 +1194,7 @@ Present per chain, ranked by `visiting_count` (search heat):
 
 - `market kline`: `--from` and `--to` are Unix timestamps in **seconds** — CLI converts to milliseconds automatically
 - `market trending`: `--filter` and `--platform` are repeatable flags
-- `market hot-searches`: `--chain` and `--filter` are repeatable flags; omit `--chain` to query the default 7-chain set
+- `market hot-searches`: `--chain` and `--filter` are repeatable flags; omit `--chain` to query the default 7-chain set. `--min-*`/`--max-*` range flags reuse the same metric names as `market trending` and are translated server-side per `--interval`
 - All commands use exist auth (API Key only, no signature)
 - If the user doesn't provide kline timestamps, calculate them from the current time based on their desired time range
 - Use `--raw` to get single-line JSON for further processing

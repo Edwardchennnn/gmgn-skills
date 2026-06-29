@@ -491,6 +491,10 @@ gmgn-cli market hot-searches --raw
 
 # Hot searches — SOL only, 1h window, top 50
 gmgn-cli market hot-searches --chain sol --interval 1h --limit 50 --raw
+
+# Hot searches — SOL with range filters (same metric names as trending)
+gmgn-cli market hot-searches --chain sol --interval 1h \
+  --min-liquidity 10000 --min-smart-degen-count 1 --raw
 ```
 
 ### Portfolio

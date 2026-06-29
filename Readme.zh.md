@@ -515,6 +515,10 @@ gmgn-cli market hot-searches --raw
 
 # 热搜榜——仅 SOL，1h 档，前 50
 gmgn-cli market hot-searches --chain sol --interval 1h --limit 50 --raw
+
+# 热搜榜——SOL 数值范围过滤（指标名与 trending 一致）
+gmgn-cli market hot-searches --chain sol --interval 1h \
+  --min-liquidity 10000 --min-smart-degen-count 1 --raw
 ```
 
 ### Portfolio
