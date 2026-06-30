@@ -47,6 +47,11 @@ const MESSAGES = {
       "配置驗證失敗：API Key 與本地密鑰不匹配。\n請確認：\n1. API Key 是否填寫正確；\n2. 創建 API Key 時，是否使用的是頁面自動填入的公鑰。",
     en: "Configuration verification failed: API Key does not match your local key pair.\nPlease confirm:\n1. Whether the API Key was entered correctly.\n2. Whether you used the public key that was pre-filled on the page when creating the API Key.",
   },
+  verifyNetworkFail: {
+    "zh-CN": "配置已写入，但验证请求失败（可能是网络问题）。你可以先尝试使用，如遇接口报错再重新配置。",
+    "zh-TW": "配置已寫入，但驗證請求失敗（可能是網路問題）。你可以先嘗試使用，如遇介面報錯再重新配置。",
+    en: "Configuration saved, but the verification request failed (possibly a network issue). You can try using it now and reconfigure if you encounter API errors.",
+  },
 };
 
 function getOrCreateKeypair(): string {
@@ -83,12 +88,20 @@ function writeEnv(apiKey: string, privatePem: string): void {
   fs.writeFileSync(ENV_FILE, content, { mode: 0o600 });
 }
 
-function verify(): boolean {
+function verify(): "ok" | "auth_fail" | "network_fail" {
   try {
     execSync("gmgn-cli track follow-wallet --chain sol --limit 1", { stdio: "pipe" });
-    return true;
-  } catch {
-    return false;
+    return "ok";
+  } catch (e: unknown) {
+    const output = (() => {
+      if (e && typeof e === "object" && "stderr" in e) return String((e as { stderr: unknown }).stderr);
+      if (e && typeof e === "object" && "stdout" in e) return String((e as { stdout: unknown }).stdout);
+      return String(e);
+    })();
+    if (/401|403|unauthorized|forbidden|invalid.*key|key.*invalid|signature/i.test(output)) {
+      return "auth_fail";
+    }
+    return "network_fail";
   }
 }
 
@@ -123,12 +136,14 @@ export function registerConfigCommands(program: Command): void {
         }
         writeEnv(opts.apply, match[1]);
 
-        const ok = verify();
-        if (ok) {
+        const result = verify();
+        if (result === "ok") {
           console.log(MESSAGES.verifySuccess[lang]);
-        } else {
+        } else if (result === "auth_fail") {
           console.error(MESSAGES.verifyFail[lang]);
           process.exit(1);
+        } else {
+          console.log(MESSAGES.verifyNetworkFail[lang]);
         }
         return;
       }
