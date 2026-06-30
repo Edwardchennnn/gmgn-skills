@@ -734,6 +734,12 @@ gmgn-cli order strategy cancel \
 
 ---
 
+### Credential Model
+
+- `GMGN_PRIVATE_KEY` is used exclusively for **local message signing** — the private key never leaves the machine. The CLI computes an Ed25519 signature in-process and transmits only the base64-encoded result in the `X-Signature` request header.
+- `GMGN_API_KEY` is transmitted in the `X-APIKEY` header over HTTPS.
+- Neither credential is ever passed as a command-line argument.
+
 ## Notes
 
 - Swap uses **signed auth** (API Key + signature) — CLI handles signing automatically, no manual processing needed

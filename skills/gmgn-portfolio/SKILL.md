@@ -352,6 +352,12 @@ PnL Ratio:       {pnl}x
 
 Show the `[Identity: ...]` line only if `common` is present in the response. For batch queries (multiple wallets), present one summary block per wallet.
 
+### Credential Model
+
+- `GMGN_PRIVATE_KEY` is used exclusively for **local message signing** — the private key never leaves the machine. The CLI computes an Ed25519 signature in-process and transmits only the base64-encoded result in the `X-Signature` request header.
+- `GMGN_API_KEY` is transmitted in the `X-APIKEY` header over HTTPS.
+- Neither credential is ever passed as a command-line argument.
+
 ## Notes
 
 - `portfolio holdings` uses **critical auth** (`GMGN_API_KEY` + `GMGN_PRIVATE_KEY` required — CLI signs the request automatically). All other portfolio commands use exist auth (API Key only, no signature required).
