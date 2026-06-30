@@ -1,3 +1,4 @@
+import { config as loadDotenv } from "dotenv";
 import { Command } from "commander";
 import * as crypto from "crypto";
 import * as fs from "fs";
@@ -103,6 +104,8 @@ export function registerConfigCommands(program: Command): void {
       const lang = detectLang();
 
       if (opts.check) {
+        loadDotenv({ path: ENV_FILE, override: true });
+        loadDotenv();
         process.exit(process.env.GMGN_API_KEY ? 0 : 1);
       }
 
