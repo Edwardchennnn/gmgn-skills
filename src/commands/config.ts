@@ -93,11 +93,10 @@ function verify(): "ok" | "auth_fail" | "network_fail" {
     execSync("gmgn-cli track follow-wallet --chain sol --limit 1", { stdio: "pipe" });
     return "ok";
   } catch (e: unknown) {
-    const output = (() => {
-      if (e && typeof e === "object" && "stderr" in e) return String((e as { stderr: unknown }).stderr);
-      if (e && typeof e === "object" && "stdout" in e) return String((e as { stdout: unknown }).stdout);
-      return String(e);
-    })();
+    const output = [
+      (e as any).stderr?.toString() ?? "",
+      (e as any).stdout?.toString() ?? "",
+    ].join(" ");
     if (/401|403|unauthorized|forbidden|invalid.*key|key.*invalid|signature/i.test(output)) {
       return "auth_fail";
     }
