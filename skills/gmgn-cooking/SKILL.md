@@ -102,6 +102,12 @@ When a request returns `429`:
 - `cooking create` is a real transaction: **never loop or auto-resubmit** after a `429`. Wait until the reset time, then ask for confirmation again before retrying.
 - For `RATE_LIMIT_EXCEEDED` or `RATE_LIMIT_BANNED`, repeated requests during cooldown extend the ban by 5 seconds each time, up to 5 minutes.
 
+### Credential Model
+
+- `GMGN_PRIVATE_KEY` is used exclusively for **local message signing** — the private key never leaves the machine. The CLI computes an Ed25519 signature in-process and transmits only the base64-encoded result in the `X-Signature` request header.
+- `GMGN_API_KEY` is transmitted in the `X-APIKEY` header over HTTPS.
+- Neither credential is ever passed as a command-line argument.
+
 ## `cooking stats` Usage
 
 ```bash
@@ -657,12 +663,6 @@ Once all information is collected, present the pre-create confirmation summary (
 - **Chain-wallet compatibility** — SOL addresses are incompatible with EVM chains and vice versa. Warn the user and abort if the address format does not match the chain.
 - **Order polling** — After `cooking create`, if `status` is `pending`, poll `order get` every 2 seconds up to 30 seconds. The token address is in `report.output_token`. Do not report success until `status` is `confirmed`.
 - **Credential sensitivity** — `GMGN_API_KEY` and `GMGN_PRIVATE_KEY` can execute real transactions. Never log, display, or expose these values.
-
-### Credential Model
-
-- `GMGN_PRIVATE_KEY` is used exclusively for **local message signing** — the private key never leaves the machine. The CLI computes an Ed25519 signature in-process and transmits only the base64-encoded result in the `X-Signature` request header.
-- `GMGN_API_KEY` is transmitted in the `X-APIKEY` header over HTTPS.
-- Neither credential is ever passed as a command-line argument.
 
 ## Notes
 
