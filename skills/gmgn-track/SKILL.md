@@ -369,12 +369,6 @@ To research any token surfaced by smart money activity, follow [`docs/workflow-t
 - **`follow-wallet` reveals your following list** — results expose which wallets you have followed on GMGN. Do not share raw output in public channels.
 - **`track kol` / `track smartmoney` expose no personal data** — these use API Key auth only and return platform-tagged public wallet activity. Safe to share raw output.
 
-### Credential Model
-
-- `GMGN_PRIVATE_KEY` is used exclusively for **local message signing** — the private key never leaves the machine. The CLI computes an Ed25519 signature in-process and transmits only the base64-encoded result in the `X-Signature` request header.
-- `GMGN_API_KEY` is transmitted in the `X-APIKEY` header over HTTPS.
-- Neither credential is ever passed as a command-line argument.
-
 ## Notes
 
 - `track follow-tokens` uses exist auth (API Key only); `--wallet` is required

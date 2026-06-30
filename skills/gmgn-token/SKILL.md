@@ -707,12 +707,6 @@ SM holders: {smart_wallets}   KOL holders: {renowned_wallets}
 
 Show top rows only. Highlight wallets tagged `kol`, `smart_degen`, or flagged `bundler` / `rat_trader` in `maker_token_tags`.
 
-### Credential Model
-
-- `GMGN_PRIVATE_KEY` is used exclusively for **local message signing** — the private key never leaves the machine. The CLI computes an Ed25519 signature in-process and transmits only the base64-encoded result in the `X-Signature` request header.
-- `GMGN_API_KEY` is transmitted in the `X-APIKEY` header over HTTPS.
-- Neither credential is ever passed as a command-line argument.
-
 ## Notes
 
 - **Market cap is not returned directly** — calculate it as `price.price × circulating_supply` (`price` is now a nested object; use `price.price` for the current USD price string, and `circulating_supply` is a top-level field already in human-readable token units). Example: `price.price="3.11"` × `circulating_supply=999999151` ≈ $3.11B market cap.
