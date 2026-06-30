@@ -409,9 +409,11 @@ The response `data` is an array — one element per wallet:
 
 ### Credential Model
 
-- `GMGN_PRIVATE_KEY` is used exclusively for **local message signing** — the private key never leaves the machine. The CLI computes an Ed25519 signature in-process and transmits only the base64-encoded result in the `X-Signature` request header.
-- `GMGN_API_KEY` is transmitted in the `X-APIKEY` header over HTTPS.
-- Neither credential is ever passed as a command-line argument.
+- Both `GMGN_API_KEY` and `GMGN_PRIVATE_KEY` are read from the `.env` file by the CLI at startup. They are **never passed as command-line arguments** and never appear in shell command strings.
+- `GMGN_PRIVATE_KEY` is used exclusively for **local message signing** — the private key never leaves the machine. The CLI computes an Ed25519 or RSA-SHA256 signature in-process and transmits only the base64-encoded result in the `X-Signature` request header.
+- `GMGN_API_KEY` is transmitted in the `X-APIKEY` request header to GMGN's servers over HTTPS.
+
+---
 
 ## `order quote` Usage
 
