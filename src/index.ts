@@ -11,6 +11,7 @@ import { registerPortfolioCommands } from "./commands/portfolio.js";
 import { registerTrackCommands } from "./commands/track.js";
 import { registerSwapCommands } from "./commands/swap.js";
 import { registerCookingCommands } from "./commands/cooking.js";
+import { registerConfigCommands } from "./commands/config.js";
 
 const proxy = process.env.HTTPS_PROXY ?? process.env.https_proxy
            ?? process.env.HTTP_PROXY  ?? process.env.http_proxy;
@@ -60,6 +61,7 @@ registerPortfolioCommands(program);
 registerTrackCommands(program);
 registerSwapCommands(program);
 registerCookingCommands(program);
+registerConfigCommands(program);
 
 program.parseAsync().catch((err) => {
   console.error(`[gmgn-cli] ${err.message}`);
