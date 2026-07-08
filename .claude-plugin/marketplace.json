@@ -1,7 +1,7 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "gmgn-cli",
-  "description": "GMGN OpenAPI skills for AI coding assistants — token info, market data, wallet portfolio, and swap execution across sol / bsc / base / eth / monad",
+  "description": "GMGN OpenAPI skills for AI coding assistants — token info, market data, wallet portfolio, and swap execution across sol / bsc / base / eth / robinhood",
   "owner": {
     "name": "GMGN"
   },

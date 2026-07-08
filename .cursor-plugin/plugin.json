@@ -1,6 +1,6 @@
 {
   "name": "gmgn-cli",
-  "description": "GMGN OpenAPI skills — token info, market data, wallet portfolio, and swap execution across sol / bsc / base / eth / monad",
+  "description": "GMGN OpenAPI skills — token info, market data, wallet portfolio, and swap execution across sol / bsc / base / eth / robinhood",
   "version": "1.0.0",
   "author": {
     "name": "GMGN"

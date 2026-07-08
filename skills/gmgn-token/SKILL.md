@@ -1,7 +1,7 @@
 ---
 name: gmgn-token
 description: Research any crypto or meme token by address — real-time price, market cap, liquidity, holder list, trader list, top Smart Money and KOL positions, security audit (honeypot, rug pull risk, dev wallet, renounced status), social links (Twitter/X, website) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks about a token's price, safety, holders, traders, smart money exposure, or wants due diligence before buying.
-argument-hint: "<sub-command> --chain <sol|bsc|base|eth> --address <token_address>"
+argument-hint: "<sub-command> --chain <sol|bsc|base|eth|robinhood> --address <token_address>"
 metadata:
   cliHelp: "gmgn-cli token --help"
 ---
@@ -19,7 +19,7 @@ Use the `gmgn-cli` tool to query token information based on the user's request.
 ## Core Concepts
 
 - **Token address** — The on-chain contract address that uniquely identifies a token on its chain. Required for all token sub-commands. Format: base58 (SOL) or `0x...` hex (BSC/Base).
-- **Chain** — The blockchain network: `sol` = Solana, `bsc` = BNB Smart Chain, `base` = Base (Coinbase L2), `eth` = Ethereum mainnet.
+- **Chain** — The blockchain network: `sol` = Solana, `bsc` = BNB Smart Chain, `base` = Base (Coinbase L2), `eth` = Ethereum mainnet, `robinhood` = Robinhood chain.
 - **Market cap** — Not returned directly by `token info`. Calculate as `price.price × circulating_supply` (`price` is a nested object; use `price.price` for the current USD price string).
 - **Liquidity** — USD value of token reserves in the main trading pool. Low liquidity (< $10k) means high price impact / slippage when buying or selling.
 - **Holder** — A wallet that currently holds the token. `token holders` returns wallets ranked by current balance.
@@ -44,7 +44,7 @@ Use the `gmgn-cli` tool to query token information based on the user's request.
 
 ## Supported Chains
 
-`sol` / `bsc` / `base` / `eth`
+`sol` / `bsc` / `base` / `eth` / `robinhood`
 
 ## Prerequisites
 
@@ -74,7 +74,7 @@ When a request returns `429`:
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `--address` | Yes | Token contract address |
 | `--raw` | No | Output raw single-line JSON (for piping or further processing) |
 
@@ -82,7 +82,7 @@ When a request returns `429`:
 
 | Parameter | Required | Default | Description |
 |-----------|----------|---------|-------------|
-| `--chain` | Yes | — | `sol` / `bsc` / `base` / `eth` |
+| `--chain` | Yes | — | `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `--address` | Yes | — | Token contract address |
 | `--limit` | No | `20` | Number of results, max `100` |
 | `--order-by` | No | `amount_percentage` | Sort field — see table below |

@@ -58,7 +58,7 @@ Use the `gmgn-cli` tool to submit a token swap or query an existing order. `GMGN
 
 ## Supported Chains
 
-`sol` / `bsc` / `base` / `eth`
+`sol` / `bsc` / `base` / `eth` / `robinhood`
 
 ## Chain Currencies
 
@@ -154,7 +154,7 @@ gmgn-cli swap \
 
 | Parameter | Required | Chain | Description |
 |-----------|----------|-------|-------------|
-| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` |
+| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `--from` | Yes | all | Wallet address (must match API Key binding) |
 | `--input-token` | Yes | all | Input token contract address |
 | `--output-token` | Yes | all | Output token contract address |
@@ -372,7 +372,7 @@ gmgn-cli multi-swap \
 
 | Parameter | Required | Chain | Description |
 |-----------|----------|-------|-------------|
-| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` |
+| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `--accounts` | Yes | all | Comma-separated wallet addresses (1–100, all must be bound to the API Key) |
 | `--input-token` | Yes | all | Input token contract address |
 | `--output-token` | Yes | all | Output token contract address |
@@ -539,7 +539,7 @@ gmgn-cli order strategy create \
 
 | Parameter | Required | Chain | Description |
 |-----------|----------|-------|-------------|
-| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` |
+| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `--from` | Yes | all | Wallet address (must match API Key binding) |
 | `--base-token` | Yes | all | Base token contract address |
 | `--quote-token` | Yes | all | Quote token contract address |
@@ -596,7 +596,7 @@ gmgn-cli order strategy list --chain sol --group-tag STMix --base-token <token_a
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `--type` | No | `open` (default) / `history` |
 | `--from` | No | Filter by wallet address |
 | `--group-tag` | Yes | Filter by order group: `LimitOrder` (limit orders only) / `STMix` (mixed strategy orders: take-profit, stop-loss, trailing take-profit, trailing stop-loss) |
@@ -620,7 +620,7 @@ gmgn-cli order strategy list --chain sol --group-tag STMix --base-token <token_a
 | `auto_slippage`            | bool   | Whether auto slippage is enabled |
 | `base_decimal`             | int    | Base token decimal places |
 | `base_token`               | string | Base token contract address |
-| `chain`                    | string | Chain: `sol` / `bsc` / `base` / `eth` |
+| `chain`                    | string | Chain: `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `close_amount`             | string | Token amount sold on close; empty when order is open |
 | `close_price`              | string | Token price at close; empty when order is open |
 | `close_sell_model`         | string | Sell model used on close; empty when order is open |
@@ -734,7 +734,7 @@ gmgn-cli order strategy cancel \
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `--from` | Yes | Wallet address (must match API Key binding) |
 | `--order-id` | Yes | Order ID to cancel |
 | `--order-type` | No | Order type: `limit_order` (limit order) / `smart_trade` (mixed strategy order: take-profit, stop-loss, trailing take-profit, trailing stop-loss) |

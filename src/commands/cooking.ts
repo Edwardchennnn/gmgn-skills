@@ -81,6 +81,10 @@ export function registerCookingCommands(program: Command): void {
         process.exit(1);
       }
       validateChain(opts.chain);
+      if (opts.chain === "robinhood") {
+        console.error(`[gmgn-cli] cooking create does not support robinhood, got "${opts.chain}"`);
+        process.exit(1);
+      }
       const params: CreateTokenParams = {
         chain: opts.chain,
         dex: opts.dex,

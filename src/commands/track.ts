@@ -10,7 +10,7 @@ export function registerTrackCommands(program: Command): void {
   track
     .command("follow-tokens")
     .description("Get the followed token list for a wallet on a given chain")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
     .requiredOption("--wallet <address>", "Wallet address")
     .option("--group-id <id>", "Filter by group: all_group (all), default, or a user-defined group ID")
     .option("--interval <interval>", "Time interval for price change stats (e.g. 1m, 5m, 1h, 6h, 24h)")
@@ -38,7 +38,7 @@ export function registerTrackCommands(program: Command): void {
   track
     .command("follow-token-groups")
     .description("Get the follow token group names for a wallet on a given chain")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
     .requiredOption("--wallet <address>", "Wallet address")
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
@@ -51,7 +51,7 @@ export function registerTrackCommands(program: Command): void {
   track
     .command("follow-wallet")
     .description("Get follow-wallet trade records")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
     .option("--wallet <address>", "Filter by wallet address")
     .option("--limit <n>", "Page size (1–100, default 10)", parseInt)
     .option("--side <side>", "Trade direction filter: buy / sell")
@@ -82,6 +82,10 @@ export function registerTrackCommands(program: Command): void {
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
       if (opts.chain) validateChain(opts.chain);
+      if (opts.chain === "robinhood") {
+        console.error(`[gmgn-cli] track kol does not support robinhood, got "${opts.chain}"`);
+        process.exit(1);
+      }
       const client = new OpenApiClient(getConfig());
       const data = await client.getKol(opts.chain, opts.limit).catch(exitOnError) as { list?: { side: string }[] };
       if (opts.side && data?.list) {
@@ -99,6 +103,10 @@ export function registerTrackCommands(program: Command): void {
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
       if (opts.chain) validateChain(opts.chain);
+      if (opts.chain === "robinhood") {
+        console.error(`[gmgn-cli] track smartmoney does not support robinhood, got "${opts.chain}"`);
+        process.exit(1);
+      }
       const client = new OpenApiClient(getConfig());
       const data = await client.getSmartMoney(opts.chain, opts.limit).catch(exitOnError) as { list?: { side: string }[] };
       if (opts.side && data?.list) {
