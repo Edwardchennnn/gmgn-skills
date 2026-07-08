@@ -540,6 +540,8 @@ gmgn-cli track smartmoney --chain sol --side sell --limit 50 --raw
 
 ### Swap / Quote / Query
 
+> **Human confirmation is enforced in code.** `swap`, `multi-swap`, `order strategy create`, and `cooking create` prompt for a typed `yes` on the terminal before executing. For non-interactive/automated use you must both set `GMGN_ALLOW_AUTOMATED_TRADES=1` in your shell and pass `--yes`; `--yes` alone is rejected. This guards against an AI agent being tricked (e.g. by malicious token metadata) into placing a trade without you.
+
 ```bash
 # Submit swap with fixed slippage
 gmgn-cli swap \
