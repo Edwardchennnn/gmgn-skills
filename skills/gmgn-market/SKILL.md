@@ -1037,7 +1037,7 @@ Returns the hot-search ranking — the tokens people are searching for most righ
 
 | Option | Description |
 |--------|-------------|
-| `--chain <chain...>` | Repeatable. `sol` / `bsc` / `base` / `eth` / `robinhood`. **Omit to query the default 4-chain set** (sol / bsc / base / eth, each at `24h` with chain-appropriate safety filters). |
+| `--chain <chain...>` | Repeatable. `sol` / `bsc` / `base` / `eth` / `robinhood`. **Omit to query the default 5-chain set** (sol / bsc / base / eth / robinhood, each at `24h` with chain-appropriate safety filters). |
 | `--interval <interval>` | `1m` / `5m` / `1h` / `6h` / `24h` (default `24h`). Applies to every `--chain` provided. |
 | `--limit <n>` | Max results per chain (default `500`). |
 | `--filter <tag...>` | Repeatable **boolean** filter tags (the downstream `filter.filters` array). **⚠️ SOL defaults: `renounced frozen`; EVM defaults: `not_honeypot verified renounced`.** Omitting `--filter` is NOT "no filter" — the server applies chain defaults. See the Filter Tags table below for the exact vocabulary. |
@@ -1103,7 +1103,7 @@ Numeric bounds use the **same rank-style metric names as `market trending`**. Th
 
 **Notes on behaviour:**
 
-- `--chain all` is **not** valid. To aggregate across chains, pass `--chain` multiple times (or omit `--chain` for the default 4-chain set).
+- `--chain all` is **not** valid. To aggregate across chains, pass `--chain` multiple times (or omit `--chain` for the default 5-chain set).
 - When you pass `--chain` but omit `--filter`, the **server** applies the chain-appropriate default filters — so each chain is filtered even without an explicit `--filter`.
 - Different chains return different counts: a chain's token count depends on how many of its tokens made the global top-500 (sol is usually the largest).
 
@@ -1139,7 +1139,7 @@ See the [`market trending` Response Fields](#market-trending-response-fields) se
 ### `market hot-searches` Usage Examples
 
 ```bash
-# Default 4-chain hot-search ranking (sol/bsc/base/eth, each 24h)
+# Default 5-chain hot-search ranking (sol/bsc/base/eth/robinhood, each 24h)
 gmgn-cli market hot-searches --raw
 
 # SOL only, 24h hot-search list
@@ -1182,7 +1182,7 @@ Present per chain, ranked by `visiting_count` (search heat):
 
 - `market kline`: `--from` and `--to` are Unix timestamps in **seconds** — CLI converts to milliseconds automatically
 - `market trending`: `--filter` and `--platform` are repeatable flags
-- `market hot-searches`: `--chain` and `--filter` are repeatable flags; omit `--chain` to query the default 7-chain set. `--min-*`/`--max-*` range flags reuse the same metric names as `market trending` and are translated server-side per `--interval`
+- `market hot-searches`: `--chain` and `--filter` are repeatable flags; omit `--chain` to query the default 5-chain set. `--min-*`/`--max-*` range flags reuse the same metric names as `market trending` and are translated server-side per `--interval`
 - All commands use exist auth (API Key only, no signature)
 - If the user doesn't provide kline timestamps, calculate them from the current time based on their desired time range
 - Use `--raw` to get single-line JSON for further processing

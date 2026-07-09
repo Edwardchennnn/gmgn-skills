@@ -367,7 +367,7 @@ gmgn-cli market signal --chain sol --groups '<json_array>' [--raw]
 Query the hot-search ranking — the most-searched tokens, ranked by `visiting_count` (search heat). Cross-chain top-500; one request can cover several chains at once. API Key auth only.
 
 ```bash
-# Default 4-chain set (sol/bsc/base/eth, each 24h):
+# Default 5-chain set (sol/bsc/base/eth/robinhood, each 24h):
 gmgn-cli market hot-searches [--raw]
 
 # Specific chain(s) and interval:
@@ -379,7 +379,7 @@ gmgn-cli market hot-searches --params '<json_array>' [--raw]
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | No | Repeatable: `sol` / `bsc` / `base` / `eth` / `robinhood`. Omit for the default 4-chain set. |
+| `--chain` | No | Repeatable: `sol` / `bsc` / `base` / `eth` / `robinhood`. Omit for the default 5-chain set. |
 | `--interval` | No | `1m` / `5m` / `1h` / `6h` / `24h` (default `24h`). Applies to every `--chain`. |
 | `--limit` | No | Max results per chain (default `500`). |
 | `--filter` | No | Repeatable **boolean** filter tags (downstream `filter.filters`). sol defaults: `renounced` / `frozen`; EVM defaults: `not_honeypot` / `verified` / `renounced`. Recognised tags: `renounced` / `frozen` (sol) / `is_burnt` / `token_burnt` / `not_wash_trading` / `not_honeypot` (EVM) / `verified` (EVM) / `locked` (EVM) / `has_social` / `distribed` / `not_risk` / `img_not_duplicate` / `social_not_duplicate` / `creator_hold` / `creator_close` / `dexscr_update_link` / `launching` / `migrated` / `hide_b20` (base) / `hide_non_b20` (base). Unknown tags are silent no-ops. |

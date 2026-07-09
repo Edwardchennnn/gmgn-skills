@@ -246,7 +246,7 @@ export function registerMarketCommands(program: Command): void {
         process.exit(1);
       }
     } else {
-      // Empty params lets the server apply its default 7-chain config. Filter fields
+      // Empty params lets the server apply its default 5-chain config. Filter fields
       // are flattened directly onto each param (no nested `filter` object).
       const optsMap = opts as Record<string, unknown>;
       const chains: string[] = opts.chain?.length ? (opts.chain as string[]) : [];
