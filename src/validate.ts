@@ -1,4 +1,4 @@
-const VALID_CHAINS = new Set(["sol", "bsc", "base", "eth", "monad"]);
+const VALID_CHAINS = new Set(["sol", "bsc", "base", "eth", "robinhood" /*, "monad" */]);
 const SOL_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const POSITIVE_INT_RE = /^\d+$/;
@@ -13,7 +13,7 @@ export function validateChain(chain: string): void {
 }
 
 export function validateAddress(address: string, chain: string, label: string): void {
-  const isEvm = chain === "bsc" || chain === "base" || chain === "eth" || chain === "monad";
+  const isEvm = chain === "bsc" || chain === "base" || chain === "eth" || chain === "robinhood" /* || chain === "monad" */;
   const valid = isEvm ? EVM_ADDRESS_RE.test(address) : SOL_ADDRESS_RE.test(address);
   if (!valid) {
     console.error(

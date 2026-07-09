@@ -187,7 +187,7 @@ export interface TokenSignalGroup {
 export interface HotSearchesParam {
   label?: string;
   interval: string;       // "1m" | "5m" | "1h" | "6h" | "24h"
-  chain: string;          // "sol" | "bsc" | "base" | "eth" | "monad" | "megaeth" | "hyperevm" | "tron"
+  chain: string;          // "sol" | "bsc" | "base" | "eth" | "robinhood"
   filters?: string[];
   limit?: number;
   [key: string]: string[] | number | string | undefined;

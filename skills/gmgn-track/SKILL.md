@@ -59,7 +59,9 @@ Use the `gmgn-cli` tool to query on-chain tracking data based on the user's requ
 
 ## Supported Chains
 
-`sol` / `bsc` / `base` / `eth`
+`sol` / `bsc` / `base` / `eth` / `robinhood`
+
+Note: `track kol` and `track smartmoney` do **not** support `robinhood` — they accept `sol` / `bsc` / `base` / `eth` only.
 
 ## Prerequisites
 
@@ -130,7 +132,7 @@ gmgn-cli track smartmoney --chain sol --side sell --limit 10 --raw
 
 | Option | Description |
 |--------|-------------|
-| `--chain` | Required. `sol` / `bsc` / `base` / `eth` |
+| `--chain` | Required. `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `--wallet <address>` | Required. Wallet address to query |
 | `--group-id <id>` | Filter by group: `all_group` (all tokens across groups), `default` (default group), or a user-defined group ID |
 | `--interval <interval>` | Time interval for price change stats (e.g. `1m`, `5m`, `1h`, `6h`, `24h`) |
@@ -172,7 +174,7 @@ Each item in `followings` contains:
 
 | Option | Description |
 |--------|-------------|
-| `--chain` | Required. `sol` / `bsc` / `base` / `eth` |
+| `--chain` | Required. `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `--wallet <address>` | Required. Wallet address to query |
 
 ## `track follow-token-groups` Response Fields
@@ -190,7 +192,7 @@ Each item in `followings` contains:
 
 | Option | Description |
 |--------|-------------|
-| `--chain` | Required. `sol` / `bsc` / `base` / `eth` |
+| `--chain` | Required. `sol` / `bsc` / `base` / `eth` / `robinhood` |
 | `--wallet <address>` | Filter by wallet address |
 | `--limit <n>` | Page size (1–100, default 10) |
 | `--side <side>` | Trade direction: `buy` / `sell` |
