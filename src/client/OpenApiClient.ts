@@ -863,12 +863,17 @@ function buildTrenchesBody(chain: string, types?: string[], platforms?: string[]
   const actualLimit = limit ?? 80;
   const section: Record<string, unknown> = {
     filters: ["offchain", "onchain"],
-    launchpad_platform,
-    quote_address_type,
     launchpad_platform_v2: true,
     limit: actualLimit,
     ...filters,
   };
+  // launchpad_platform / quote_address_type act as allow-list filters: sending an
+  // empty array filters out every result. Configured chains (see the maps above)
+  // supply real values; for any chain missing config we omit the field so the API
+  // applies its own defaults rather than returning an all-empty response. This is a
+  // safety net — new chains should still be added to both maps above.
+  if (launchpad_platform.length) section.launchpad_platform = launchpad_platform;
+  if (quote_address_type.length) section.quote_address_type = quote_address_type;
   const body: Record<string, unknown> = { version: "v2" };
   for (const type of selectedTypes) {
     body[type] = { ...section };
