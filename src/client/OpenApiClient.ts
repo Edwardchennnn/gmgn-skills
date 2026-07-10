@@ -842,6 +842,10 @@ const TRENCHES_PLATFORMS: Record<string, string[]> = {
     "trench", "clanker", "klik", "livo", "stroid",
     "pool_uniswap_v2", "pool_uniswap_v3", "printr",
   ],
+  robinhood: [
+    "noxa", "virtuals_v2", "bankr", "dyorswap",
+    "pool_uniswap_v2", "pool_uniswap_v3", "pool_uniswap_v4",
+  ],
 };
 
 const TRENCHES_QUOTE_ADDRESS_TYPES: Record<string, number[]> = {
@@ -849,6 +853,7 @@ const TRENCHES_QUOTE_ADDRESS_TYPES: Record<string, number[]> = {
   bsc:  [6, 7, 1, 16, 8, 3, 9, 10, 2, 17, 18, 0],
   base: [11, 3, 12, 13, 0],
   eth:  [20, 11, 8, 3, 12, 1, 0],
+  robinhood: [11, 20, 24, 12, 0],
 };
 
 function buildTrenchesBody(chain: string, types?: string[], platforms?: string[], limit?: number, filters?: Record<string, number | string>): Record<string, unknown> {
@@ -858,12 +863,17 @@ function buildTrenchesBody(chain: string, types?: string[], platforms?: string[]
   const actualLimit = limit ?? 80;
   const section: Record<string, unknown> = {
     filters: ["offchain", "onchain"],
-    launchpad_platform,
-    quote_address_type,
     launchpad_platform_v2: true,
     limit: actualLimit,
     ...filters,
   };
+  // launchpad_platform / quote_address_type act as allow-list filters: sending an
+  // empty array filters out every result. Configured chains (see the maps above)
+  // supply real values; for any chain missing config we omit the field so the API
+  // applies its own defaults rather than returning an all-empty response. This is a
+  // safety net — new chains should still be added to both maps above.
+  if (launchpad_platform.length) section.launchpad_platform = launchpad_platform;
+  if (quote_address_type.length) section.quote_address_type = quote_address_type;
   const body: Record<string, unknown> = { version: "v2" };
   for (const type of selectedTypes) {
     body[type] = { ...section };
