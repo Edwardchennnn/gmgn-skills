@@ -1,43 +1,25 @@
----
-name: gmgn-holder-analysis
-description: Token holder chip analysis — deep analysis of holder structure including chip distribution, entry cost, whale/dev/KOL behavior, risk wallets (rat traders, bundlers, snipers), related wallets, smart money signals, and an AI rating based purely on token structure. Use when user asks about holder analysis, 筹码分析, 持仓分析, chip structure, who is holding, or whether a token is safe to buy based on its holder composition.
-argument-hint: "--chain <sol|bsc|base|eth|robinhood> --address <token_address>"
-metadata:
-  cliHelp: "gmgn-cli token holders --help && gmgn-cli portfolio created-tokens --help"
----
-
-**BEFORE RUNNING ANY COMMAND: Run `gmgn-cli config --check`. If exit code is 0, proceed normally. If exit code is 1, run `gmgn-cli config` and show output, then apply the key with `gmgn-cli config --apply <KEY>`. If unknown option, tell user to run `npm install -g gmgn-cli`.**
-
-**IMPORTANT: Always use `gmgn-cli` commands. Do NOT use curl, WebFetch, or visit gmgn.ai.**
-
-When the user asks to analyze holders for a token, extract `--chain` and `--address` from their message, then run the analysis script below. Also detect the user's language: set `LANG` to `'zh'` if the user wrote in Chinese, `'en'` if in English (default `'zh'`).
-
-## Analysis Script
-
-Run the following command, replacing the placeholders with the actual values:
-
-```bash
-python3 ~/.claude/skills/gmgn-holder-analysis/analyze.py <FILL_IN_TOKEN_ADDRESS> <FILL_IN_CHAIN> <FILL_IN_LANG>
-```
-
-- FILL_IN_CHAIN: `sol` for Solana addresses; for EVM `0x...` addresses use `auto` unless the user explicitly specifies a chain (`bsc`/`eth`/`base`)
-- FILL_IN_LANG: `zh` if user wrote Chinese, `en` if English, default `zh`
-
-## Output Rule
-
-Your reply MUST contain ONLY the raw stdout of the script above, pasted verbatim — no introduction, no summary, no extra commentary before or after. Every line of every section must appear. Do not omit, paraphrase, or reformat any part of the output.
-
-<!-- legacy inline script kept below for reference — DO NOT run this block -->
-<!--
-```python
-python3 << 'PYEOF'
-import json, subprocess, time
+#!/usr/bin/env python3
+import json, subprocess, sys, time
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 
-TOKEN_ADDR = "<FILL_IN_TOKEN_ADDRESS>"
-CHAIN      = "<FILL_IN_CHAIN>"
-LANG       = "<FILL_IN_LANG>"   # 'zh' or 'en'
+TOKEN_ADDR = sys.argv[1]
+CHAIN      = sys.argv[2]
+LANG       = sys.argv[3] if len(sys.argv) > 3 else 'zh'
+
+# EVM 地址自动探测链（0x... 且 chain 传入 'auto' 或未明确指定时）
+if CHAIN == 'auto' or (TOKEN_ADDR.startswith('0x') and CHAIN not in ('bsc','eth','base')):
+    for _c in ('bsc', 'eth', 'base'):
+        _r = subprocess.run(['gmgn-cli', 'token', 'holders', '--chain', _c,
+                             '--address', TOKEN_ADDR, '--limit', '5', '--raw'],
+                            capture_output=True, text=True, timeout=15)
+        if _r.returncode == 0:
+            _data = json.loads(_r.stdout)
+            if _data.get('list'):
+                CHAIN = _c
+                break
+    else:
+        CHAIN = 'eth'  # fallback
 WINDOW     = 1800
 now_ts     = int(time.time())
 
@@ -51,30 +33,26 @@ def run_cli(args, timeout=30):
         raise RuntimeError(r.stderr)
     return json.loads(r.stdout)
 
-# Fetch holders and devs in parallel, then created-tokens after extracting creator
-with ThreadPoolExecutor(max_workers=2) as ex:
+with ThreadPoolExecutor(max_workers=3) as ex:
     f_holders = ex.submit(run_cli, ['token', 'holders', '--chain', CHAIN, '--address', TOKEN_ADDR, '--limit', '100'])
     f_devs    = ex.submit(run_cli, ['token', 'holders', '--chain', CHAIN, '--address', TOKEN_ADDR, '--tag', 'dev', '--limit', '20'])
 
-holders = f_holders.result()['list']
-devs    = f_devs.result()['list']
+    # dev 结果一到，立即发起 created-tokens，不等 holders
+    devs = f_devs.result()['list']
+    _creator_tmp = next((d for d in devs if 'creator' in (d.get('maker_token_tags') or [])), None)
+    f_created = None
+    if _creator_tmp:
+        f_created = ex.submit(run_cli, ['portfolio', 'created-tokens', '--chain', CHAIN,
+                                        '--wallet', _creator_tmp['address'],
+                                        '--order-by', 'token_ath_mc', '--direction', 'desc'])
 
-_creator_tmp = next((d for d in devs if 'creator' in (d.get('maker_token_tags') or [])), None)
-created_data = None
-if _creator_tmp:
-    try:
-        created_data = run_cli(['portfolio', 'created-tokens', '--chain', CHAIN,
-                                '--wallet', _creator_tmp['address'],
-                                '--order-by', 'market_cap', '--direction', 'desc'])
-    except: pass
+    holders      = f_holders.result()['list']
+    created_data = f_created.result() if f_created else None
 
-# ── Wallet classification ────────────────────────────────
-# addr_type: 0=normal, 1=burn, 2=DEX/pool
 normal = [h for h in holders if h.get('addr_type', 0) == 0]
 burn   = [h for h in holders if h.get('addr_type', 0) == 1]
 dex    = [h for h in holders if h.get('addr_type', 0) == 2]
 
-# ── Helpers ──────────────────────────────────────────────
 def pct(v):  return v * 100
 def usd(v):
     if v is None: return "$0"
@@ -94,7 +72,6 @@ def age_label(entry_ts):
 def addr_short(addr):
     return f"{addr[:4]}...{addr[-4:]}"
 
-# ── Price / MC ───────────────────────────────────────────
 supply_list  = [h['balance']/h['amount_percentage'] for h in normal
                 if h.get('amount_percentage',0)>0 and h.get('balance',0)>0]
 total_supply = sorted(supply_list)[len(supply_list)//2] if supply_list else 1_000_000_000
@@ -108,9 +85,6 @@ dex_pct  = sum(h['amount_percentage'] for h in dex)
 top10    = sum(h['amount_percentage'] for h in holders[:10])
 top20    = sum(h['amount_percentage'] for h in holders[:20])
 
-# ── Risk wallets ─────────────────────────────────────────
-# maker_token_tags: bundler, rat_trader, sniper, whale, top_holder, transfer_in, dev_team, creator
-# tags: smart_degen, pump_smart, renowned, fresh_wallet, wash_trader, fomo, kol
 airdrop  = [h for h in normal if h.get('buy_tx_count_cur', 0)==0 and h.get('balance', 0)>0]
 bundlers = [h for h in normal if 'bundler'      in (h.get('maker_token_tags') or [])]
 rats     = [h for h in normal if 'rat_trader'   in (h.get('maker_token_tags') or [])]
@@ -123,14 +97,12 @@ risk_pct = sum(h['amount_percentage'] for h in normal if h['address'] in risk_al
 airdrop_pct  = sum(h['amount_percentage'] for h in airdrop)
 rats_pct     = sum(h['amount_percentage'] for h in rats)
 
-# ── Healthy chip ratio ───────────────────────────────────
 normal_pct    = sum(h['amount_percentage'] for h in normal)
 all_bad       = set(h['address'] for h in airdrop) | risk_all
 bad_pct       = sum(h['amount_percentage'] for h in normal if h['address'] in all_bad)
 healthy_pct   = max(normal_pct - bad_pct, 0)
 healthy_ratio = (healthy_pct / normal_pct) if normal_pct > 0 else 0
 
-# ── Related wallets ──────────────────────────────────────
 from_map = defaultdict(list)
 for h in normal:
     fa = (h.get('native_transfer') or {}).get('from_address', '')
@@ -155,7 +127,6 @@ for __,v in win_groups:
 related_pct = sum(h['amount_percentage'] for h in normal if h['address'] in related)
 related_usd = sum(h.get('usd_value',0) for h in normal if h['address'] in related)
 
-# ── Quality signals ──────────────────────────────────────
 smart   = [h for h in normal if any(t in (h.get('tags') or []) for t in ['smart_degen','pump_smart'])]
 kol     = [h for h in normal if 'kol' in (h.get('tags') or []) or 'renowned' in (h.get('tags') or [])]
 whales  = [h for h in normal if 'whale' in (h.get('maker_token_tags') or [])]
@@ -168,14 +139,12 @@ kol_pct     = sum(h['amount_percentage'] for h in kol)
 whale_pct   = sum(h['amount_percentage'] for h in whales)
 diamond_pct = sum(h['amount_percentage'] for h in diamond)
 
-# ── Dev data ─────────────────────────────────────────────
 top100_map   = {h['address']: h for h in holders}
 creator      = next((d for d in devs if 'creator' in (d.get('maker_token_tags') or [])), None)
 sub_devs     = [d for d in devs if 'creator' not in (d.get('maker_token_tags') or [])]
 dev_realized = sum(d.get('realized_profit') or 0 for d in devs)
 dev_holding  = [d for d in devs if (d.get('balance') or 0)>=1]
 
-# ── Holding metrics ──────────────────────────────────────
 valid_starts  = [h['start_holding_at'] for h in holders if (h.get('start_holding_at') or 0)>0]
 token_launch  = min(valid_starts) if valid_starts else now_ts
 durations     = [now_ts-h['start_holding_at'] for h in normal
@@ -186,8 +155,6 @@ profit_w = [h for h in normal if (h.get('profit') or 0)>0]
 loss_w   = [h for h in normal if (h.get('profit') or 0)<0]
 trapped  = [h for h in normal if (h.get('unrealized_pnl') or 0)<-0.2 and h.get('balance',0)>0]
 
-# ── Buying power ─────────────────────────────────────────
-# SOL: native_balance in lamports (1e9); EVM: in wei (1e18)
 NATIVE_PRICE = 160 if CHAIN == 'sol' else (700 if CHAIN == 'bsc' else 2500)
 NATIVE_DENOM = 1e9  if CHAIN == 'sol' else 1e18
 def native_usd(h): return int(h.get('native_balance') or 0)/NATIVE_DENOM*NATIVE_PRICE
@@ -202,7 +169,6 @@ high_pct_val = sum(h['amount_percentage'] for h in high_wallets)
 high_total   = sum(native_usd(h) for h in high_wallets)
 total_buying_power = sum(native_usd(h) for h in normal)
 
-# ── Wallet roles / behaviors ─────────────────────────────
 ROLE_MAP = {
     'rat_trader':   _('老鼠仓', 'Rat Trader'),
     'sniper':       _('狙击',   'Sniper'),
@@ -256,7 +222,6 @@ def is_active(h):      return (h.get('buy_tx_count_cur') or 0)+(h.get('sell_tx_c
 def is_selling(h):     return (h.get('sell_tx_count_cur') or 0)>0 and (h.get('balance') or 0)>=1
 def is_buying_only(h): return (h.get('buy_tx_count_cur') or 0)>0 and (h.get('sell_tx_count_cur') or 0)==0
 
-# ── Rating ───────────────────────────────────────────────
 biggest = max(normal, key=lambda h: h['amount_percentage']) if normal else None
 dangers = []
 if rats and rats_pct > 0.1:
@@ -324,7 +289,6 @@ if not exit_signals:
                     _("价格跌破建仓均价支撑", "Price breaks below average entry cost")]
 exit_signals = exit_signals[:3]
 
-# ── Top5 pressure analysis ───────────────────────────────
 top5_holders = sorted(normal, key=lambda h: -h['amount_percentage'])[:5]
 
 def top5_pressure(h):
@@ -367,9 +331,6 @@ def top5_pressure(h):
     beh_str = ("  " + _("行为", "behavior") + ": " + beh) if beh else ""
     return role_str, display_id, cost_str, pnl_str, lv, note, beh_str, holding_status(h)
 
-# ══════════════════════════════════════════════════════════
-# OUTPUT
-# ══════════════════════════════════════════════════════════
 title = _("Holder 筹码分析", "Holder Chip Analysis")
 print(f"┌{'─'*56}┐")
 print(f"│{('  '+title):^56}│")
@@ -378,7 +339,6 @@ print(f"│{('  MC '+usd(cur_mc)):^56}│")
 print(f"└{'─'*56}┘")
 print()
 
-# ── Dump Risk ──
 sec1 = _("🚨 砸盘风险", "🚨 Dump Risk")
 print(f"━━  {sec1}  {'━'*(54-len(sec1))}")
 print()
@@ -450,7 +410,6 @@ for i, h in enumerate(top5_holders, 1):
     print(f"       {_('状态', 'status')} {st}{beh_str}")
     print()
 
-# ── Dev Wallets ──
 sec2 = _("👨‍💻 Dev 钱包", "👨‍💻 Dev Wallets")
 print(f"━━  {sec2}  {'━'*(54-len(sec2))}")
 print()
@@ -496,17 +455,17 @@ if creator:
         print(f"  ✅ {_('已完全卖出，无异常转账记录', 'Fully sold, no abnormal transfers')}")
     print()
     if to_addr and to_addr in top100_map:
-        dev_summary = _(  "🔴 Dev 换马甲持仓，这个很危险，随时可以砸盘",
-                          "🔴 Dev using sock puppet — very dangerous, can dump anytime")
+        dev_summary = _("🔴 Dev 换马甲持仓，这个很危险，随时可以砸盘",
+                        "🔴 Dev using sock puppet — very dangerous, can dump anytime")
     elif dev_holding:
-        dev_summary = _(  "🟡 Dev 还没出完，有出货风险，关注钱包动向",
-                          "🟡 Dev hasn't fully exited — dump risk, watch wallet activity")
+        dev_summary = _("🟡 Dev 还没出完，有出货风险，关注钱包动向",
+                        "🟡 Dev hasn't fully exited — dump risk, watch wallet activity")
     elif dev_realized > 50000:
-        dev_summary = _( f"🟡 Dev 已套现 {usd(dev_realized)}，虽然出完了但赚了不少",
-                         f"🟡 Dev cashed out {usd(dev_realized)} — exited but made significant profit")
+        dev_summary = _(f"🟡 Dev 已套现 {usd(dev_realized)}，虽然出完了但赚了不少",
+                        f"🟡 Dev cashed out {usd(dev_realized)} — exited but made significant profit")
     else:
-        dev_summary = _(  "🟢 Dev 已清仓，没有持仓压力",
-                          "🟢 Dev fully exited — no holding pressure")
+        dev_summary = _("🟢 Dev 已清仓，没有持仓压力",
+                        "🟢 Dev fully exited — no holding pressure")
     print(f"  → {_('小结', 'Summary')}{_('：', ': ')}{dev_summary}")
     print()
     if created_data:
@@ -528,7 +487,6 @@ if creator:
             print(f"  {_('历史最高市值', 'All-time high MC')}: {ath_info.get('token_name','')}({ath_info.get('token_symbol','?')}){curr_label}  ATH {usd(float(ath_info.get('ath_mc') or 0))}")
         print()
 
-# ── Related Funds ──
 sec3 = _("🔗 关联资金", "🔗 Related Funds")
 print(f"━━  {sec3}  {'━'*(54-len(sec3))}")
 print()
@@ -559,7 +517,6 @@ else:
     print(f"  {_('未发现明显关联资金', 'No significant linked funds detected')}  🟢")
 print()
 
-# ── Quality Signals ──
 sec4 = _("🧠 优质信号", "🧠 Quality Signals")
 print(f"━━  {sec4}  {'━'*(54-len(sec4))}")
 print()
@@ -602,7 +559,6 @@ else:
 print(f"  → {_('小结', 'Summary')}{_('：', ': ')}{sig_summary}")
 print()
 
-# ── Entry Cost Analysis ──
 sec5 = _("📈 入场成本分析", "📈 Entry Cost Analysis")
 print(f"━━  {sec5}  {'━'*(54-len(sec5))}")
 print()
@@ -686,7 +642,6 @@ for rank, (age, ws) in enumerate(sig_clusters, 1):
         print()
     print()
 
-# ── Buying Power ──
 sec6 = _("💰 持仓者购买力", "💰 Holder Buying Power")
 print(f"━━  {sec6}  {'━'*(54-len(sec6))}")
 print()
@@ -709,7 +664,6 @@ if zero_wallets and zero_pct_val > 0.05:
     print(f"  ➤ {len(zero_wallets)} {_('个钱包零余额（持仓 ', 'wallets with zero balance (hold ')}{pct(zero_pct_val):.1f}%{_('）', ')')}, {_('无加仓能力，可能是分仓小号', 'no buying power, likely sub-wallets')}")
 print()
 
-# ── Chip Structure ──
 sec7 = _("📊 筹码结构", "📊 Chip Structure")
 print(f"━━  {sec7}  {'━'*(54-len(sec7))}")
 print()
@@ -721,7 +675,6 @@ print(f"  {_('套牢盘（浮亏>20%）', 'Underwater (>20% loss)')}   {len(trap
 print(f"  {_('平均持仓时长', 'Avg hold duration')}   {avg_hold_days:.1f} {_('天', 'days')}")
 print()
 
-# ── AI Advice ──
 sec8 = _("🤖 AI 建议", "🤖 AI Advice")
 print(f"━━  {sec8}  {'━'*(54-len(sec8))}")
 print()
@@ -742,67 +695,7 @@ print()
 print(f"  {_('关注以下信号，出现则考虑离场：', 'Watch for these exit signals:')}")
 for sig in exit_signals:
     print(f"    · {sig}")
-PYEOF
-```
--->
-
-## Field Reference
-
-### Holder object key fields
-
-| Field | Type | Meaning |
-|-------|------|---------|
-| `address` | string | Wallet address |
-| `balance` | float | Current token balance |
-| `amount_percentage` | float | Fraction of total supply (0–1). Multiply by 100 for %. |
-| `usd_value` | float | Current USD value of holdings |
-| `avg_cost` | float | Average buy price per token |
-| `unrealized_pnl` | float | Unrealized PnL ratio (0.5 = +50%) |
-| `unrealized_profit` | float | Unrealized PnL in USD |
-| `realized_profit` | float | Realized PnL in USD |
-| `buy_tx_count_cur` | int | Buy transactions since token creation |
-| `sell_tx_count_cur` | int | Sell transactions since token creation |
-| `sell_amount_percentage` | float | Fraction of total buys that have been sold |
-| `start_holding_at` | int | Unix timestamp of first buy |
-| `addr_type` | int | 0=normal wallet, 1=burn/dead, 2=DEX/pool |
-| `maker_token_tags` | list | `bundler`, `rat_trader`, `sniper`, `whale`, `top_holder`, `transfer_in`, `dev_team`, `creator` |
-| `tags` | list | `smart_degen`, `pump_smart`, `renowned`, `fresh_wallet`, `wash_trader`, `fomo`, `kol` |
-| `native_balance` | string | Raw native token balance (SOL: lamports /1e9; EVM: wei /1e18) |
-| `native_transfer` | object | `{from_address, amount, timestamp}` — how wallet was funded |
-| `twitter_name` | string | Twitter handle if known |
-| `exchange` | string | DEX name for pool wallets |
-
-### Created-tokens response fields
-
-| Field | Meaning |
-|-------|---------|
-| `inner_count` | Unmigrated token count |
-| `open_count` | Migrated token count |
-| `tokens[].market_cap` | Current market cap in USD |
-| `tokens[].is_open` | true = migrated |
-| `creator_ath_info.ath_mc` | All-time high MC across all created tokens |
-| `creator_ath_info.ath_token` | Token address of the ATH token |
-| `creator_ath_info.token_symbol` | Symbol of the ATH token |
-
-## Rating Standard
-
-Entry timing pressure (批次浮盈/出货) does **NOT** affect the overall rating — it only affects section display.
-
-| Rating (ZH) | Rating (EN) | Emoji | Condition |
-|-------------|-------------|-------|-----------|
-| 不建议买 | Not Recommended | 🔴 | Any: rat traders >10% / largest wallet >15% / dev sock puppet |
-| 谨慎参与 | Caution | ⚠️ | ≥2 of: Dev still holding / airdrop >15% / risk wallets >30% / linked >10% |
-| 可轻仓   | Light Position | 🟡 | Exactly 1 of above warns |
-| 正常参与 | Normal | ✅ | None of the above |
-
-## Supported Chains
-
-`sol`, `bsc`, `base`, `eth`, `robinhood`
-
-## Notes
-
-- `balance >= 1` threshold avoids dust false positives when identifying dev holdings
-- SOL `native_balance` is in lamports (÷1e9); EVM `native_balance` is in wei (÷1e18)
-- `total_supply` is estimated as the median of `balance / amount_percentage` across normal wallets
-- `cur_price` is estimated as the median of `usd_value / balance` across normal wallets
-- Top5 displays Twitter name when available; else `first4...last4` format
+print()
+print("=" * 58)
+print("  [OUTPUT COMPLETE — COPY ABOVE VERBATIM, DO NOT SUMMARIZE]")
+print("=" * 58)
