@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { OpenApiClient, SwapParams, MultiSwapParams, StrategyCreateParams, StrategyCancelParams } from "../client/OpenApiClient.js";
 import { getConfig } from "../config.js";
 import { exitOnError, printResult } from "../output.js";
+import { confirmTrade } from "../confirm.js";
 import { validateAddress, validateChain, validatePercent, validatePositiveInt } from "../validate.js";
 
 export function registerSwapCommands(program: Command): void {
@@ -27,6 +28,7 @@ export function registerSwapCommands(program: Command): void {
     .option("--max-priority-fee-per-gas <amount>", "EIP-1559 max priority fee per gas (BSC / BASE / ETH)")
     .option("--condition-orders <json>", 'JSON array of take-profit/stop-loss conditions, e.g. \'[{"order_type":"profit_stop","side":"sell","price_scale":"150","sell_ratio":"100"}]\'; trace types: \'[{"order_type":"profit_stop_trace","side":"sell","price_scale":"150","sell_ratio":"100","drawdown_rate":"50"}]\'')
     .option("--sell-ratio-type <type>", "Sell ratio base: buy_amount (default) / hold_amount; only used with --condition-orders")
+    .option("--yes", "Skip the interactive confirmation prompt (requires GMGN_ALLOW_AUTOMATED_TRADES=1)")
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
       if (opts.percent == null && !opts.amount) {
@@ -68,6 +70,20 @@ export function registerSwapCommands(program: Command): void {
       }
       if (opts.sellRatioType) params.sell_ratio_type = opts.sellRatioType;
 
+      confirmTrade({
+        action: "Swap",
+        lines: [
+          `Chain:        ${params.chain}`,
+          `Wallet:       ${params.from_address}`,
+          `Input token:  ${params.input_token}`,
+          `Output token: ${params.output_token}`,
+          opts.percent != null
+            ? `Amount:       ${opts.percent}% of balance`
+            : `Amount:       ${params.input_amount} (smallest unit)`,
+          `Slippage:     ${opts.autoSlippage ? "auto" : (params.slippage ?? "default")}`,
+        ],
+      }, opts.yes);
+
       const client = new OpenApiClient(getConfig(true));
       const data = await client.swap(params).catch(exitOnError);
       printResult(data, opts.raw);
@@ -95,6 +111,7 @@ export function registerSwapCommands(program: Command): void {
     .option("--max-priority-fee-per-gas <amount>", "EIP-1559 max priority fee per gas (BSC / BASE / ETH)")
     .option("--condition-orders <json>", "JSON array of take-profit/stop-loss conditions attached to each successful wallet's swap")
     .option("--sell-ratio-type <type>", "Sell ratio base: buy_amount (default) / hold_amount; only used with --condition-orders")
+    .option("--yes", "Skip the interactive confirmation prompt (requires GMGN_ALLOW_AUTOMATED_TRADES=1)")
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
       if (!opts.inputAmount && !opts.inputAmountBps && !opts.outputAmount) {
@@ -140,6 +157,18 @@ export function registerSwapCommands(program: Command): void {
         catch { console.error("[gmgn-cli] --condition-orders must be valid JSON"); process.exit(1); }
       }
       if (opts.sellRatioType) params.sell_ratio_type = opts.sellRatioType;
+
+      confirmTrade({
+        action: "Multi-wallet swap",
+        lines: [
+          `Chain:        ${params.chain}`,
+          `Wallets:      ${params.accounts.length} (${params.accounts.join(", ")})`,
+          `Input token:  ${params.input_token}`,
+          `Output token: ${params.output_token}`,
+          `Slippage:     ${opts.autoSlippage ? "auto" : (params.slippage ?? "default")}`,
+        ],
+      }, opts.yes);
+
       const client = new OpenApiClient(getConfig(true));
       const data = await client.multiSwap(params).catch(exitOnError);
       printResult(data, opts.raw);
@@ -226,6 +255,7 @@ export function registerSwapCommands(program: Command): void {
     .option("--condition-orders <json>", "JSON array of condition sub-orders for smart_trade (must include a buy_low entry + TP/SL entries)")
     .option("--sell-param <json>", "JSON object of sell-side trade params used when a TP/SL condition fires (required for smart_trade)")
     .option("--buy-param <json>", "JSON object of buy-side trade params override for smart_trade")
+    .option("--yes", "Skip the interactive confirmation prompt (requires GMGN_ALLOW_AUTOMATED_TRADES=1)")
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
       if (!opts.amountIn && !opts.amountInPercent) {
@@ -275,6 +305,18 @@ export function registerSwapCommands(program: Command): void {
         try { params.buy_param = JSON.parse(opts.buyParam); }
         catch { console.error("[gmgn-cli] --buy-param must be valid JSON"); process.exit(1); }
       }
+      confirmTrade({
+        action: "Create strategy order",
+        lines: [
+          `Chain:       ${params.chain}`,
+          `Wallet:      ${params.from_address}`,
+          `Base token:  ${params.base_token}`,
+          `Quote token: ${params.quote_token}`,
+          `Order type:  ${params.order_type} / ${params.sub_order_type}`,
+          `Amount:      ${params.amount_in ?? `${params.amount_in_percent}%`}`,
+        ],
+      }, opts.yes);
+
       const client = new OpenApiClient(getConfig(true));
       const data = await client.createStrategyOrder(params).catch(exitOnError);
       printResult(data, opts.raw);

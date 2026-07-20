@@ -1,10 +1,35 @@
 import { config as loadDotenv } from "dotenv";
+import { chmodSync, existsSync, statSync } from "fs";
 import { homedir } from "os";
 import { join } from "path";
 
+const GLOBAL_ENV_PATH = join(homedir(), ".config", "gmgn", ".env");
+
+// The credential file holds a plaintext private key and API key. Before loading
+// it, make sure it is not readable by other users on the machine. If the file is
+// group/other-accessible we tighten it to 0600 and warn — this reduces the blast
+// radius of the plaintext-credential storage called out in the security review.
+function enforceCredentialFilePermissions(path: string): void {
+  if (process.platform === "win32" || !existsSync(path)) return;
+  try {
+    const mode = statSync(path).mode & 0o777;
+    if (mode & 0o077) {
+      chmodSync(path, 0o600);
+      console.error(
+        `[gmgn-cli] Warning: ${path} was accessible to other users (mode ${mode.toString(8)}). ` +
+          `Permissions tightened to 600. Your GMGN private key is stored here in plaintext — ` +
+          `keep this file private and consider a dedicated trading wallet with limited funds.`
+      );
+    }
+  } catch {
+    // Non-fatal: if we cannot stat/chmod, fall through to normal loading.
+  }
+}
+
+enforceCredentialFilePermissions(GLOBAL_ENV_PATH);
 
 // Load global config first (~/.config/gmgn/.env, takes precedence), then project .env (supplements only)
-loadDotenv({ path: join(homedir(), ".config", "gmgn", ".env"), override: true });
+loadDotenv({ path: GLOBAL_ENV_PATH, override: true });
 loadDotenv();
 
 export interface Config {
