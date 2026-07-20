@@ -606,40 +606,13 @@ for rank, (age, ws) in enumerate(sig_clusters, 1):
         conclusion = _(f"这批人目前亏着呢（{roi:.0f}%），不到割肉的程度，短期不太会卖",
                        f"Currently down {roi:.0f}% — unlikely to sell at a loss short-term")
     batch_label = _('批次', 'Batch')
-    print(f"  {batch_label}{rank}{_('（', '(')}{label}{_('）', ')')}  {len(ws)} {_('个钱包', 'wallets')}  {_('持仓', 'hold')} {pct(total_hp):.2f}%  {risk_flag}")
+    selling_cnt  = len([h for h in ws if is_selling(h)])
+    holding_cnt  = len([h for h in ws if is_buying_only(h)])
+    sell_str     = f"  🚨 {_('出货中','selling')} {selling_cnt}" if selling_cnt else ""
+    hold_str     = f"  📈 {_('加仓中','accumulating')} {holding_cnt}" if holding_cnt else ""
+    print(f"  {batch_label}{rank}{_('（', '(')}{label}{_('）', ')')}  {len(ws)} {_('个钱包', 'wallets')}  {_('持仓', 'hold')} {pct(total_hp):.2f}%  {risk_flag}{sell_str}{hold_str}")
     print(f"       {mc_str}")
     print(f"       ➤ {conclusion}")
-    print()
-    notable = sorted([h for h in ws if h.get('balance',0)>=1 and h['amount_percentage']>=0.002],
-                     key=lambda h: -h['amount_percentage'])
-    if not notable:
-        notable = sorted([h for h in ws if h.get('balance',0)>=1], key=lambda h: -h['amount_percentage'])[:5]
-    dumping      = [h for h in notable if is_selling(h)]
-    holding_firm = [h for h in notable if is_buying_only(h)]
-    silent_list  = [h for h in notable if not is_active(h)]
-    if dumping:
-        print(f"       🚨 {_('出货中的大户', 'Selling whales')}")
-        for h in dumping[:3]:
-            did    = (h.get('twitter_name') or '') or addr_short(h['address'])
-            roles  = wallet_roles(h)
-            role_s = "["+"·".join(roles)+"]  " if roles else ""
-            print(f"         · {role_s}{did}  {pct(h['amount_percentage']):.2f}%  {_('浮盈','pnl')}{(h.get('unrealized_pnl') or 0)*100:+.0f}%  {_('已卖','sold')} {h.get('sell_tx_count_cur') or 0}x  {holding_status(h)}")
-        print()
-    if holding_firm:
-        print(f"       📈 {_('持续加仓/未出货', 'Still accumulating / not sold')}")
-        for h in holding_firm[:3]:
-            did    = (h.get('twitter_name') or '') or addr_short(h['address'])
-            roles  = wallet_roles(h)
-            role_s = "["+"·".join(roles)+"]  " if roles else ""
-            print(f"         · {role_s}{did}  {pct(h['amount_percentage']):.2f}%  {_('浮盈','pnl')}{(h.get('unrealized_pnl') or 0)*100:+.0f}%  {_('已买','bought')} {h.get('buy_tx_count_cur') or 0}x")
-        print()
-    if silent_list:
-        silent_pct_val = sum(h['amount_percentage'] for h in silent_list)
-        buy0_cnt       = sum(1 for h in silent_list if h.get('buy_tx_count_cur',0)==0)
-        note_str       = (_("零成本空降为主", "mostly zero-cost airdrop") if buy0_cnt>len(silent_list)//2
-                          else _("持仓未动", "holding without activity"))
-        print(f"       💤 {_('静默持仓', 'Silent holders')}  {len(silent_list)}  {pct(silent_pct_val):.2f}%  → {_('抛压低，', 'low pressure, ')}{note_str}")
-        print()
     print()
 
 sec6 = _("💰 持仓者购买力", "💰 Holder Buying Power")
