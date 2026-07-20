@@ -25,7 +25,7 @@ python3 ~/.claude/skills/gmgn-holder-analysis/analyze.py <FILL_IN_TOKEN_ADDRESS>
 
 ## Output Rule
 
-Your reply MUST contain ONLY the raw stdout of the script above, pasted verbatim — no introduction, no summary, no extra commentary before or after. Every line of every section must appear. Do not omit, paraphrase, or reformat any part of the output.
+After the script finishes, paste the complete stdout verbatim into your reply — every line, every section, nothing omitted or summarized. Do NOT add any introduction, commentary, or summary before or after the output block.
 
 <!-- legacy inline script kept below for reference — DO NOT run this block -->
 <!--
