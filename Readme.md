@@ -96,6 +96,7 @@ No more scraping web pages or getting blocked by Cloudflare. Query all the profe
 | [`/gmgn-token`](skills/gmgn-token/SKILL.md) | Token info, security, pool, holders, traders | [SKILL.md](skills/gmgn-token/SKILL.md) |
 | [`/gmgn-market`](skills/gmgn-market/SKILL.md) | K-line market data, trending tokens | [SKILL.md](skills/gmgn-market/SKILL.md) |
 | [`/gmgn-portfolio`](skills/gmgn-portfolio/SKILL.md) | Wallet holdings, activity, stats | [SKILL.md](skills/gmgn-portfolio/SKILL.md) |
+| [`/gmgn-wallet-score`](skills/gmgn-wallet-score/SKILL.md) | Wallet copy-trade scoring — track-record, copy-tradeability, backtest, Dev reputation | [SKILL.md](skills/gmgn-wallet-score/SKILL.md) |
 | [`/gmgn-track`](skills/gmgn-track/SKILL.md) | Follow-wallet trades, KOL trades, Smart Money trades | [SKILL.md](skills/gmgn-track/SKILL.md) |
 | [`/gmgn-swap`](skills/gmgn-swap/SKILL.md) | Swap submission + limit orders + strategy orders + order query | [SKILL.md](skills/gmgn-swap/SKILL.md) |
 | [`/gmgn-cooking`](skills/gmgn-cooking/SKILL.md) | One-command cooking orders (buy + take-profit/stop-loss in a single flow) | [SKILL.md](skills/gmgn-cooking/SKILL.md) |
@@ -350,7 +351,7 @@ Skills are automatically discovered via the `.cursor-plugin/` configuration.
    ```bash
    echo "$(npm root -g)/gmgn-skills/skills"
    ```
-3. Restart Cline — `/gmgn-token`, `/gmgn-market`, `/gmgn-portfolio`, `/gmgn-track`, `/gmgn-swap`, `/gmgn-cooking` will be available
+3. Restart Cline — `/gmgn-token`, `/gmgn-market`, `/gmgn-portfolio`, `/gmgn-wallet-score`, `/gmgn-track`, `/gmgn-swap`, `/gmgn-cooking` will be available
 
 #### Codex CLI
 
