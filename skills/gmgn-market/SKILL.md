@@ -927,7 +927,7 @@ Present each category separately with a header:
 
 ## `market signal` Parameters
 
-Chains: `sol` / `bsc` only. **Maximum 50 results per group** — use multiple groups via `--groups` to cover different signal types in a single request.
+Chains: `sol` / `bsc` / `robinhood` only. **Maximum 50 results per group** — use multiple groups via `--groups` to cover different signal types in a single request.
 
 **Single-group (individual flags):**
 
