@@ -76,16 +76,12 @@ export function registerTrackCommands(program: Command): void {
   track
     .command("kol")
     .description("Get KOL trade records")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
     .option("--limit <n>", "Page size (1–200, default 100)", parseInt)
     .option("--side <side>", "Filter by trade direction: buy / sell (client-side filter)")
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
       if (opts.chain) validateChain(opts.chain);
-      if (opts.chain === "robinhood") {
-        console.error(`[gmgn-cli] track kol does not support robinhood, got "${opts.chain}"`);
-        process.exit(1);
-      }
       const client = new OpenApiClient(getConfig());
       const data = await client.getKol(opts.chain, opts.limit).catch(exitOnError) as { list?: { side: string }[] };
       if (opts.side && data?.list) {
@@ -97,16 +93,12 @@ export function registerTrackCommands(program: Command): void {
   track
     .command("smartmoney")
     .description("Get Smart Money trade records")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
     .option("--limit <n>", "Page size (1–200, default 100)", parseInt)
     .option("--side <side>", "Filter by trade direction: buy / sell (client-side filter)")
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
       if (opts.chain) validateChain(opts.chain);
-      if (opts.chain === "robinhood") {
-        console.error(`[gmgn-cli] track smartmoney does not support robinhood, got "${opts.chain}"`);
-        process.exit(1);
-      }
       const client = new OpenApiClient(getConfig());
       const data = await client.getSmartMoney(opts.chain, opts.limit).catch(exitOnError) as { list?: { side: string }[] };
       if (opts.side && data?.list) {

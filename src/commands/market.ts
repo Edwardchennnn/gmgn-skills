@@ -157,7 +157,7 @@ export function registerMarketCommands(program: Command): void {
   market
     .command("signal")
     .description("Query token signals (price spikes, smart money buys, large buys, etc.) — max 50 results per group")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / robinhood")
     .option("--signal-type <n...>", "Signal type(s), repeatable: 1–18 (default: all types)", (v: string, acc: number[]) => { acc.push(parseInt(v, 10)); return acc; }, [] as number[])
     .option("--mc-min <usd>", "Min market cap at trigger time (USD)", parseFloat)
     .option("--mc-max <usd>", "Max market cap at trigger time (USD)", parseFloat)
@@ -171,8 +171,8 @@ export function registerMarketCommands(program: Command): void {
     .option("--raw", "Output raw JSON")
     .action(async (opts: Record<string, unknown>) => {
       validateChain(opts["chain"] as string);
-      if (!["sol", "bsc"].includes(opts["chain"] as string)) {
-        console.error(`[gmgn-cli] market signal only supports sol and bsc, got "${opts["chain"]}"`);
+      if (!["sol", "bsc", "robinhood"].includes(opts["chain"] as string)) {
+        console.error(`[gmgn-cli] market signal only supports sol, bsc and robinhood, got "${opts["chain"]}"`);
         process.exit(1);
       }
 

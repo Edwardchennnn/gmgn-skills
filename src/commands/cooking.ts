@@ -22,8 +22,8 @@ export function registerCookingCommands(program: Command): void {
   cooking
     .command("create")
     .description("Create a token on a launchpad platform (requires private key)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base")
-    .requiredOption("--dex <dex>", "Launchpad: pump / bonk / bags (sol) / fourmeme / flap (bsc) / klik / clanker (base)")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / robinhood")
+    .requiredOption("--dex <dex>", "Launchpad: pump / bonk / bags (sol) / fourmeme / flap (bsc) / klik / clanker (base) / trench / pons (robinhood)")
     .requiredOption("--from <address>", "Wallet address (must match API Key binding)")
     .requiredOption("--name <name>", "Token name")
     .requiredOption("--symbol <symbol>", "Token symbol")
@@ -44,7 +44,7 @@ export function registerCookingCommands(program: Command): void {
     .option("--max-priority-fee-per-gas <amount>", "Max priority fee per gas in wei (EVM only)")
     .option("--anti-mev", "Enable anti-MEV protection (SOL only)")
     .option("--anti-mev-mode <mode>", "Anti-MEV mode: off / normal / secure (SOL only)")
-    .option("--raised-token <symbol>", "Raise token symbol: pump→USDC; bonk→USD1; fourmeme→USDT/USD1; leave empty for native")
+    .option("--raised-token <symbol>", "Raise token symbol: pump→USDC; bonk→USD1; fourmeme→USDT/USD1; base/robinhood→native only; leave empty for native")
     .option("--dev-wallet-bps <n>", "Dev wallet fee in basis points (100 = 1%)", parseInt)
     .option("--dev-gas <amount>", "Dev gas amount")
     .option("--dev-priority <amount>", "Dev priority fee")
@@ -84,10 +84,6 @@ export function registerCookingCommands(program: Command): void {
         process.exit(1);
       }
       validateChain(opts.chain);
-      if (opts.chain === "robinhood") {
-        console.error(`[gmgn-cli] cooking create does not support robinhood, got "${opts.chain}"`);
-        process.exit(1);
-      }
       // Validate/clean all free-text and link metadata before publishing. This
       // prevents the CLI from being used to mint tokens whose metadata carries a
       // prompt-injection payload aimed at other users' AI agents.

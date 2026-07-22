@@ -60,15 +60,16 @@ This is a hard, code-level barrier — do not attempt to work around it. If a to
 
 ## Supported Chains
 
-`sol` / `bsc` / `base`
+`sol` / `bsc` / `base` / `robinhood`
 
 ## Supported Launchpads by Chain
 
-| Chain  | `--dex` values         | Raise token (`--raised-token`) |
-| ------ | ---------------------- | ------------------------------ |
-| `sol`  | `pump`, `bonk`, `bags` | `pump`: `""` (SOL) or `USDC`; `bonk`: `""` (SOL) or `USD1`; `bags`: `""` (SOL only) |
-| `bsc`  | `fourmeme`, `flap`     | `fourmeme`: `""` (BNB), `USD1`, `USDT`; `flap`: `""` (BNB only) |
-| `base` | `klik`, `clanker`      | `""` only (quote token fixed to WETH) |
+| Chain       | `--dex` values         | Raise token (`--raised-token`) |
+| ----------- | ---------------------- | ------------------------------ |
+| `sol`       | `pump`, `bonk`, `bags` | `pump`: `""` (SOL) or `USDC`; `bonk`: `""` (SOL) or `USD1`; `bags`: `""` (SOL only) |
+| `bsc`       | `fourmeme`, `flap`     | `fourmeme`: `""` (BNB), `USD1`, `USDT`; `flap`: `""` (BNB only) |
+| `base`      | `klik`, `clanker`      | `""` only (quote token fixed to WETH) |
+| `robinhood` | `trench`, `pons`       | `""` only (native token) |
 
 When the user names a platform colloquially (e.g. "pump.fun", "four.meme"), map it to the correct `--dex` identifier from this table before running the command.
 
