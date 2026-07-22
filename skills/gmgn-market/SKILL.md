@@ -1,7 +1,7 @@
 ---
 name: gmgn-market
 description: Get crypto and meme token price charts (K-line, candlestick, OHLCV), trending meme coin rankings by volume, newly launched tokens on launchpads (pump.fun, fourmeme, letsbonk, Raydium, etc.), and the hot-search ranking (most-searched tokens) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks for price chart, trending tokens, what's pumping, hot coins, most searched tokens, new launches, token signals, or wants to discover early-stage opportunities.
-argument-hint: "kline --chain <sol|bsc|base|eth|robinhood> --address <token_address> --resolution <30s|1m|5m|15m|1h|4h|1d> [--from <unix_ts>] [--to <unix_ts>] | trending --chain <sol|bsc|base|eth|robinhood> --interval <1m|5m|1h|6h|24h> | trenches --chain <sol|bsc|base|eth|robinhood> | signal --chain <sol|bsc> | hot-searches [--chain <sol|bsc|base|eth|robinhood...>] [--interval <1m|5m|1h|6h|24h>]"
+argument-hint: "kline --chain <sol|bsc|base|eth|robinhood> --address <token_address> --resolution <30s|1m|5m|15m|1h|4h|1d> [--from <unix_ts>] [--to <unix_ts>] | trending --chain <sol|bsc|base|eth|robinhood> --interval <1m|5m|1h|6h|24h> | trenches --chain <sol|bsc|base|eth|robinhood> | signal --chain <sol|bsc|robinhood> | hot-searches [--chain <sol|bsc|base|eth|robinhood...>] [--interval <1m|5m|1h|6h|24h>]"
 metadata:
   cliHelp: "gmgn-cli market --help"
 ---
@@ -50,12 +50,12 @@ Use the `gmgn-cli` tool to query K-line data for a token, browse trending tokens
 | `market kline` | Token candlestick / OHLCV data and trading volume over a time range |
 | `market trending` | Trending tokens ranked by swap activity — use `--interval` to specify the time window (e.g. `1m` for 1-minute hottest, `1h` for 1-hour trending) |
 | `market trenches` | Newly launched launchpad platform tokens — **use this when the user asks for "new tokens", "just launched tokens", "latest tokens on pump.fun/letsbonk"**. Three categories: `new_creation` (just created), `near_completion` (bonding curve almost full), `completed` (graduated to open market / DEX) |
-| `market signal` | Real-time token signal feed — price spikes, smart money buys, large buys, Dex ads, CTO events, and more. Results sorted by `trigger_at` descending. **sol / bsc only. Max 50 results per group.** |
+| `market signal` | Real-time token signal feed — price spikes, smart money buys, large buys, Dex ads, CTO events, and more. Results sorted by `trigger_at` descending. **sol / bsc / robinhood only. Max 50 results per group.** |
 | `market hot-searches` | Hot-search ranking — the most-searched tokens, ranked by `visiting_count` (search heat). **Use this when the user asks "what tokens are people searching for", "most searched tokens", "hot search list", "热搜榜".** Supports multiple chains in a single request. |
 
 ## Supported Chains
 
-`sol` / `bsc` / `base` / `eth` / `robinhood` (kline / trending / trenches; signal: `sol` / `bsc` only; hot-searches: `sol` / `bsc` / `base` / `eth` / `robinhood`)
+`sol` / `bsc` / `base` / `eth` / `robinhood` (kline / trending / trenches; signal: `sol` / `bsc` / `robinhood`; hot-searches: `sol` / `bsc` / `base` / `eth` / `robinhood`)
 
 ## Prerequisites
 
@@ -927,7 +927,7 @@ Present each category separately with a header:
 
 ## `market signal` Parameters
 
-Chains: `sol` / `bsc` only. **Maximum 50 results per group** — use multiple groups via `--groups` to cover different signal types in a single request.
+Chains: `sol` / `bsc` / `robinhood` only. **Maximum 50 results per group** — use multiple groups via `--groups` to cover different signal types in a single request.
 
 **Single-group (individual flags):**
 

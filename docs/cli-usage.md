@@ -325,7 +325,7 @@ gmgn-cli market signal --chain sol --groups '<json_array>' [--raw]
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` |
+| `--chain` | Yes | `sol` / `bsc` / `robinhood` |
 | `--signal-type` | No | Signal type(s), repeatable (1–18, default: all). See Signal Types below. |
 | `--mc-min` | No | Min market cap at trigger time (USD) |
 | `--mc-max` | No | Max market cap at trigger time (USD) |
@@ -476,7 +476,7 @@ gmgn-cli track kol [--chain <chain>] [--limit <n>] [--side <side>] [--raw]
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | No | `sol` / `bsc` / `base` (default `sol`) |
+| `--chain` | No | `sol` / `bsc` / `base` / `eth` / `robinhood` (default `sol`) |
 | `--limit` | No | Page size (1–200, default 100) |
 | `--side` | No | Filter by trade direction: `buy` / `sell` (client-side filter) |
 
@@ -492,7 +492,7 @@ gmgn-cli track smartmoney [--chain <chain>] [--limit <n>] [--side <side>] [--raw
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | No | `sol` / `bsc` / `base` (default `sol`) |
+| `--chain` | No | `sol` / `bsc` / `base` / `eth` / `robinhood` (default `sol`) |
 | `--limit` | No | Page size (1–200, default 100) |
 | `--side` | No | Filter by trade direction: `buy` / `sell` (client-side filter) |
 
@@ -845,8 +845,8 @@ gmgn-cli cooking create \
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` |
-| `--dex` | Yes | Launchpad per chain: `pump` / `bonk` / `bags` (sol), `fourmeme` / `flap` (bsc), `klik` / `clanker` (base) |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `robinhood` |
+| `--dex` | Yes | Launchpad per chain: `pump` / `bonk` / `bags` (sol), `fourmeme` / `flap` (bsc), `klik` / `clanker` (base), `trench` / `pons` (robinhood) |
 | `--from` | Yes | Wallet address (must match API Key binding) |
 | `--name` | Yes | Token name |
 | `--symbol` | Yes | Token symbol |
@@ -866,7 +866,7 @@ gmgn-cli cooking create \
 | `--max-priority-fee-per-gas` | No | Max priority fee per gas in wei (**EVM only**) |
 | `--anti-mev` | No | Enable anti-MEV protection (**SOL only**) |
 | `--anti-mev-mode` | No | Anti-MEV mode: `off` / `normal` / `secure` (**SOL only**) |
-| `--raised-token` | No | Raise token symbol: `pump`→`USDC`; `bonk`→`USD1`; `fourmeme`→`USDT`/`USD1`; omit for native |
+| `--raised-token` | No | Raise token symbol: `pump`→`USDC`; `bonk`→`USD1`; `fourmeme`→`USDT`/`USD1`; `base`/`robinhood`→native only; omit for native |
 | `--dev-wallet-bps` | No | Dev wallet fee share in basis points (100 = 1%) |
 | `--dev-gas` | No | Dev gas amount |
 | `--dev-priority` | No | Dev priority fee |

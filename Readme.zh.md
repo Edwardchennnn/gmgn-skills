@@ -756,8 +756,8 @@ gmgn-cli cooking \
 | token / market / portfolio / track | `sol` / `bsc` / `base` / `eth` / `robinhood` | — |
 | swap / order | `sol` / `bsc` / `base` / `eth` / `robinhood` | sol: SOL、USDC · bsc: BNB、USDC · base: ETH、USDC · eth: ETH |
 | gas-price | `sol` / `bsc` / `base` / `eth` / `robinhood` | — |
-| track kol / track smartmoney · market signal | `sol` / `bsc` / `base` / `eth`（kol/smartmoney）· `sol` / `bsc`（signal）— **不支持 `robinhood`** | — |
-| cooking create | `sol` / `bsc` / `base` — **不支持 `robinhood`** | — |
+| track kol / track smartmoney · market signal | `sol` / `bsc` / `base` / `eth` / `robinhood`（kol/smartmoney）· `sol` / `bsc` / `robinhood`（signal） | — |
+| cooking create | `sol` / `bsc` / `base` / `robinhood` | — |
 
 ---
 
