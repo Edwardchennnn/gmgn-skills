@@ -158,7 +158,7 @@ export function registerMarketCommands(program: Command): void {
     .command("signal")
     .description("Query token signals (price spikes, smart money buys, large buys, etc.) — max 50 results per group")
     .requiredOption("--chain <chain>", "Chain: sol / bsc / robinhood")
-    .option("--signal-type <n...>", "Signal type(s), repeatable: 1–18 (default: all types)", (v: string, acc: number[]) => { acc.push(parseInt(v, 10)); return acc; }, [] as number[])
+    .option("--signal-type <n...>", "Signal type(s), repeatable: 1–21 (default: all types)", (v: string, acc: number[]) => { acc.push(parseInt(v, 10)); return acc; }, [] as number[])
     .option("--mc-min <usd>", "Min market cap at trigger time (USD)", parseFloat)
     .option("--mc-max <usd>", "Max market cap at trigger time (USD)", parseFloat)
     .option("--trigger-mc-min <usd>", "Min market cap at signal trigger (USD)", parseFloat)

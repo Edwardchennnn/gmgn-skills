@@ -326,7 +326,7 @@ gmgn-cli market signal --chain sol --groups '<json_array>' [--raw]
 | Option | Required | Description |
 |--------|----------|-------------|
 | `--chain` | Yes | `sol` / `bsc` / `robinhood` |
-| `--signal-type` | No | Signal type(s), repeatable (1–18, default: all). See Signal Types below. |
+| `--signal-type` | No | Signal type(s), repeatable (1–21, default: all). See Signal Types below. |
 | `--mc-min` | No | Min market cap at trigger time (USD) |
 | `--mc-max` | No | Max market cap at trigger time (USD) |
 | `--trigger-mc-min` | No | Min market cap at signal trigger moment (USD) |
@@ -359,6 +359,9 @@ gmgn-cli market signal --chain sol --groups '<json_array>' [--raw]
 | 16 | SignalTypeMultiLargeBuy | Multiple large buys |
 | 17 | SignalTypeBagsClaims | Bags Claim |
 | 18 | SignalTypePumpClaims | Pump Claim |
+| 19 | SignalTypePlatformCallV2 | Platform call (V2) |
+| 20 | SignalTypeKOLBuy | KOL buy |
+| 21 | SignalTypeBankerClaims | Banker Claim (Base chain Banker platform claim fee) |
 
 ---
 
