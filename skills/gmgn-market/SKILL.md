@@ -936,7 +936,7 @@ Do **not** pass signal types **14, 15, or 16** in `signal_type` / `--signal-type
 | Option | Required | Description |
 |--------|----------|-------------|
 | `--chain` | Yes | `sol` / `bsc` |
-| `--signal-type` | No | Signal type(s), repeatable (1–18, default: all). See Signal Types below. |
+| `--signal-type` | No | Signal type(s), repeatable (1–21, default: all). See Signal Types below. |
 | `--mc-min` | No | Min market cap at trigger time (USD) |
 | `--mc-max` | No | Max market cap at trigger time (USD) |
 | `--trigger-mc-min` | No | Min market cap at signal trigger moment (USD) |
@@ -977,6 +977,9 @@ gmgn-cli market signal --chain sol \
 | 16 | SignalTypeMultiLargeBuy | Multiple large buys |
 | 17 | SignalTypeBagsClaims | Bags Claim |
 | 18 | SignalTypePumpClaims | Pump Claim |
+| 19 | SignalTypePlatformCallV2 | Platform call (V2) |
+| 20 | SignalTypeKOLBuy | KOL buy |
+| 21 | SignalTypeBankerClaims | Banker Claim (Base chain Banker platform claim fee) |
 
 ### `market signal` Response Fields
 
@@ -986,7 +989,7 @@ Each item in the response array is one signal event:
 |-------|------|-------------|
 | `id` | string | Signal event ID |
 | `token_address` | string | Token contract address |
-| `signal_type` | number | Signal type (1–18, see Signal Types above) |
+| `signal_type` | number | Signal type (1–21, see Signal Types above) |
 | `trigger_at` | number | Unix timestamp (seconds) when the signal was triggered |
 | `trigger_mc` | number | Market cap at signal trigger time (USD) |
 | `first_trigger_mc` | number | Market cap at the very first trigger for this token (USD) |
