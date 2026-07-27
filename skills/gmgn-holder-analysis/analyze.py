@@ -8,7 +8,8 @@ CHAIN      = sys.argv[2]
 LANG       = sys.argv[3] if len(sys.argv) > 3 else 'zh'
 
 # EVM 地址自动探测链（0x... 且 chain 传入 'auto' 或未明确指定时）
-if CHAIN == 'auto' or (TOKEN_ADDR.startswith('0x') and CHAIN not in ('bsc','eth','base')):
+KNOWN_CHAINS = ('bsc', 'eth', 'base', 'sol', 'robinhood')
+if CHAIN == 'auto' or (TOKEN_ADDR.startswith('0x') and CHAIN not in KNOWN_CHAINS):
     for _c in ('bsc', 'eth', 'base'):
         _r = subprocess.run(['gmgn-cli', 'token', 'holders', '--chain', _c,
                              '--address', TOKEN_ADDR, '--limit', '5', '--raw'],
