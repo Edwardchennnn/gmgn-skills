@@ -753,10 +753,10 @@ gmgn-cli cooking \
 
 | 接口类型 | 支持的链 | 链原生货币 |
 |----------|----------|-----------|
-| token / market / portfolio / track | `sol` / `bsc` / `base` / `eth` / `robinhood` | — |
-| swap / order | `sol` / `bsc` / `base` / `eth` / `robinhood` | sol: SOL、USDC · bsc: BNB、USDC · base: ETH、USDC · eth: ETH |
-| gas-price | `sol` / `bsc` / `base` / `eth` / `robinhood` | — |
-| track kol / track smartmoney · market signal | `sol` / `bsc` / `base` / `eth` / `robinhood`（kol/smartmoney）· `sol` / `bsc` / `robinhood`（signal） | — |
+| token / market / portfolio / track | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` | — |
+| swap / order | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` | sol: SOL、USDC · bsc: BNB、USDC · base: ETH、USDC · eth: ETH |
+| gas-price | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` | — |
+| track kol / track smartmoney · market signal | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable`（kol/smartmoney）· `sol` / `bsc` / `robinhood` / `arc` / `stable`（signal） | — |
 | cooking create | `sol` / `bsc` / `base` / `robinhood` | — |
 
 ---

@@ -26,7 +26,7 @@ export function registerMarketCommands(program: Command): void {
   market
     .command("kline")
     .description("Get token K-line (candlestick) data")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
     .requiredOption("--address <address>", "Token contract address")
     .requiredOption("--resolution <resolution>", "Candlestick resolution: 30s / 1m / 5m / 15m / 1h / 4h / 1d")
     .option("--from <timestamp>", "Start time (Unix seconds)", parseInt)
@@ -51,7 +51,7 @@ export function registerMarketCommands(program: Command): void {
   const trendingCmd = market
     .command("trending")
     .description("Get trending token swap data")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
     .requiredOption("--interval <interval>", "Time interval: 1m / 5m / 1h / 6h / 24h")
     .option("--limit <n>", "Number of results (default 100, max 100)", parseInt)
     .option("--order-by <field>", "Sort field: default / volume / swaps / marketcap / holder_count / price / change1h / ... (see docs for full list)")
@@ -96,7 +96,7 @@ export function registerMarketCommands(program: Command): void {
   const trenchesCmd = market
     .command("trenches")
     .description("Get Trenches token data (new creation, near completion, completed)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
     .option("--type <type...>", "Categories to query, repeatable: new_creation / near_completion / completed (default: all three)")
     .option("--launchpad-platform <platform...>", "Launchpad platform filter, repeatable (default: all platforms for the chain)")
     .option("--limit <n>", "Max results per category, max 80 (default: 80)", parseInt)
@@ -157,7 +157,7 @@ export function registerMarketCommands(program: Command): void {
   market
     .command("signal")
     .description("Query token signals (price spikes, smart money buys, large buys, etc.) — max 50 results per group")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / robinhood / arc / stable")
     .option("--signal-type <n...>", "Signal type(s), repeatable: 1–21 (default: all types)", (v: string, acc: number[]) => { acc.push(parseInt(v, 10)); return acc; }, [] as number[])
     .option("--mc-min <usd>", "Min market cap at trigger time (USD)", parseFloat)
     .option("--mc-max <usd>", "Max market cap at trigger time (USD)", parseFloat)
@@ -171,8 +171,8 @@ export function registerMarketCommands(program: Command): void {
     .option("--raw", "Output raw JSON")
     .action(async (opts: Record<string, unknown>) => {
       validateChain(opts["chain"] as string);
-      if (!["sol", "bsc", "robinhood"].includes(opts["chain"] as string)) {
-        console.error(`[gmgn-cli] market signal only supports sol, bsc and robinhood, got "${opts["chain"]}"`);
+      if (!["sol", "bsc", "robinhood", "arc", "stable"].includes(opts["chain"] as string)) {
+        console.error(`[gmgn-cli] market signal only supports sol, bsc, robinhood, arc and stable, got "${opts["chain"]}"`);
         process.exit(1);
       }
 
@@ -207,7 +207,7 @@ export function registerMarketCommands(program: Command): void {
   const hotSearchesCmd = market
     .command("hot-searches")
     .description("Get the hot-search ranking (most-searched tokens) for one or more chains")
-    .option("--chain <chain...>", "Chain(s), repeatable: sol / bsc / base / eth / robinhood (default: all default chains)")
+    .option("--chain <chain...>", "Chain(s), repeatable: sol / bsc / base / eth / robinhood / arc / stable (default: all default chains)")
     .option("--interval <interval>", "Time window: 1m / 5m / 1h / 6h / 24h (default 24h)", "24h")
     .option("--limit <n>", "Max results per chain (default 500)", parseInt)
     .option("--filter <tag...>", "Boolean filter tags, repeatable. sol defaults: renounced / frozen; EVM defaults: not_honeypot / verified / renounced")
