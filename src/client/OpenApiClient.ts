@@ -846,6 +846,12 @@ const TRENCHES_PLATFORMS: Record<string, string[]> = {
     "noxa", "virtuals_v2", "bankr", "dyorswap",
     "pool_uniswap_v2", "pool_uniswap_v3", "pool_uniswap_v4",
   ],
+  arc: [
+    "dyorfun_v3", "dyorswap", "trench", "onmifun", "sharcfun", "klik",
+  ],
+  stable: [
+    "dyorfun_v3", "dyorswap", "trench",
+  ],
 };
 
 const TRENCHES_QUOTE_ADDRESS_TYPES: Record<string, number[]> = {
