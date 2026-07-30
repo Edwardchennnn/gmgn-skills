@@ -553,14 +553,16 @@ Use field combinations to determine what stage a token is in. This affects how s
 
 **`--launchpad-platform` values by chain** (omit `--launchpad-platform` to use all of the chain's platforms):
 
+> ⚠️ **arc and stable require explicit `--launchpad-platform`** — omitting it returns empty results for all categories. Always pass the platforms listed below when querying these two chains.
+
 | Chain | Platforms |
 |-------|-----------|
 | `sol`  | `Pump.fun` / `pump_mayhem` / `pump_mayhem_agent` / `pump_agent` / `letsbonk` / `bonkers` / `bags` / `memoo` / `liquid` / `bankr` / `zora` / `surge` / `anoncoin` / `moonshot_app` / `wendotdev` / `heaven` / `sugar` / `token_mill` / `believe` / `trendsfun` / `trends_fun` / `jup_studio` / `Moonshot` / `boop` / `ray_launchpad` / `meteora_virtual_curve` / `xstocks` |
 | `bsc`  | `fourmeme` / `fourmeme_agent` / `bn_fourmeme` / `four_xmode_agent` / `cubepeg` / `likwid` / `goplus_creator` / `goplus_skills` / `openfour` / `flap` / `flap_stocks` / `flap_aioracle` / `clanker` / `lunafun` |
 | `base` | `clanker` / `bankr` / `flaunch` / `zora` / `zora_creator` / `baseapp` / `basememe` / `virtuals_v2` / `klik` |
 | `eth`  | `trench` / `clanker` / `klik` / `livo` / `stroid` / `pool_uniswap_v2` / `pool_uniswap_v3` / `printr` |
-| `arc`  | `dyorfun_v3` / `dyorswap` |
-| `stable` | `dyorswap` |
+| `arc`  | `dyorfun_v3` / `dyorswap` — **must be specified explicitly** |
+| `stable` | `dyorswap` — **must be specified explicitly** |
 
 ### Filter Presets
 
