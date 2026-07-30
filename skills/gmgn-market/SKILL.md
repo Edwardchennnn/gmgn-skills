@@ -559,6 +559,8 @@ Use field combinations to determine what stage a token is in. This affects how s
 | `bsc`  | `fourmeme` / `fourmeme_agent` / `bn_fourmeme` / `four_xmode_agent` / `cubepeg` / `likwid` / `goplus_creator` / `goplus_skills` / `openfour` / `flap` / `flap_stocks` / `flap_aioracle` / `clanker` / `lunafun` |
 | `base` | `clanker` / `bankr` / `flaunch` / `zora` / `zora_creator` / `baseapp` / `basememe` / `virtuals_v2` / `klik` |
 | `eth`  | `trench` / `clanker` / `klik` / `livo` / `stroid` / `pool_uniswap_v2` / `pool_uniswap_v3` / `printr` |
+| `arc`  | `dyorfun_v3` / `dyorswap` |
+| `stable` | `dyorswap` |
 
 ### Filter Presets
 
@@ -879,6 +881,62 @@ gmgn-cli market trenches --chain eth --raw \
 gmgn-cli market trenches --chain eth --raw \
   --type completed \
   --launchpad-platform trench --launchpad-platform clanker --launchpad-platform klik --launchpad-platform livo --launchpad-platform stroid --launchpad-platform pool_uniswap_v2 --launchpad-platform pool_uniswap_v3 --launchpad-platform printr \
+  --limit 80
+```
+
+### Arc Trenches Examples
+
+```bash
+# All three categories at once
+gmgn-cli market trenches --chain arc --raw \
+  --type new_creation --type near_completion --type completed \
+  --launchpad-platform dyorfun_v3 --launchpad-platform dyorswap \
+  --limit 80
+
+# New creation only
+gmgn-cli market trenches --chain arc --raw \
+  --type new_creation \
+  --launchpad-platform dyorfun_v3 --launchpad-platform dyorswap \
+  --limit 80
+
+# Near completion only
+gmgn-cli market trenches --chain arc --raw \
+  --type near_completion \
+  --launchpad-platform dyorfun_v3 --launchpad-platform dyorswap \
+  --limit 80
+
+# Completed (open market) only
+gmgn-cli market trenches --chain arc --raw \
+  --type completed \
+  --launchpad-platform dyorfun_v3 --launchpad-platform dyorswap \
+  --limit 80
+```
+
+### Stable Trenches Examples
+
+```bash
+# All three categories at once
+gmgn-cli market trenches --chain stable --raw \
+  --type new_creation --type near_completion --type completed \
+  --launchpad-platform dyorswap \
+  --limit 80
+
+# New creation only
+gmgn-cli market trenches --chain stable --raw \
+  --type new_creation \
+  --launchpad-platform dyorswap \
+  --limit 80
+
+# Near completion only
+gmgn-cli market trenches --chain stable --raw \
+  --type near_completion \
+  --launchpad-platform dyorswap \
+  --limit 80
+
+# Completed (open market) only
+gmgn-cli market trenches --chain stable --raw \
+  --type completed \
+  --launchpad-platform dyorswap \
   --limit 80
 ```
 
