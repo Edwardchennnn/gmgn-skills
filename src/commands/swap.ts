@@ -3,13 +3,13 @@ import { OpenApiClient, SwapParams, MultiSwapParams, StrategyCreateParams, Strat
 import { getConfig } from "../config.js";
 import { exitOnError, printResult } from "../output.js";
 import { confirmTrade } from "../confirm.js";
-import { validateAddress, validateChain, validatePercent, validatePositiveInt } from "../validate.js";
+import { validateAddress, validateChain, validateConditionOrdersSupported, validatePercent, validatePositiveInt } from "../validate.js";
 
 export function registerSwapCommands(program: Command): void {
   program
     .command("swap")
     .description("Submit a token swap")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
     .requiredOption("--from <address>", "Wallet address (must match API Key binding)")
     .requiredOption("--input-token <address>", "Input token contract address")
     .requiredOption("--output-token <address>", "Output token contract address")
@@ -26,7 +26,7 @@ export function registerSwapCommands(program: Command): void {
     .option("--auto-fee", "Auto fee mode (eth only); delegates fee selection to trading bot for condition_orders strategy")
     .option("--max-fee-per-gas <amount>", "EIP-1559 max fee per gas (BSC / BASE / ETH)")
     .option("--max-priority-fee-per-gas <amount>", "EIP-1559 max priority fee per gas (BSC / BASE / ETH)")
-    .option("--condition-orders <json>", 'JSON array of take-profit/stop-loss conditions, e.g. \'[{"order_type":"profit_stop","side":"sell","price_scale":"150","sell_ratio":"100"}]\'; trace types: \'[{"order_type":"profit_stop_trace","side":"sell","price_scale":"150","sell_ratio":"100","drawdown_rate":"50"}]\'')
+    .option("--condition-orders <json>", 'JSON array of take-profit/stop-loss conditions, e.g. \'[{"order_type":"profit_stop","side":"sell","price_scale":"150","sell_ratio":"100"}]\'; trace types: \'[{"order_type":"profit_stop_trace","side":"sell","price_scale":"150","sell_ratio":"100","drawdown_rate":"50"}]\'; not supported on arc / stable')
     .option("--sell-ratio-type <type>", "Sell ratio base: buy_amount (default) / hold_amount; only used with --condition-orders")
     .option("--yes", "Skip the interactive confirmation prompt (requires GMGN_ALLOW_AUTOMATED_TRADES=1)")
     .option("--raw", "Output raw JSON")
@@ -61,6 +61,7 @@ export function registerSwapCommands(program: Command): void {
       if (opts.maxFeePerGas) params.max_fee_per_gas = opts.maxFeePerGas;
       if (opts.maxPriorityFeePerGas) params.max_priority_fee_per_gas = opts.maxPriorityFeePerGas;
       if (opts.conditionOrders) {
+        validateConditionOrdersSupported(opts.chain, "swap");
         try {
           params.condition_orders = JSON.parse(opts.conditionOrders);
         } catch {
@@ -92,7 +93,7 @@ export function registerSwapCommands(program: Command): void {
   program
     .command("multi-swap")
     .description("Submit token swaps across multiple wallets concurrently (up to 100 wallets)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
     .requiredOption("--accounts <addresses>", "Comma-separated wallet addresses (all must be bound to the API Key)")
     .requiredOption("--input-token <address>", "Input token contract address")
     .requiredOption("--output-token <address>", "Output token contract address")
@@ -109,7 +110,7 @@ export function registerSwapCommands(program: Command): void {
     .option("--auto-fee", "Auto fee mode (eth only); delegates fee selection to trading bot for condition_orders strategy")
     .option("--max-fee-per-gas <amount>", "EIP-1559 max fee per gas (BSC / BASE / ETH)")
     .option("--max-priority-fee-per-gas <amount>", "EIP-1559 max priority fee per gas (BSC / BASE / ETH)")
-    .option("--condition-orders <json>", "JSON array of take-profit/stop-loss conditions attached to each successful wallet's swap")
+    .option("--condition-orders <json>", "JSON array of take-profit/stop-loss conditions attached to each successful wallet's swap; not supported on arc / stable")
     .option("--sell-ratio-type <type>", "Sell ratio base: buy_amount (default) / hold_amount; only used with --condition-orders")
     .option("--yes", "Skip the interactive confirmation prompt (requires GMGN_ALLOW_AUTOMATED_TRADES=1)")
     .option("--raw", "Output raw JSON")
@@ -153,6 +154,7 @@ export function registerSwapCommands(program: Command): void {
       if (opts.maxFeePerGas) params.max_fee_per_gas = opts.maxFeePerGas;
       if (opts.maxPriorityFeePerGas) params.max_priority_fee_per_gas = opts.maxPriorityFeePerGas;
       if (opts.conditionOrders) {
+        validateConditionOrdersSupported(opts.chain, "multi_swap");
         try { params.condition_orders = JSON.parse(opts.conditionOrders); }
         catch { console.error("[gmgn-cli] --condition-orders must be valid JSON"); process.exit(1); }
       }
@@ -179,7 +181,7 @@ export function registerSwapCommands(program: Command): void {
   order
     .command("quote")
     .description("Get a swap quote without submitting a transaction (exist auth — GMGN_API_KEY only, no private key needed)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
     .requiredOption("--from <address>", "Wallet address")
     .requiredOption("--input-token <address>", "Input token contract address")
     .requiredOption("--output-token <address>", "Output token contract address")
@@ -202,7 +204,7 @@ export function registerSwapCommands(program: Command): void {
   order
     .command("get")
     .description("Query order status (requires private key)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
     .requiredOption("--order-id <id>", "Order ID")
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
@@ -214,8 +216,8 @@ export function registerSwapCommands(program: Command): void {
 
   program
     .command("gas-price")
-    .description("Query recommended gas price tiers for any chain (exist auth — API Key only; eth / bsc / base / sol / robinhood)")
-    .requiredOption("--chain <chain>", "Chain: eth / bsc / base / sol / robinhood")
+    .description("Query recommended gas price tiers for any chain (exist auth — API Key only; eth / bsc / base / sol / robinhood / arc / stable)")
+    .requiredOption("--chain <chain>", "Chain: eth / bsc / base / sol / robinhood / arc / stable")
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
       const client = new OpenApiClient(getConfig(false));
@@ -228,11 +230,11 @@ export function registerSwapCommands(program: Command): void {
   strategy
     .command("create")
     .description("Create a limit/strategy order (requires private key)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
     .requiredOption("--from <address>", "Wallet address (must match API Key binding)")
     .requiredOption("--base-token <address>", "Base token contract address")
     .requiredOption("--quote-token <address>", "Quote token contract address")
-    .requiredOption("--order-type <type>", "Order type: limit_order / smart_trade")
+    .requiredOption("--order-type <type>", "Order type: limit_order / smart_trade (arc / stable support limit_order only)")
     .requiredOption("--sub-order-type <type>", "Sub-order type: buy_low / buy_high / stop_loss / take_profit (limit_order); mix_trade (smart_trade with condition_orders)")
     .option("--check-price <price>", "Trigger check price (required for limit_order; omit for smart_trade)")
     .option("--open-price <price>", "Open price of the position")
@@ -252,7 +254,7 @@ export function registerSwapCommands(program: Command): void {
     .option("--max-fee-per-gas <amount>", "EIP-1559 max fee per gas (BSC / BASE / ETH)")
     .option("--max-priority-fee-per-gas <amount>", "EIP-1559 max priority fee per gas (BSC / BASE / ETH)")
     .option("--anti-mev", "Enable anti-MEV protection")
-    .option("--condition-orders <json>", "JSON array of condition sub-orders for smart_trade (must include a buy_low entry + TP/SL entries)")
+    .option("--condition-orders <json>", "JSON array of condition sub-orders for smart_trade (must include a buy_low entry + TP/SL entries); smart_trade not supported on arc / stable")
     .option("--sell-param <json>", "JSON object of sell-side trade params used when a TP/SL condition fires (required for smart_trade)")
     .option("--buy-param <json>", "JSON object of buy-side trade params override for smart_trade")
     .option("--yes", "Skip the interactive confirmation prompt (requires GMGN_ALLOW_AUTOMATED_TRADES=1)")
@@ -267,6 +269,9 @@ export function registerSwapCommands(program: Command): void {
         process.exit(1);
       }
       validateChain(opts.chain);
+      if (opts.orderType === "smart_trade") {
+        validateConditionOrdersSupported(opts.chain, "strategy create (smart_trade)");
+      }
       const params: StrategyCreateParams = {
         chain: opts.chain,
         from_address: opts.from,
@@ -325,7 +330,7 @@ export function registerSwapCommands(program: Command): void {
   strategy
     .command("list")
     .description("List strategy orders (requires private key)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
     .option("--type <type>", "open (default) / history")
     .option("--from <address>", "Filter by wallet address")
     .option("--group-tag <tag>", "Filter by group: LimitOrder / STMix")
@@ -350,7 +355,7 @@ export function registerSwapCommands(program: Command): void {
   strategy
     .command("cancel")
     .description("Cancel a strategy order (requires private key)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
     .requiredOption("--from <address>", "Wallet address (must match API Key binding)")
     .requiredOption("--order-id <id>", "Order ID to cancel")
     .option("--order-type <type>", "Order type: limit_order / smart_trade")

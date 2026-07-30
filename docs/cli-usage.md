@@ -126,7 +126,7 @@ npx gmgn-cli market trending \
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--interval` | Yes | `1m` / `5m` / `1h` / `6h` / `24h` |
 | `--limit` | No | Number of results (default 100, max 100) |
 | `--order-by` | No | Sort field: `volume` / `swaps` / `liquidity` / `marketcap` / `holders` / `price` / `change` / `change1m` / `change5m` / `change1h` / `renowned_count` / `smart_degen_count` / `bluechip_owner_percentage` / `rank` / `creation_timestamp` / `square_mentions` / `history_highest_market_cap` / `gas_fee` |
@@ -294,7 +294,7 @@ npx gmgn-cli market trenches --chain <chain> [--type <type...>] [--launchpad-pla
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--type` | No | Categories to query, repeatable: `new_creation` / `near_completion` / `completed` (default: all three) |
 | `--launchpad-platform` | No | Launchpad platform filter, repeatable (default: all platforms for the chain). Values depend on chain — see below. |
 | `--limit` | No | Max results per category, max 80 (default: 80) |
@@ -325,7 +325,7 @@ gmgn-cli market signal --chain sol --groups '<json_array>' [--raw]
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `robinhood` / `arc` / `stable` |
 | `--signal-type` | No | Signal type(s), repeatable (1–21, default: all). See Signal Types below. |
 | `--mc-min` | No | Min market cap at trigger time (USD) |
 | `--mc-max` | No | Max market cap at trigger time (USD) |
@@ -370,7 +370,7 @@ gmgn-cli market signal --chain sol --groups '<json_array>' [--raw]
 Query the hot-search ranking — the most-searched tokens, ranked by `visiting_count` (search heat). Cross-chain top-500; one request can cover several chains at once. API Key auth only.
 
 ```bash
-# Default 5-chain set (sol/bsc/base/eth/robinhood, each 24h):
+# Default 7-chain set (sol/bsc/base/eth/robinhood/arc/stable, each 24h):
 gmgn-cli market hot-searches [--raw]
 
 # Specific chain(s) and interval:
@@ -382,7 +382,7 @@ gmgn-cli market hot-searches --params '<json_array>' [--raw]
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | No | Repeatable: `sol` / `bsc` / `base` / `eth` / `robinhood`. Omit for the default 5-chain set. |
+| `--chain` | No | Repeatable: `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable`. Omit for the default 7-chain set. |
 | `--interval` | No | `1m` / `5m` / `1h` / `6h` / `24h` (default `24h`). Applies to every `--chain`. |
 | `--limit` | No | Max results per chain (default `500`). |
 | `--filter` | No | Repeatable **boolean** filter tags (downstream `filter.filters`). sol defaults: `renounced` / `frozen`; EVM defaults: `not_honeypot` / `verified` / `renounced`. Recognised tags: `renounced` / `frozen` (sol) / `is_burnt` / `token_burnt` / `not_wash_trading` / `not_honeypot` (EVM) / `verified` (EVM) / `locked` (EVM) / `has_social` / `distribed` / `not_risk` / `img_not_duplicate` / `social_not_duplicate` / `creator_hold` / `creator_close` / `dexscr_update_link` / `launching` / `migrated` / `hide_b20` (base) / `hide_non_b20` (base). Unknown tags are silent no-ops. |
@@ -411,7 +411,7 @@ gmgn-cli track follow-tokens \
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--wallet` | Yes | Wallet address |
 | `--group-id` | No | `all_group` (all tokens), `default`, or a user-defined group ID |
 | `--interval` | No | Time interval for price change stats: `1m` / `5m` / `1h` / `6h` / `24h` |
@@ -436,7 +436,7 @@ gmgn-cli track follow-token-groups \
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--wallet` | Yes | Wallet address |
 
 ---
@@ -479,7 +479,7 @@ gmgn-cli track kol [--chain <chain>] [--limit <n>] [--side <side>] [--raw]
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | No | `sol` / `bsc` / `base` / `eth` / `robinhood` (default `sol`) |
+| `--chain` | No | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` (default `sol`) |
 | `--limit` | No | Page size (1–200, default 100) |
 | `--side` | No | Filter by trade direction: `buy` / `sell` (client-side filter) |
 
@@ -495,7 +495,7 @@ gmgn-cli track smartmoney [--chain <chain>] [--limit <n>] [--side <side>] [--raw
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | No | `sol` / `bsc` / `base` / `eth` / `robinhood` (default `sol`) |
+| `--chain` | No | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` (default `sol`) |
 | `--limit` | No | Page size (1–200, default 100) |
 | `--side` | No | Filter by trade direction: `buy` / `sell` (client-side filter) |
 
@@ -565,7 +565,7 @@ npx gmgn-cli swap \
 
 | Option | Required | Chain | Description |
 |--------|----------|-------|-------------|
-| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--from` | Yes | all | Wallet address (must match the wallet bound to the API Key) |
 | `--input-token` | Yes | all | Input token contract address |
 | `--output-token` | Yes | all | Output token contract address |
@@ -582,7 +582,7 @@ npx gmgn-cli swap \
 | `--auto-fee` | No | `eth` | **Only with `--condition-orders`.** GMGN automatically selects the optimal fee. |
 | `--max-fee-per-gas` | No | `bsc` / `base` / `eth` | EIP-1559 max fee per gas |
 | `--max-priority-fee-per-gas` | No | `bsc` / `base` / `eth` | EIP-1559 max priority fee per gas |
-| `--condition-orders` | No | all | JSON array of take-profit/stop-loss conditions attached after a successful swap (see example below) |
+| `--condition-orders` | No | sol / bsc / base / eth / robinhood | JSON array of take-profit/stop-loss conditions attached after a successful swap (see example below). **Not supported on `arc` / `stable`.** |
 | `--sell-ratio-type` | No | all | **Only with `--condition-orders`.** Sell ratio base: `buy_amount` (default) / `hold_amount` |
 
 **`--condition-orders` example** (100% sell at 2× price, 100% sell at 50% price):
@@ -642,7 +642,7 @@ gmgn-cli multi-swap \
 
 | Option | Required | Chain | Description |
 |--------|----------|-------|-------------|
-| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--accounts` | Yes | all | Comma-separated wallet addresses (1–100, all bound to API Key) |
 | `--input-token` | Yes | all | Input token contract address |
 | `--output-token` | Yes | all | Output token contract address |
@@ -659,7 +659,7 @@ gmgn-cli multi-swap \
 | `--auto-fee` | No | `eth` | **Only with `--condition-orders`.** GMGN automatically selects the optimal fee. |
 | `--max-fee-per-gas` | No | `bsc` / `base` / `eth` | EIP-1559 max fee per gas |
 | `--max-priority-fee-per-gas` | No | `bsc` / `base` / `eth` | EIP-1559 max priority fee per gas |
-| `--condition-orders` | No | all | JSON array of take-profit/stop-loss conditions, attached to each successful wallet's swap (best-effort) |
+| `--condition-orders` | No | sol / bsc / base / eth / robinhood | JSON array of take-profit/stop-loss conditions, attached to each successful wallet's swap (best-effort). **Not supported on `arc` / `stable`.** |
 | `--sell-ratio-type` | No | all | **Only with `--condition-orders`.** Sell ratio base: `buy_amount` (default) / `hold_amount` |
 
 **Response fields (data):** Array of per-wallet results:
@@ -685,7 +685,7 @@ npx gmgn-cli order get --chain <chain> --order-id <order_id> [--raw]
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--order-id` | Yes | Order ID (returned by the `swap` command) |
 
 **Response fields (data):** Same structure as the `swap` response above.
@@ -720,11 +720,11 @@ gmgn-cli order strategy create \
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--from` | Yes | Wallet address (must match API Key binding) |
 | `--base-token` | Yes | Base token contract address |
 | `--quote-token` | Yes | Quote token contract address |
-| `--order-type` | Yes | Order type: `limit_order` / `smart_trade` |
+| `--order-type` | Yes | Order type: `limit_order` / `smart_trade`. **`arc` / `stable` support `limit_order` only** — `smart_trade` returns a 400. |
 | `--sub-order-type` | Yes | `limit_order`: `buy_low` / `buy_high` / `stop_loss` / `take_profit`; `smart_trade` with condition_orders: `mix_trade` |
 | `--check-price` | No* | Trigger check price — required for `limit_order`; omit for `smart_trade` (trigger is in the `buy_low` condition order) |
 | `--open-price` | No | Open price of the position |
@@ -734,7 +734,7 @@ gmgn-cli order strategy create \
 | `--expire-in` | No | Order expiry in seconds |
 | `--sell-ratio-type` | No | `buy_amount` (default) / `hold_amount` |
 | `--quote-investment` | No | Quote token investment amount (`smart_trade`) |
-| `--condition-orders` | No | JSON array of condition sub-orders for `smart_trade`. Must include one `buy_low` entry (with `check_price` lower than `open_price`) plus at least one TP/SL entry |
+| `--condition-orders` | No | JSON array of condition sub-orders for `smart_trade`. Must include one `buy_low` entry (with `check_price` lower than `open_price`) plus at least one TP/SL entry. **Not supported on `arc` / `stable`** (`smart_trade` is rejected there). |
 | `--slippage` | No | Slippage tolerance as an integer 0–100, e.g. `30` = 30% |
 | `--auto-slippage` | No | Enable automatic slippage |
 | `--priority-fee` | No | Priority fee in SOL (**required for SOL chain**) |

@@ -68,7 +68,7 @@ This is a hard, code-level barrier — do not attempt to work around it.
 
 ## Supported Chains
 
-`sol` / `bsc` / `base` / `eth` / `robinhood`
+`sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable`
 
 ## Chain Currencies
 
@@ -164,7 +164,7 @@ gmgn-cli swap \
 
 | Parameter | Required | Chain | Description |
 |-----------|----------|-------|-------------|
-| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--from` | Yes | all | Wallet address (must match API Key binding) |
 | `--input-token` | Yes | all | Input token contract address |
 | `--output-token` | Yes | all | Output token contract address |
@@ -181,7 +181,7 @@ gmgn-cli swap \
 | `--auto-fee` | No | `eth` | **Only with `--condition-orders`.** GMGN automatically selects the optimal fee. |
 | `--max-fee-per-gas <n>` | No | `bsc` / `base` / `eth` | EIP-1559 max fee per gas. Clamped per chain minimums. Defaults to `--gas-price` if omitted (BASE/ETH). |
 | `--max-priority-fee-per-gas <n>` | No | `bsc` / `base` / `eth` | EIP-1559 max priority fee per gas. Clamped per chain minimums; capped to `--max-fee-per-gas`. |
-| `--condition-orders <json>` | No | all | JSON array of condition sub-orders (take-profit / stop-loss) to attach after a successful swap. **Max 10 sub-orders.** Strategy creation is best-effort: if the swap succeeds but strategy creation fails, the swap result is still returned. See ConditionOrder fields below. |
+| `--condition-orders <json>` | No | sol / bsc / base / eth / robinhood | JSON array of condition sub-orders (take-profit / stop-loss) to attach after a successful swap. **Max 10 sub-orders.** Strategy creation is best-effort: if the swap succeeds but strategy creation fails, the swap result is still returned. **Not supported on `arc` / `stable`.** See ConditionOrder fields below. |
 | `--sell-ratio-type <type>` | No | all | **Only with `--condition-orders`.** Sell ratio basis: `buy_amount` (default) — sells a fixed token amount stored at strategy creation time; `hold_amount` — sells a fixed percentage of the position held at trigger time |
 | `--yes` | No | all | Skip the interactive confirmation prompt. **Rejected unless `GMGN_ALLOW_AUTOMATED_TRADES=1` is set in the environment.** Do not use this to bypass human confirmation. |
 
@@ -383,7 +383,7 @@ gmgn-cli multi-swap \
 
 | Parameter | Required | Chain | Description |
 |-----------|----------|-------|-------------|
-| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--accounts` | Yes | all | Comma-separated wallet addresses (1–100, all must be bound to the API Key) |
 | `--input-token` | Yes | all | Input token contract address |
 | `--output-token` | Yes | all | Output token contract address |
@@ -400,7 +400,7 @@ gmgn-cli multi-swap \
 | `--auto-fee` | No | `eth` | **Only with `--condition-orders`.** GMGN automatically selects the optimal fee. |
 | `--max-fee-per-gas <amount>` | No | `bsc` / `base` / `eth` | EIP-1559 max fee per gas. Clamped per chain minimums. Defaults to `--gas-price` if omitted (BASE/ETH). |
 | `--max-priority-fee-per-gas <amount>` | No | `bsc` / `base` / `eth` | EIP-1559 max priority fee per gas. Clamped per chain minimums; capped to `--max-fee-per-gas`. |
-| `--condition-orders <json>` | No | all | JSON array of condition sub-orders (take-profit / stop-loss) attached to each successful wallet's swap. Same structure as `swap --condition-orders`. Strategy creation is best-effort per wallet. |
+| `--condition-orders <json>` | No | sol / bsc / base / eth / robinhood | JSON array of condition sub-orders (take-profit / stop-loss) attached to each successful wallet's swap. Same structure as `swap --condition-orders`. Strategy creation is best-effort per wallet. **Not supported on `arc` / `stable`.** |
 | `--sell-ratio-type <type>` | No | all | **Only with `--condition-orders`.** Sell ratio base: `buy_amount` (default) / `hold_amount`. |
 | `--yes` | No | all | Skip the interactive confirmation prompt. **Rejected unless `GMGN_ALLOW_AUTOMATED_TRADES=1` is set in the environment.** |
 
@@ -551,11 +551,11 @@ gmgn-cli order strategy create \
 
 | Parameter | Required | Chain | Description |
 |-----------|----------|-------|-------------|
-| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | all | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--from` | Yes | all | Wallet address (must match API Key binding) |
 | `--base-token` | Yes | all | Base token contract address |
 | `--quote-token` | Yes | all | Quote token contract address |
-| `--order-type` | Yes | all | Order type: `limit_order` / `smart_trade` |
+| `--order-type` | Yes | all | Order type: `limit_order` / `smart_trade`. **`arc` / `stable` support `limit_order` only** — `smart_trade` returns a 400. |
 | `--sub-order-type` | Yes | all | `limit_order`: `buy_low` / `buy_high` / `stop_loss` / `take_profit`; `smart_trade` with condition_orders: `mix_trade` |
 | `--check-price` | No* | all | Trigger price — required for `limit_order`; omit for `smart_trade` (trigger is in the `buy_low` condition order) |
 | `--open-price` | No | all | Open price of the position |
@@ -577,7 +577,7 @@ gmgn-cli order strategy create \
 | `--max-fee-per-gas` | No | `bsc` / `base` / `eth` | EIP-1559 max fee per gas. Clamped per chain minimums. |
 | `--max-priority-fee-per-gas` | No | `bsc` / `base` / `eth` | EIP-1559 max priority fee per gas. Clamped per chain minimums; capped to `--max-fee-per-gas`. |
 | `--anti-mev` | No | sol / bsc / eth | Enable anti-MEV protection. Not supported on `base`. |
-| `--condition-orders` | No | all | JSON array of condition sub-orders for `smart_trade`. Must include one `buy_low` entry (with `check_price` lower than `open_price`) plus at least one TP/SL entry. |
+| `--condition-orders` | No | sol / bsc / base / eth / robinhood | JSON array of condition sub-orders for `smart_trade`. Must include one `buy_low` entry (with `check_price` lower than `open_price`) plus at least one TP/SL entry. **Not supported on `arc` / `stable`** (`smart_trade` is rejected there). |
 | `--yes` | No | all | Skip the interactive confirmation prompt. **Rejected unless `GMGN_ALLOW_AUTOMATED_TRADES=1` is set in the environment.** |
 
 ### `order strategy create` Response Fields
@@ -609,7 +609,7 @@ gmgn-cli order strategy list --chain sol --group-tag STMix --base-token <token_a
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--type` | No | `open` (default) / `history` |
 | `--from` | No | Filter by wallet address |
 | `--group-tag` | Yes | Filter by order group: `LimitOrder` (limit orders only) / `STMix` (mixed strategy orders: take-profit, stop-loss, trailing take-profit, trailing stop-loss) |
@@ -633,7 +633,7 @@ gmgn-cli order strategy list --chain sol --group-tag STMix --base-token <token_a
 | `auto_slippage`            | bool   | Whether auto slippage is enabled |
 | `base_decimal`             | int    | Base token decimal places |
 | `base_token`               | string | Base token contract address |
-| `chain`                    | string | Chain: `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `chain`                    | string | Chain: `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `close_amount`             | string | Token amount sold on close; empty when order is open |
 | `close_price`              | string | Token price at close; empty when order is open |
 | `close_sell_model`         | string | Sell model used on close; empty when order is open |
@@ -747,7 +747,7 @@ gmgn-cli order strategy cancel \
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--from` | Yes | Wallet address (must match API Key binding) |
 | `--order-id` | Yes | Order ID to cancel |
 | `--order-type` | No | Order type: `limit_order` (limit order) / `smart_trade` (mixed strategy order: take-profit, stop-loss, trailing take-profit, trailing stop-loss) |

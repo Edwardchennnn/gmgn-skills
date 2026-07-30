@@ -1,7 +1,7 @@
 ---
 name: gmgn-market
 description: Get crypto and meme token price charts (K-line, candlestick, OHLCV), trending meme coin rankings by volume, newly launched tokens on launchpads (pump.fun, fourmeme, letsbonk, Raydium, etc.), and the hot-search ranking (most-searched tokens) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks for price chart, trending tokens, what's pumping, hot coins, most searched tokens, new launches, token signals, or wants to discover early-stage opportunities.
-argument-hint: "kline --chain <sol|bsc|base|eth|robinhood> --address <token_address> --resolution <30s|1m|5m|15m|1h|4h|1d> [--from <unix_ts>] [--to <unix_ts>] | trending --chain <sol|bsc|base|eth|robinhood> --interval <1m|5m|1h|6h|24h> | trenches --chain <sol|bsc|base|eth|robinhood> | signal --chain <sol|bsc|robinhood> | hot-searches [--chain <sol|bsc|base|eth|robinhood...>] [--interval <1m|5m|1h|6h|24h>]"
+argument-hint: "kline --chain <sol|bsc|base|eth|robinhood|arc|stable> --address <token_address> --resolution <30s|1m|5m|15m|1h|4h|1d> [--from <unix_ts>] [--to <unix_ts>] | trending --chain <sol|bsc|base|eth|robinhood|arc|stable> --interval <1m|5m|1h|6h|24h> | trenches --chain <sol|bsc|base|eth|robinhood|arc|stable> | signal --chain <sol|bsc|robinhood> | hot-searches [--chain <sol|bsc|base|eth|robinhood...>] [--interval <1m|5m|1h|6h|24h>]"
 metadata:
   cliHelp: "gmgn-cli market --help"
 ---
@@ -50,12 +50,12 @@ Use the `gmgn-cli` tool to query K-line data for a token, browse trending tokens
 | `market kline` | Token candlestick / OHLCV data and trading volume over a time range |
 | `market trending` | Trending tokens ranked by swap activity — use `--interval` to specify the time window (e.g. `1m` for 1-minute hottest, `1h` for 1-hour trending) |
 | `market trenches` | Newly launched launchpad platform tokens — **use this when the user asks for "new tokens", "just launched tokens", "latest tokens on pump.fun/letsbonk"**. Three categories: `new_creation` (just created), `near_completion` (bonding curve almost full), `completed` (graduated to open market / DEX) |
-| `market signal` | Real-time token signal feed — price spikes, smart money buys, large buys, Dex ads, CTO events, and more. Results sorted by `trigger_at` descending. **sol / bsc / robinhood only. Max 50 results per group.** |
+| `market signal` | Real-time token signal feed — price spikes, smart money buys, large buys, Dex ads, CTO events, and more. Results sorted by `trigger_at` descending. **sol / bsc / robinhood / arc / stable only. Max 50 results per group.** |
 | `market hot-searches` | Hot-search ranking — the most-searched tokens, ranked by `visiting_count` (search heat). **Use this when the user asks "what tokens are people searching for", "most searched tokens", "hot search list", "热搜榜".** Supports multiple chains in a single request. |
 
 ## Supported Chains
 
-`sol` / `bsc` / `base` / `eth` / `robinhood` (kline / trending / trenches; signal: `sol` / `bsc` / `robinhood`; hot-searches: `sol` / `bsc` / `base` / `eth` / `robinhood`)
+`sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` (kline / trending / trenches; signal: `sol` / `bsc` / `robinhood` / `arc` / `stable`; hot-searches: `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable`)
 
 ## Prerequisites
 
@@ -85,7 +85,7 @@ When a request returns `429`:
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--address` | Yes | Token contract address |
 | `--resolution` | Yes | Candlestick resolution: `30s` / `1m` / `5m` / `15m` / `1h` / `4h` / `1d` |
 | `--from` | No | Start time (Unix seconds) |
@@ -128,7 +128,7 @@ The response is an object with a `list` array. Each element in `list` is one can
 
 | Option | Description |
 |--------|-------------|
-| `--chain` | Required. `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Required. `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--interval` | Required. `1m` / `5m` / `1h` / `6h` / `24h` (default `1h`) |
 | `--limit <n>` | Number of results (default 100, max 100) |
 | `--order-by <field>` | Sort field: `default` / `swaps` / `marketcap` / `history_highest_market_cap` / `liquidity` / `volume` / `holder_count` / `smart_degen_count` / `renowned_count` / `gas_fee` / `price` / `change1m` / `change5m` / `change1h` / `creation_timestamp` |
@@ -542,7 +542,7 @@ Use field combinations to determine what stage a token is in. This affects how s
 
 | Parameter | Required | Description |
 |-----------|----------|-------------|
-| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` |
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--type` | No | Categories to query, repeatable: `new_creation` / `near_completion` / `completed` (default: all three) |
 | `--launchpad-platform` | No | Launchpad platform filter, repeatable (default: all platforms for the chain) |
 | `--limit` | No | Max results per category, max 80 (default: 80) |
@@ -927,7 +927,7 @@ Present each category separately with a header:
 
 ## `market signal` Parameters
 
-Chains: `sol` / `bsc` / `robinhood` only. **Maximum 50 results per group** — use multiple groups via `--groups` to cover different signal types in a single request.
+Chains: `sol` / `bsc` / `robinhood` / `arc` / `stable` only. **Maximum 50 results per group** — use multiple groups via `--groups` to cover different signal types in a single request.
 
 **Single-group (individual flags):**
 
@@ -1040,7 +1040,7 @@ Returns the hot-search ranking — the tokens people are searching for most righ
 
 | Option | Description |
 |--------|-------------|
-| `--chain <chain...>` | Repeatable. `sol` / `bsc` / `base` / `eth` / `robinhood`. **Omit to query the default 5-chain set** (sol / bsc / base / eth / robinhood, each at `24h` with chain-appropriate safety filters). |
+| `--chain <chain...>` | Repeatable. `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable`. **Omit to query the default 7-chain set** (sol / bsc / base / eth / robinhood / arc / stable, each at `24h` with chain-appropriate safety filters). |
 | `--interval <interval>` | `1m` / `5m` / `1h` / `6h` / `24h` (default `24h`). Applies to every `--chain` provided. |
 | `--limit <n>` | Max results per chain (default `500`). |
 | `--filter <tag...>` | Repeatable **boolean** filter tags (the downstream `filter.filters` array). **⚠️ SOL defaults: `renounced frozen`; EVM defaults: `not_honeypot verified renounced`.** Omitting `--filter` is NOT "no filter" — the server applies chain defaults. See the Filter Tags table below for the exact vocabulary. |
@@ -1106,7 +1106,7 @@ Numeric bounds use the **same rank-style metric names as `market trending`**. Th
 
 **Notes on behaviour:**
 
-- `--chain all` is **not** valid. To aggregate across chains, pass `--chain` multiple times (or omit `--chain` for the default 5-chain set).
+- `--chain all` is **not** valid. To aggregate across chains, pass `--chain` multiple times (or omit `--chain` for the default 7-chain set).
 - When you pass `--chain` but omit `--filter`, the **server** applies the chain-appropriate default filters — so each chain is filtered even without an explicit `--filter`.
 - Different chains return different counts: a chain's token count depends on how many of its tokens made the global top-500 (sol is usually the largest).
 
@@ -1142,7 +1142,7 @@ See the [`market trending` Response Fields](#market-trending-response-fields) se
 ### `market hot-searches` Usage Examples
 
 ```bash
-# Default 5-chain hot-search ranking (sol/bsc/base/eth/robinhood, each 24h)
+# Default 7-chain hot-search ranking (sol/bsc/base/eth/robinhood/arc/stable, each 24h)
 gmgn-cli market hot-searches --raw
 
 # SOL only, 24h hot-search list
@@ -1185,7 +1185,7 @@ Present per chain, ranked by `visiting_count` (search heat):
 
 - `market kline`: `--from` and `--to` are Unix timestamps in **seconds** — CLI converts to milliseconds automatically
 - `market trending`: `--filter` and `--platform` are repeatable flags
-- `market hot-searches`: `--chain` and `--filter` are repeatable flags; omit `--chain` to query the default 5-chain set. `--min-*`/`--max-*` range flags reuse the same metric names as `market trending` and are translated server-side per `--interval`
+- `market hot-searches`: `--chain` and `--filter` are repeatable flags; omit `--chain` to query the default 7-chain set. `--min-*`/`--max-*` range flags reuse the same metric names as `market trending` and are translated server-side per `--interval`
 - All commands use exist auth (API Key only, no signature)
 - If the user doesn't provide kline timestamps, calculate them from the current time based on their desired time range
 - Use `--raw` to get single-line JSON for further processing
