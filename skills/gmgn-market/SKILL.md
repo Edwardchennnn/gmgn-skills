@@ -1,7 +1,7 @@
 ---
 name: gmgn-market
-description: Get crypto and meme token price charts (K-line, candlestick, OHLCV), trending meme coin rankings by volume, newly launched tokens on launchpads (pump.fun, fourmeme, letsbonk, Raydium, etc.), and the hot-search ranking (most-searched tokens) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks for price chart, trending tokens, what's pumping, hot coins, most searched tokens, new launches, token signals, or wants to discover early-stage opportunities.
-argument-hint: "kline --chain <sol|bsc|base|eth|robinhood|arc|stable> --address <token_address> --resolution <30s|1m|5m|15m|1h|4h|1d> [--from <unix_ts>] [--to <unix_ts>] | trending --chain <sol|bsc|base|eth|robinhood|arc|stable> --interval <1m|5m|1h|6h|24h> | trenches --chain <sol|bsc|base|eth|robinhood|arc|stable> | signal --chain <sol|bsc|robinhood> | hot-searches [--chain <sol|bsc|base|eth|robinhood...>] [--interval <1m|5m|1h|6h|24h>]"
+description: Get crypto and meme token price charts (K-line, candlestick, OHLCV), trending meme coin rankings by volume, newly launched tokens on launchpads (pump.fun, fourmeme, letsbonk, Raydium, etc.), the hot-search ranking (most-searched tokens), and search for a specific token or wallet by name, symbol, contract address, wallet address, or ENS via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks for price chart, trending tokens, what's pumping, hot coins, most searched tokens, new launches, token signals, wants to look up / find / search a specific token or wallet by name or address, or wants to discover early-stage opportunities.
+argument-hint: "kline --chain <sol|bsc|base|eth|robinhood|arc|stable> --address <token_address> --resolution <30s|1m|5m|15m|1h|4h|1d> [--from <unix_ts>] [--to <unix_ts>] | trending --chain <sol|bsc|base|eth|robinhood|arc|stable> --interval <1m|5m|1h|6h|24h> | trenches --chain <sol|bsc|base|eth|robinhood|arc|stable> | signal --chain <sol|bsc|robinhood> | hot-searches [--chain <sol|bsc|base|eth|robinhood...>] [--interval <1m|5m|1h|6h|24h>] | search --query <name|symbol|address|ens> [--chain <chain>] [--launchpad-platform <p>...] [--is-og <true|false>] [--is-launched <true|false>] [--order-by weight]"
 metadata:
   cliHelp: "gmgn-cli market --help"
 ---
@@ -52,10 +52,11 @@ Use the `gmgn-cli` tool to query K-line data for a token, browse trending tokens
 | `market trenches` | Newly launched launchpad platform tokens — **use this when the user asks for "new tokens", "just launched tokens", "latest tokens on pump.fun/letsbonk"**. Three categories: `new_creation` (just created), `near_completion` (bonding curve almost full), `completed` (graduated to open market / DEX) |
 | `market signal` | Real-time token signal feed — price spikes, smart money buys, large buys, Dex ads, CTO events, and more. Results sorted by `trigger_at` descending. **sol / bsc / robinhood / arc / stable only. Max 50 results per group.** |
 | `market hot-searches` | Hot-search ranking — the most-searched tokens, ranked by `visiting_count` (search heat). **Use this when the user asks "what tokens are people searching for", "most searched tokens", "hot search list", "热搜榜".** Supports multiple chains in a single request. |
+| `market search` | Look up a **specific** token or wallet by name, symbol, contract address, wallet address, or ENS. Returns both matching tokens (`coins`) and wallets (`wallets`). **Use this when the user names a token/wallet and wants to find it — "search for PEPE", "look up this address", "find vitalik.eth", "查一下这个代币/钱包"** — as opposed to browsing rankings (`trending` / `hot-searches`). |
 
 ## Supported Chains
 
-`sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` (kline / trending / trenches; signal: `sol` / `bsc` / `robinhood` / `arc` / `stable`; hot-searches: `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable`)
+`sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` (kline / trending / trenches; signal: `sol` / `bsc` / `robinhood` / `arc` / `stable`; hot-searches: `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable`; search: `--chain` is **optional** — omit to search all chains; accepts `all` and any chain the search module has enabled, including the 7 above plus dynamically-enabled chains such as `tron` / `monad` / `megaeth` / `xlayer` / `hyperevm`)
 
 ## Prerequisites
 
@@ -73,6 +74,7 @@ All market routes used by this skill go through GMGN's leaky-bucket limiter with
 | `market trenches` | `POST /v1/trenches` | 3 |
 | `market signal` | `POST /v1/market/token_signal` | 3 |
 | `market hot-searches` | `POST /v1/market/hot_searches` | 3 |
+| `market search` | `GET /v1/market/search` | 1 |
 
 When a request returns `429`:
 
@@ -1239,11 +1241,98 @@ Present per chain, ranked by `visiting_count` (search heat):
 
 ---
 
+## `market search` Parameters
+
+Look up a **specific** token or wallet the user names — by token name, symbol, contract address, wallet address, or ENS. A single request returns both matching tokens (`coins`) and wallets (`wallets`). Use this when the user provides something concrete to find; use `market trending` / `market hot-searches` when they want to browse rankings instead.
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `--query` / `-q` | Yes | Search keyword — token name, symbol, contract address, wallet address, or ENS. After stripping invisible/control characters it must be **1–100 Unicode characters**. |
+| `--chain` | No | Scope results to one chain. Omit to search all chains. Accepts `all` and any enabled chain (see Supported Chains — includes the 7 core chains plus dynamically-enabled ones like `tron` / `monad` / `megaeth` / `xlayer` / `hyperevm`). |
+| `--launchpad-platform` | No | Exact launchpad platform filter, **repeatable**, max 50 values (e.g. `pump` / `moonshot` / `raydium` / `pinksale`). **Filters `coins` only — does not affect `wallets`.** |
+| `--is-og` | No | `true` = only OG tokens; `false` = only non-OG. Omit for no OG filter. **Coins only.** |
+| `--is-launched` | No | `true` = only already-launched (open-market) tokens; `false` or omit applies no launch filter. **Coins only.** |
+| `--order-by` | No | Only `weight` is accepted — sorts `coins` by weighted relevance score descending and drops honeypot tokens. **Coins only.** |
+
+**Behavior notes:**
+
+- `--launchpad-platform`, `--is-og`, `--is-launched`, and `--order-by` only shape the `coins` list. The `wallets` list is never affected by these flags.
+- `wallets` are capped at **50** results.
+- The response schema is a raw additive passthrough from the downstream `search_v3` API, and all string fields are metadata-sanitized before return. New fields may appear without notice — do not assume a closed field set; look up unfamiliar fields rather than guessing.
+
+## `market search` Response Fields
+
+`data` contains two arrays: `coins` (matching tokens) and `wallets` (matching wallets).
+
+**`coins[]` — matching tokens**
+
+| Field | Description |
+|-------|-------------|
+| `chain` | Chain identifier |
+| `address` | Token contract address |
+| `name` / `symbol` | Token name / ticker |
+| `price` | Current price in USD (string) |
+| `mcp` | Market cap in USD (string) — **note the short key `mcp`**, not `market_cap` |
+| `holder_count` | Number of token holders |
+
+Additional token fields may be present (additive passthrough from `search_v3`).
+
+**`wallets[]` — matching wallets**
+
+| Field | Description |
+|-------|-------------|
+| `chain` | Chain identifier |
+| `address` | Wallet address |
+| `twitter_username` | Linked Twitter / X handle (may be empty) |
+| `wallet_tags` | Array of GMGN wallet tags (e.g. smart money / KOL); may be empty |
+
+## `market search` Usage Examples
+
+```bash
+# Search "pepe" on ETH — best matches first (weighted, honeypots dropped)
+gmgn-cli market search --query pepe --chain eth --order-by weight
+
+# Search across all chains by symbol
+gmgn-cli market search --query trump
+
+# Look up a specific token contract address (SOL)
+gmgn-cli market search --query <token_address> --chain sol
+
+# Look up a wallet by address or ENS
+gmgn-cli market search --query vitalik.eth
+gmgn-cli market search --query 0x220866b1a2219f40e72f5c628b65d54268ca3a9d
+
+# SOL pump.fun launched tokens matching "trump"
+gmgn-cli market search --query trump --chain sol \
+  --launchpad-platform pump --is-launched true
+
+# OG tokens only, raw JSON for further processing
+gmgn-cli market search --query doge --is-og true --raw
+```
+
+### `market search` — Output Format
+
+Present tokens and wallets separately. Do not dump the raw JSON.
+
+```
+🔎 Search "{query}" — Tokens ({count})
+# | Symbol | Name | Chain | Price | MCap | Holders | Address
+
+👤 Wallets ({count})
+# | Address | Chain | Twitter | Tags
+```
+
+- If a section is empty, say so explicitly (e.g. "no matching wallets").
+- When the user is clearly after one specific token, surface the top `coins` match and offer to run full due diligence (`gmgn-token`) or a swap (`gmgn-swap`) on it.
+
+---
+
 ## Notes
 
 - `market kline`: `--from` and `--to` are Unix timestamps in **seconds** — CLI converts to milliseconds automatically
 - `market trending`: `--filter` and `--platform` are repeatable flags
 - `market hot-searches`: `--chain` and `--filter` are repeatable flags; omit `--chain` to query the default 7-chain set. `--min-*`/`--max-*` range flags reuse the same metric names as `market trending` and are translated server-side per `--interval`
+- `market search`: `--query` is required; `--launchpad-platform` is a repeatable flag (max 50). `--chain` is optional (omit = all chains). `--launchpad-platform` / `--is-og` / `--is-launched` / `--order-by` filter `coins` only, never `wallets`
 - All commands use exist auth (API Key only, no signature)
 - If the user doesn't provide kline timestamps, calculate them from the current time based on their desired time range
 - Use `--raw` to get single-line JSON for further processing
