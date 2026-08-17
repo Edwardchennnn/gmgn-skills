@@ -821,39 +821,6 @@ function formatCurl(method: string, url: string, headers: Record<string, string>
   return `\n[curl]\ncurl -X ${method} '${url}' \\\n${headerArgs}${bodyArg}\n`;
 }
 
-const TRENCHES_PLATFORMS: Record<string, string[]> = {
-  sol: [
-    "Pump.fun", "pump_mayhem", "pump_mayhem_agent", "pump_agent",
-    "letsbonk", "bonkers", "bags", "memoo", "liquid", "bankr", "zora",
-    "surge", "anoncoin", "moonshot_app", "wendotdev", "heaven", "sugar",
-    "token_mill", "believe", "trendsfun", "trends_fun", "jup_studio",
-    "Moonshot", "boop", "ray_launchpad", "meteora_virtual_curve", "xstocks",
-  ],
-  bsc: [
-    "fourmeme", "fourmeme_agent", "bn_fourmeme", "four_xmode_agent",
-    "cubepeg", "likwid", "goplus_creator", "goplus_skills", "openfour",
-    "flap", "flap_stocks", "flap_aioracle", "clanker", "lunafun",
-  ],
-  base: [
-    "clanker", "bankr", "flaunch", "zora", "zora_creator",
-    "baseapp", "basememe", "virtuals_v2", "klik",
-  ],
-  eth: [
-    "trench", "clanker", "klik", "livo", "stroid",
-    "pool_uniswap_v2", "pool_uniswap_v3", "printr",
-  ],
-  robinhood: [
-    "noxa", "virtuals_v2", "bankr", "dyorswap",
-    "pool_uniswap_v2", "pool_uniswap_v3", "pool_uniswap_v4",
-  ],
-  arc: [
-    "dyorfun_v3", "dyorswap", "trench", "onmifun", "sharcfun", "klik",
-  ],
-  stable: [
-    "dyorfun_v3", "dyorswap", "trench",
-  ],
-};
-
 const TRENCHES_QUOTE_ADDRESS_TYPES: Record<string, number[]> = {
   sol:  [4, 5, 3, 1, 13, 0],
   bsc:  [6, 7, 1, 16, 8, 3, 9, 10, 2, 17, 18, 0],
@@ -864,7 +831,6 @@ const TRENCHES_QUOTE_ADDRESS_TYPES: Record<string, number[]> = {
 
 function buildTrenchesBody(chain: string, types?: string[], platforms?: string[], limit?: number, filters?: Record<string, number | string>): Record<string, unknown> {
   const selectedTypes = types?.length ? types : ["new_creation", "near_completion", "completed"];
-  const launchpad_platform = platforms?.length ? platforms : (TRENCHES_PLATFORMS[chain] ?? []);
   const quote_address_type = TRENCHES_QUOTE_ADDRESS_TYPES[chain] ?? [];
   const actualLimit = limit ?? 80;
   const section: Record<string, unknown> = {
@@ -873,12 +839,10 @@ function buildTrenchesBody(chain: string, types?: string[], platforms?: string[]
     limit: actualLimit,
     ...filters,
   };
-  // launchpad_platform / quote_address_type act as allow-list filters: sending an
-  // empty array filters out every result. Configured chains (see the maps above)
-  // supply real values; for any chain missing config we omit the field so the API
-  // applies its own defaults rather than returning an all-empty response. This is a
-  // safety net — new chains should still be added to both maps above.
-  if (launchpad_platform.length) section.launchpad_platform = launchpad_platform;
+  // Let the service apply its current per-chain launchpad defaults when the user
+  // does not provide an explicit filter. Keeping a duplicate client-side allow-list
+  // here can silently hide newly supported platforms until the CLI is released.
+  if (platforms?.length) section.launchpad_platform = platforms;
   if (quote_address_type.length) section.quote_address_type = quote_address_type;
   const body: Record<string, unknown> = { version: "v2" };
   for (const type of selectedTypes) {
