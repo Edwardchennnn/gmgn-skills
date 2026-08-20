@@ -84,6 +84,28 @@ export function registerPortfolioCommands(program: Command): void {
     });
 
   portfolio
+    .command("profits")
+    .description("Batch query wallet profit and loss (1–100 wallets)")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
+    .requiredOption("--wallet <address...>", "Wallet address(es), up to 100")
+    .option("--period <period>", "Profit period: 1d / 7d / 30d / all", "7d")
+    .option("--raw", "Output raw JSON")
+    .action(async (opts) => {
+      validateChain(opts.chain);
+      const wallets = opts.wallet as string[];
+      if (wallets.length > 100) {
+        throw new Error("--wallet accepts at most 100 addresses");
+      }
+      for (const wallet of wallets) validateAddress(wallet, opts.chain, "--wallet");
+      if (!["1d", "7d", "30d", "all"].includes(opts.period)) {
+        throw new Error("--period must be one of: 1d, 7d, 30d, all");
+      }
+      const client = new OpenApiClient(getConfig());
+      const data = await client.getWalletProfits(opts.chain, wallets, opts.period).catch(exitOnError);
+      printResult(data, opts.raw);
+    });
+
+  portfolio
     .command("info")
     .description("Get wallets and main currency balances bound to the API Key")
     .option("--raw", "Output raw JSON")
@@ -131,4 +153,3 @@ export function registerPortfolioCommands(program: Command): void {
     });
 
 }
-

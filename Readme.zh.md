@@ -534,6 +534,9 @@ gmgn-cli portfolio activity --chain sol --wallet <addr>
 # 交易统计（支持多钱包）
 gmgn-cli portfolio stats --chain sol --wallet <addr1> --wallet <addr2>
 
+# 盈亏查询（支持 1–100 个钱包及 1d/7d/30d/all 周期）
+gmgn-cli portfolio profits --chain sol --wallet <addr1> --wallet <addr2> --period 7d
+
 # API Key 绑定的钱包及主币余额
 gmgn-cli portfolio info
 

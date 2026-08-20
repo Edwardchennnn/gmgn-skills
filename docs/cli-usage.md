@@ -228,6 +228,28 @@ npx gmgn-cli portfolio stats \
 
 ---
 
+## portfolio profits
+
+Batch query wallet profit and loss for 1–100 wallets.
+
+```bash
+gmgn-cli portfolio profits \
+  --chain <chain> \
+  --wallet <wallet_address_1> [--wallet <wallet_address_2>] \
+  [--period 1d|7d|30d|all] \
+  [--raw]
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
+| `--wallet` | Yes | Wallet address (one or more, max 100) |
+| `--period` | No | P&L period: `1d` / `7d` / `30d` / `all` (default `7d`) |
+
+The response contains a `list` array with one result per wallet, including selected-period and all-time realized profit, unrealized profit, total profit, total cost, and buy/sell counts.
+
+---
+
 ## portfolio info
 
 Query wallets and main currency balances bound to the API Key.

@@ -510,6 +510,9 @@ gmgn-cli portfolio activity --chain sol --wallet <addr>
 # Stats (supports multiple wallets)
 gmgn-cli portfolio stats --chain sol --wallet <addr1> --wallet <addr2>
 
+# P&L (supports 1–100 wallets and 1d/7d/30d/all periods)
+gmgn-cli portfolio profits --chain sol --wallet <addr1> --wallet <addr2> --period 7d
+
 # Wallets and balances linked to API key
 gmgn-cli portfolio info
 

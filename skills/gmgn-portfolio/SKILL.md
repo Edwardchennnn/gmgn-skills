@@ -1,7 +1,7 @@
 ---
 name: gmgn-portfolio
-description: Analyze any crypto wallet by address — holdings, realized/unrealized P&L, win rate, trading history, performance stats, specific token balance, and tokens created by a developer wallet (with ATH market cap and DEX graduation status) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks about a wallet's holdings, P&L, win rate, what tokens a dev has launched, the highest ATH token a dev ever created, or wants a wallet report to decide whether to copy-trade or follow.
-argument-hint: "<info|holdings|activity|stats|token-balance|created-tokens> [--chain <sol|bsc|base|eth|robinhood|arc|stable>] [--wallet <wallet_address>]"
+description: Analyze one or many crypto wallets by address — holdings, batch realized/unrealized P&L, win rate, trading history, performance stats, specific token balance, and tokens created by a developer wallet (with ATH market cap and DEX graduation status) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks about wallet holdings, P&L (including comparing up to 100 wallets), win rate, what tokens a dev has launched, the highest ATH token a dev ever created, or wants a wallet report to decide whether to copy-trade or follow.
+argument-hint: "<info|holdings|activity|stats|profits|token-balance|created-tokens> [--chain <sol|bsc|base|eth|robinhood|arc|stable>] [--wallet <wallet_address...>]"
 metadata:
   cliHelp: "gmgn-cli portfolio --help"
 ---
@@ -40,6 +40,7 @@ Use the `gmgn-cli` tool to query wallet portfolio data based on the user's reque
 | `portfolio holdings` | Wallet token holdings with P&L |
 | `portfolio activity` | Transaction history |
 | `portfolio stats` | Trading statistics (supports batch) |
+| `portfolio profits` | Batch wallet P&L for 1–100 wallets |
 | `portfolio token-balance` | Token balance for a specific token |
 | `portfolio created-tokens` | Tokens created by a developer wallet, with market cap and ATH info |
 
@@ -69,6 +70,7 @@ All portfolio routes used by this skill go through GMGN's leaky-bucket limiter w
 | `portfolio info` | `GET /v1/user/info` | 1 |
 | `portfolio activity` | `GET /v1/user/wallet_activity` | 3 |
 | `portfolio stats` | `GET /v1/user/wallet_stats` | 3 |
+| `portfolio profits` | `POST /v1/user/wallet_profits` | 3 |
 | `portfolio token-balance` | `GET /v1/user/wallet_token_balance` | 1 |
 | `portfolio created-tokens` | `GET /v1/user/created_tokens` | 2 |
 
@@ -116,6 +118,14 @@ gmgn-cli portfolio stats --chain sol --wallet <wallet_address> --period 30d
 # Batch stats for multiple wallets
 gmgn-cli portfolio stats --chain sol \
   --wallet <wallet_1> --wallet <wallet_2>
+
+# Batch P&L for multiple wallets (default 7d)
+gmgn-cli portfolio profits --chain sol \
+  --wallet <wallet_1> --wallet <wallet_2>
+
+# All-time P&L for up to 100 wallets
+gmgn-cli portfolio profits --chain sol \
+  --wallet <wallet_1> --wallet <wallet_2> --period all
 
 # Token balance
 gmgn-cli portfolio token-balance \
@@ -181,6 +191,13 @@ The activity response includes a `next` field. Pass it to `--cursor` to fetch th
 | Option | Description |
 |--------|-------------|
 | `--period <period>` | Stats period: `7d` / `30d` (default `7d`) |
+
+## `portfolio profits` Options
+
+| Option | Description |
+|--------|-------------|
+| `--wallet <address...>` | One or more wallet addresses (required, max 100) |
+| `--period <period>` | P&L period: `1d` / `7d` / `30d` / `all` (default `7d`) |
 
 ## Response Field Reference
 
@@ -260,6 +277,22 @@ The response also includes a `common` object when available (absent if the upstr
 | `common.fund_amount` | Funding amount |
 
 Use `common.tags` and `common.twitter_username` when building a wallet profile narrative. If `common` is absent in the response, omit identity fields silently — do not report it as an error.
+
+### `portfolio profits` — Key Fields
+
+The response has a `list` array with one item per wallet. Monetary values are decimal strings; parse them with decimal arithmetic rather than binary floating point when exact calculations matter.
+
+| Field | Description |
+|-------|-------------|
+| `wallet_address` | Wallet address |
+| `realized_profit` | Realized profit in the selected period |
+| `realized_profit_cost` | Cost basis associated with selected-period realized profit |
+| `buy` / `sell` | Buy and sell counts in the selected period |
+| `unrealized_profit` | Unrealized profit on current holdings |
+| `total_realized_profit` | All-time realized profit |
+| `total_realized_profit_cost` | Cost basis associated with all-time realized profit |
+| `total_profit` | Total profit |
+| `total_cost` | Total cost basis |
 
 ### `portfolio created-tokens` — Key Fields
 
