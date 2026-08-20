@@ -417,6 +417,14 @@ export class OpenApiClient {
     });
   }
 
+  async getWalletProfits(chain: string, walletAddresses: string[], period = "7d"): Promise<unknown> {
+    return this.authExistRequest("POST", "/v1/user/wallet_profits", {}, {
+      chain,
+      period,
+      wallet_addresses: walletAddresses,
+    });
+  }
+
   async getWalletTokenBalance(
     chain: string,
     walletAddress: string,
