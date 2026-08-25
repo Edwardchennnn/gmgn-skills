@@ -103,6 +103,7 @@ SOL / BSC / Base / ETH 多链数据每次查询均为实时，支持多参数个
 | [`/gmgn-track`](skills/gmgn-track/SKILL.md) | 追踪关注钱包交易动态、KOL 交易动态、聪明钱交易动态 | [SKILL.md](skills/gmgn-track/SKILL.md) |
 | [`/gmgn-swap`](skills/gmgn-swap/SKILL.md) | 兑换提交 + 限价单 + 策略单 + 订单查询 | [SKILL.md](skills/gmgn-swap/SKILL.md) |
 | [`/gmgn-cooking`](skills/gmgn-cooking/SKILL.md) | 一键 Cooking 策略单（买入 + 止盈止损条件单一体化） | [SKILL.md](skills/gmgn-cooking/SKILL.md) |
+| [`/gmgn-kline-pattern`](skills/gmgn-kline-pattern/SKILL.md) | K 线形态判读——识别形态并给出 0-100 分 | [SKILL.md](skills/gmgn-kline-pattern/SKILL.md) |
 
 > 如需查看详细的 CLI 接口说明、传参格式和推荐值，请参阅 [Wiki 文档](https://github.com/GMGNAI/gmgn-skills/wiki/Home-Chinese)。
 
