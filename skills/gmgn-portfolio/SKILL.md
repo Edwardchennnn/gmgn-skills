@@ -201,37 +201,63 @@ The activity response includes a `next` field. Pass it to `--cursor` to fetch th
 
 ## Response Field Reference
 
+### Response envelopes — each route wraps differently
+
+Check the envelope before reaching for a field name. Reading a field off the wrong level returns
+`undefined`, which becomes `0`, which reads as a real answer ("this wallet made nothing") rather
+than as an error.
+
+| Route | Top-level shape | Where the rows are |
+|-------|-----------------|--------------------|
+| `portfolio stats` | bare object (array for batch) | the object itself |
+| `portfolio profits` | `{"list": [ {…} ]}` | `list[0]` — a single row, still inside an array |
+| `portfolio activity` | `{"activities": [...], "next": …}` | `activities` — **not** `list` |
+| `portfolio holdings` | `{"list": [...], "next": …}` | `list` — **not** `holdings` |
+| `portfolio created-tokens` | bare object | `tokens`, plus aggregate counts at the top level |
+
+Some deployments additionally wrap the whole body in `{"data": …}`.
+
 ### `portfolio holdings` — Key Fields
 
-The response has a `holdings` array. Each item is one token position.
+Rows come back under **`list`**, with a `next` cursor. Confirmed against gmgn-cli 1.5.8 live
+responses — several names differ from what earlier versions of this doc claimed, and the old
+names are not accepted as aliases.
 
 | Field | Description |
 |-------|-------------|
-| `token.address` | Token contract address |
+| `token.token_address` | Token contract address (**not** `token.address` — that name is `activity`'s) |
 | `token.symbol` / `token.name` | Token ticker and full name |
 | `token.price` | Current token price in USD |
+| `token.is_honeypot` | Ships inline — no `gmgn-token security` call needed. **A `true` here is contradicted by `history_total_sells > 0` on the same row**: a honeypot cannot be sold, and transfer-restricted RWA / tokenised-stock contracts trip naive simulators |
+| `token.launchpad_platform` / `token.launchpad` | Where the token came from — the basis for "where does this wallet hunt" |
+| `token.liquidity`, `token.max_supply`, `token.total_supply`, `token.creation_timestamp` | Also inline |
 | `balance` | Current token balance (human-readable units) |
 | `usd_value` | Current USD value of this position |
-| `cost` | Total amount spent buying this token (USD) |
+| `accu_cost` | Cost basis of the position still held (**not** `cost`) |
+| `history_bought_cost` / `history_sold_income` | All-time buy cost / sell proceeds |
 | `realized_profit` | Profit from completed sells (USD) |
 | `unrealized_profit` | Profit on current unsold holdings at current price (USD) |
 | `total_profit` | `realized_profit + unrealized_profit` (USD) |
-| `profit_change` | Total profit ratio = `total_profit / cost` (e.g. `1.5` = +150%) |
-| `avg_cost` | Average buy price per token (USD) |
-| `buy_tx_count` | Number of buy transactions |
-| `sell_tx_count` | Number of sell transactions |
-| `last_active_timestamp` | Unix timestamp of the most recent transaction |
-| `history_bought_cost` | Total USD spent buying (all-time) |
-| `history_sold_income` | Total USD received from selling (all-time) |
+| `total_profit_pnl` | Total profit **ratio** (**not** `profit_change`); `realized_profit_pnl` / `unrealized_profit_pnl` are the split |
+| `history_total_buys` / `history_total_sells` | Buy / sell transaction counts (**not** `buy_tx_count` / `sell_tx_count`) |
+| `history_total_transfer_ins` / `_outs` | Transfer counts — airdrops and internal moves, not trades |
+| `start_holding_at` / `end_holding_at` / `last_active_timestamp` | Position lifetime |
+| `wallet_token_tags` | Per-position tags |
+
+There is **no `--sell-out` flag** — gmgn-cli 1.5.8 rejects it as an unknown option. `avg_cost`
+is not returned; derive it from `accu_cost / balance`.
 
 ### `portfolio activity` — Key Fields
 
-The response has a `activities` array and a `next` cursor field for pagination.
+Rows come back under **`activities`**, with a `next` cursor for pagination.
 
 | Field | Description |
 |-------|-------------|
-| `transaction_hash` | On-chain transaction hash |
-| `type` | Transaction type: `buy` / `sell` / `add` / `remove` / `transfer` |
+| `tx_hash` | On-chain transaction hash (**not** `transaction_hash`) |
+| `event_type` | Transaction type: `buy` / `sell` / `transferIn` / `transferOut`. Some chains return `type` instead — read `event_type ?? type`. Transfer rows are airdrops and internal moves, **not trades** — exclude them from any ratio |
+| `buy_cost_usd` | On a `sell` row, the cost basis of what was sold — `cost_usd - buy_cost_usd` is that exit's realized P&L |
+| `gas_usd` / `priority_fee` / `tip_fee` | Friction. Compare `gas_usd` against per-trade net, not against nothing |
+| `launchpad_platform` | Where the token came from |
 | `token.address` | Token contract address |
 | `token.symbol` | Token ticker |
 | `token_amount` | Token quantity in this transaction |
