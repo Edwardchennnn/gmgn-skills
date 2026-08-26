@@ -30,6 +30,8 @@ interface ResponseEnvelope {
   data?: unknown;
   message?: string;
   error?: string;
+  upgrade_url?: string;
+  upgrade_message?: string;
 }
 
 interface OpenApiErrorParams {
@@ -40,6 +42,8 @@ interface OpenApiErrorParams {
   apiError?: string;
   apiMessage?: string;
   resetAtUnix?: number;
+  upgradeUrl?: string;
+  upgradeMessage?: string;
 }
 
 class OpenApiError extends Error {
@@ -50,6 +54,8 @@ class OpenApiError extends Error {
   readonly apiError?: string;
   readonly apiMessage?: string;
   readonly resetAtUnix?: number;
+  readonly upgradeUrl?: string;
+  readonly upgradeMessage?: string;
 
   constructor(params: OpenApiErrorParams) {
     super(buildOpenApiErrorMessage(params));
@@ -61,6 +67,8 @@ class OpenApiError extends Error {
     this.apiError = params.apiError;
     this.apiMessage = params.apiMessage;
     this.resetAtUnix = params.resetAtUnix;
+    this.upgradeUrl = params.upgradeUrl;
+    this.upgradeMessage = params.upgradeMessage;
   }
 }
 
@@ -715,6 +723,8 @@ export class OpenApiClient {
         apiError: json.error,
         apiMessage: json.message,
         resetAtUnix,
+        upgradeUrl: json.upgrade_url,
+        upgradeMessage: json.upgrade_message,
       });
     }
 
@@ -783,7 +793,11 @@ function buildOpenApiErrorMessage(params: OpenApiErrorParams): string {
   }
 
   if (params.apiError === "RATE_LIMIT_EXCEEDED" || params.apiError === "RATE_LIMIT_BANNED") {
-    return `${message}. Rate limit resets at ${resetText}. Stop sending requests before then; repeated requests can extend the ban by 5s up to 5 minutes.`;
+    const retryGuidance = `Rate limit resets at ${resetText}. Stop sending requests before then; repeated requests can extend the ban by 5s up to 5 minutes.`;
+    if (params.apiError === "RATE_LIMIT_EXCEEDED" && params.upgradeMessage) {
+      return `${message}. ${retryGuidance} ${params.upgradeMessage}`;
+    }
+    return `${message}. ${retryGuidance}`;
   }
 
   return `${message}. Received HTTP 429; retry after ${resetText}.`;
