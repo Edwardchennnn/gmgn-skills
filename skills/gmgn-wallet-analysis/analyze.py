@@ -230,6 +230,16 @@ def dwidth(s):
     return total
 
 
+def usd_exact(v):
+    """Whole dollars with separators — no K/M abbreviation.
+
+    The card's headline exists because "$1,000 -> $1,621" needs no conversion to land.
+    Run it through usd() and it becomes "$1.0K -> $1.6K", which is both a rounding of the
+    thing being demonstrated and a return to the abstraction the card was built to avoid.
+    """
+    return f"${v:,.0f}"
+
+
 def wpad(s, width):
     return s + " " * max(0, width - dwidth(s))
 
@@ -946,6 +956,21 @@ def compute(d, latency_s, my_size):
             lp[str(name)] = lp.get(str(name), 0) + 1
     m["launchpads"] = sorted(lp.items(), key=lambda kv: -kv[1])[:3]
 
+    # ── the decision card's numbers ──────────────────────────────────────────────
+    # "+62.1%" is a ratio a reader has to convert before it means anything. The same fact
+    # told as money needs no conversion: $1,000 -> $1,621. Nothing new is fetched; this is
+    # roi_7d wearing clothes a newcomer already owns.
+    m["story_stake"] = 1000.0
+    m["story_out"] = (1000.0 * (1.0 + m["roi_7d"])) if m["roi_7d"] is not None else None
+    # How much hotter than its own baseline. Only meaningful when the baseline is positive:
+    # against a negative or ~zero all-time ROI the ratio is noise, so it is dropped rather
+    # than printed as a huge multiple that means nothing.
+    m["pace_x"] = None
+    if m["roi_7d"] is not None and m["roi_all"] is not None and m["roi_all"] >= 0.02:
+        r = m["roi_7d"] / m["roi_all"]
+        if r >= 1.5:
+            m["pace_x"] = r
+
     # size guidance
     m["my_size"] = my_size
     m["size_cap"] = m["avg_buy_usd"] * 0.5 if m["avg_buy_usd"] > 0 else None
@@ -1226,6 +1251,20 @@ GATE_GLOSS = {
     "G2": "is it still earning now",
     "G3": "can you get filled",
     "G4": "does it cut losses",
+}
+
+
+# The card states each gate as an outcome in words a newcomer already uses. The gate's own
+# name ("AUTHENTICITY") and the number behind it stay on the evidence layer: naming the
+# test invites the question "how did you test it", which is exactly what the card defers.
+GATE_PLAIN = {
+    "G1": ("record is real", "the track record is genuine, not manufactured"),
+    "G2": ("earning now", "not living off an old run"),
+    "G3": ("you can keep up", "its fills are reachable at your speed"),
+    # Keyed "it cuts losses", not "cuts losses": that shorter string is already the
+    # numbers panel's win-rate chip, and a table keyed on English text has exactly one slot
+    # per string. Reusing it silently rewrote that chip in eight fixtures.
+    "G4": ("it cuts losses", "it does not ride positions to zero"),
 }
 
 
@@ -1546,11 +1585,166 @@ def speed_read(m, g, why):
     return rows
 
 
-def report(wallet, chain, m, g, gaps):
+def card_blocked(m, g):
+    """Why the card cannot be shown, or None.
+
+    The card's whole premise is that the reasoning is hidden, so it has nowhere to put a ⚪.
+    A card with a missing tick reads as a complete verdict with one fewer reason — which is
+    worse than no card, because the reader cannot see that something was not measured. So
+    when the inputs are not all there, the card is withheld and the evidence layer (which
+    CAN say ⚪) carries the whole answer.
+    """
+    if m["trades"] == 0:
+        return T('no trades in the window')
+    unmeasured = [k for k in ("G1", "G2", "G3", "G4") if g[k][0] is None]
+    if unmeasured:
+        return T('{0} not measured — the card has no way to show an unmeasured check',
+                 ", ".join(T(GATE_PLAIN[k][0]) for k in unmeasured))
+    if m["roi_7d"] is None:
+        return T('no 7d return — the headline figure cannot be computed')
+    return None
+
+
+def card(m, g, wallet, chain):
+    """Layer one: the decision and the action, with every 'how do you know' deferred."""
+    out = []
+    emoji, headline, why = verdict(m, g)
+    head = f"{emoji} {headline.split(' · ')[0]}"
+    flags = [t for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3")] or \
+            [t for t in m["tag_info"] if t["sev"] == "warn"]
+    if flags:
+        head += f"    {flags[0]['emoji']} {flags[0]['name']}"
+    out.append(head)
+    out.append("")
+
+    # ── the money, as money — but only while the record is worth quoting ──
+    if g["G1"][0] is False:
+        # When G1 fails the P&L is precisely what is in dispute, so quoting it as
+        # "$1,000 -> $1,122" would present the disputed figure as an achieved one. The
+        # reason there is no headline figure IS the headline in that case.
+        put(out, "  ",
+            T('Its profit figures are not trustworthy — treat the track record as unknown'))
+    else:
+        put(out, "  ", T('If you had followed it with {0} seven days ago',
+                         usd_exact(m["story_stake"])))
+        out.append(f"  {usd_exact(m['story_stake'])}  →  {usd_exact(m['story_out'])}")
+        emo, label = m["form"]
+        if m["pace_x"]:
+            put(out, "  ", T('{0} {1} — about {2:.0f}x its own long-run pace',
+                             emo, label, m["pace_x"]))
+        else:
+            put(out, "  ", f"{emo} {label}")
+    out.append("")
+
+    # ── who, in one line, with no taxonomy ──
+    ident = m["twitter_name"] or (f"@{m['twitter']}" if m["twitter"] else None)
+    bits = []
+    if m["age_days"] is not None and m["age_days"] >= 180:
+        bits.append(T('{0:.0f}-day-old wallet', m["age_days"]))
+    if m["followers"] >= 10_000:
+        bits.append(T('{0:,} followers', m["followers"]))
+    if ident:
+        put(out, "  ", ident + (("  " + " · ".join(bits)) if bits else ""))
+    persona = []
+    if m["gain_top3_share"] is not None and g["G1"][0] is not False:
+        persona.append(T('its 3 best coins made {0} of the money', pct(m["gain_top3_share"])))
+    if m["entry_p50"] > 0:
+        persona.append(T('usually enters around {0}', mc(m["entry_p50"])))
+    if persona:
+        put(out, "  ", " · ".join(persona), hang=2)
+    out.append("")
+
+    # ── the action ──
+    # A red verdict gets the verdict's own instruction, never a sizing and a copy window:
+    # those are directions for FOLLOWING, and printing them under DO NOT COPY is the card
+    # telling the reader to do the thing its own headline just told them not to.
+    if emoji == "🔴":
+        out.append(T('  WHAT TO DO'))
+        put(out, "  ", why, hang=2)
+    else:
+        out.append(T('  HOW TO FOLLOW'))
+        if m["size_cap"]:
+            put(out, "  ", T('start no larger than {0}', usd_exact(m["size_cap"])))
+        if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
+            put(out, "  ", T('get your order in within {0} of its buy', dur(m["copy_window_s"])))
+            put(out, "  ", T('past that, let it go \u2014 its cost is lower than yours, and '
+                             'entering late means buying what it is selling'), hang=2)
+    out.append("")
+
+    # ── the four outcomes, without the tests that produced them ──
+    # Read the gates. These were hardcoded to "✓" in the first cut, which put
+    # "✓ the record is real" on a card whose verdict was DO NOT COPY *because* that check
+    # failed — the card asserting the opposite of its own headline.
+    put(out, "  ", "  ".join(("✓ " if g[k][0] else "✗ ") + T(GATE_PLAIN[k][0])
+                             for k in ("G1", "G2", "G3", "G4")), hang=2)
+    out.append("")
+
+    if flags:
+        put(out, "  ⚠️ ", flags[0]["meaning"], hang=5)
+        out.append("")
+
+    if m["recent_buys"]:
+        out.append(T('  BOUGHT IN THE LAST 24H'))
+        for sym, usd_v in m["recent_buys"][:3]:
+            out.append(f"  {wpad(sym[:16], 18)}{usd(usd_v)}")
+        out.append("")
+
+    if m["open_value"] and m["open_book"]:
+        top = m["open_book"][0]
+        # "Not a wallet that only churns" is a defence of the record, so it must not appear
+        # on a card whose flag says the record may be churn. Same facts, no editorial.
+        tpl = ('It is still holding {0} coins worth {1} — biggest is {2} at {3}.'
+               if g["G1"][0] is False else
+               'It is still holding {0} coins worth {1} — biggest is {2} at {3}. '
+               'Not a wallet that only churns.')
+        put(out, "  ", T(tpl, m["holdings_n"], usd(m["open_value"]),
+                         top["sym"], usd(top["usd"])), hang=2)
+        out.append("")
+    return out
+
+
+def report(wallet, chain, m, g, gaps, brief=False):
+    """Two layers, in reading order.
+
+    Layer one is the decision: verdict, the return told as money, who this is, what to do.
+    Layer two is the evidence behind every one of those claims. The split exists because the
+    two audiences are different and were fighting over the same screen — a newcomer needs to
+    stop reading after the card, and whoever is checking the work needs every number. Putting
+    the evidence second serves both; putting it first served neither.
+
+    The bridge line at the end of layer one is not decoration. Hiding the reasoning without
+    saying it exists reads as hand-waving; naming where it is makes the clean first screen a
+    choice the reader can decline.
+    """
     out = []
     w = wallet if len(wallet) <= 14 else f"{wallet[:6]}…{wallet[-4:]}"
     emoji, headline, why = verdict(m, g)
     BAR = "━" * 66
+
+    blocked = card_blocked(m, g)
+    if not blocked:
+        out.append(BAR)
+        out += card(m, g, wallet, chain)
+        put(out, "  ", T('Every claim above is backed by a number. The evidence is below: '
+                         'what each of the four checks actually tested, and the raw figures.'),
+            hang=2)
+        out.append("")
+        put(out, "  ", T('Check the chips on these coins yourself before following. '
+                         'All of this measures behaviour that already happened — '
+                         'not a prediction, not advice.'), hang=2)
+        out.append("")
+        if brief:
+            return "\n".join(out)
+        out.append(BAR)
+        out.append(T('EVIDENCE'))
+        out.append("")
+    elif brief:
+        # Asked for the card, cannot honestly produce one. Say why rather than emitting a
+        # card with a hole in it, and hand back the full report instead of nothing.
+        out.append(BAR)
+        put(out, T('NO CARD  '), blocked)
+        out.append(BAR)
+        out.append("")
 
     # ── verdict: the only thing on the first screen ──
     out.append(BAR)
@@ -1845,7 +2039,7 @@ def actions(m, g):
 
 def main(argv):
     args = [a for a in argv[1:]]
-    latency_s, my_size, fixture = 3.0, None, None
+    latency_s, my_size, fixture, brief = 3.0, None, None, False
     rest = []
     k = 0
     while k < len(args):
@@ -1855,6 +2049,9 @@ def main(argv):
         elif args[k] == "--size" and k + 1 < len(args):
             my_size = f(args[k + 1])
             k += 2
+        elif args[k] == "--brief":
+            brief = True
+            k += 1
         elif args[k] == "--fixture" and k + 1 < len(args):
             fixture = args[k + 1]
             k += 2
@@ -1888,7 +2085,7 @@ def main(argv):
 
     m = compute(d, latency_s, my_size)
     g = gates(m)
-    print(report(wallet, chain, m, g, gaps))
+    print(report(wallet, chain, m, g, gaps, brief))
     return 0
 
 

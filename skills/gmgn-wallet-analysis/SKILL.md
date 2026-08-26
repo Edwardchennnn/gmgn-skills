@@ -90,6 +90,51 @@ unavailable the block is omitted rather than guessed.
 The engine chip and its number go in the speed read (`profit from`); the sentence about what
 it means for copying appears **once**, under WHO IT IS. Never print the implication twice.
 
+## Two layers: the card, then the evidence
+
+The report leads with a **decision card** and puts the reasoning **below** it. The split
+exists because two audiences were fighting over the same screen: someone who pasted an
+address needs to stop reading after a few lines, and whoever checks the work needs every
+number. Evidence-first served neither.
+
+| Layer | Contains | For |
+|-------|----------|-----|
+| **Card** | verdict · the 7d return told as money · who this is · what to do · four outcomes · one risk · what it bought in 24h | a newcomer, who stops here |
+| **Evidence** | the four gates with the number that decided each, the numbers panel, the P&L distribution, the full live book | anyone verifying, and the dev diffing a change |
+
+`--brief` prints only the card. Default prints both.
+
+**The headline is money, not a ratio.** `+62.1%` is a figure the reader has to convert;
+`$1,000 → $1,621` is the same fact needing no conversion. Nothing extra is fetched — it is
+`roi_7d` wearing clothes a newcomer already owns.
+
+### What the card must never do
+
+Hiding the reasoning obliges the card to be *more* careful than the evidence layer, not less.
+Every rule below exists because the first cut broke it:
+
+| Rule | What went wrong without it |
+|------|---------------------------|
+| **The four marks read the gates** | They were hardcoded `✓`, so a `🔴 DO NOT COPY` card carried `✓ the record is real` — asserting the opposite of its own headline, on the very check that produced the verdict |
+| **No headline figure when G1 fails** | The card showed `$1,000 → $1,122` on a wash-trading wallet. G1 failing means the P&L *is* the thing in dispute, so quoting it presents a disputed number as an achieved one. The card now says the record is untrustworthy and shows no figure |
+| **No "how to follow" under a red verdict** | It printed a size cap and a copy window beneath `DO NOT COPY` — instructions for doing the thing the headline forbids. A red verdict gets the verdict's own action instead |
+| **No editorial that the flags contradict** | "Not a wallet that only churns" appeared on a card flagged for wash trading. Same facts, no defence of the record |
+| **No card at all when a gate is ⚪** | The card has nowhere to put "not measured". A card with one tick missing reads as a complete verdict with one fewer reason, and the reader cannot see that something went unmeasured. `card_blocked()` withholds it and the evidence layer — which *can* print ⚪ — carries the whole answer |
+
+The last one is the important one. `--brief` on a wallet with an unmeasured gate prints the
+reason there is no card and then the full report, rather than a card with a hole in it.
+
+**The bridge line is not decoration.** Hiding the reasoning without saying it exists reads as
+hand-waving; naming where it lives makes the clean first screen a choice the reader can
+decline. Do not remove it when trimming.
+
+### Translation keys collide
+
+`lang/<code>.json` is keyed on the English string, so there is exactly one slot per string.
+The card's `it cuts losses` is keyed differently from the numbers panel's `cuts losses` for
+exactly this reason: the first cut reused the shorter key and silently rewrote that panel
+chip in eight fixtures. Before adding a card string, check the key is not already taken.
+
 ## The four gates
 
 Each gate returns ✅ pass, ❌ fail, or ⚪ unevaluated. **⚪ never renders as ✅** — "we could not measure this" and "this is fine" are different statements, and conflating them is how a dossier lies.
@@ -340,11 +385,14 @@ A token contract address queries successfully and returns zeros for every field.
 ## Step 2 — Run the dossier
 
 ```bash
-python3 ~/.claude/skills/gmgn-wallet-analysis/analyze.py <WALLET> <CHAIN> <LANG> [--latency <seconds>]
+python3 ~/.claude/skills/gmgn-wallet-analysis/analyze.py <WALLET> <CHAIN> <LANG> [--latency <seconds>] [--brief]
 ```
 
 - `<CHAIN>` — `sol` for base58 addresses; `bsc` for `0x…` unless the user names another chain
 - `<LANG>` — `zh` if the user wrote Chinese, `en` if English (default `zh`)
+- `--brief` — print only the decision card, without the evidence layer. Use it when the user
+  clearly wants the verdict and nothing else; default to the full report otherwise, because
+  the evidence is what makes the card checkable.
 - `--latency` — seconds you would realistically lag behind this wallet's entry. Default `3.0`. Ask for it only if the user wants to model their own setup; a bot-assisted trader might pass `1`, someone clicking manually `10`.
 
 The script does everything: pulls the data in tiers, computes the gates, and prints the finished report.
