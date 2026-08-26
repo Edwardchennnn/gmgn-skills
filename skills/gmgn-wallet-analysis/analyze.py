@@ -21,8 +21,11 @@ Usage (offline, for verification):
 Read-only. Never signs, never trades.
 """
 
+import io
+import calendar
 import json
 import os
+import re
 import statistics
 import subprocess
 import sys
@@ -384,16 +387,265 @@ class Gap(Exception):
     pass
 
 
-def cli(args, timeout=45):
-    r = subprocess.run(
-        ["gmgn-cli"] + args + ["--raw"], capture_output=True, text=True, timeout=timeout
-    )
-    if r.returncode != 0:
-        raise Gap((r.stderr or r.stdout or "gmgn-cli failed").strip()[:400])
+# ─── rate-limit budget ──────────────────────────────────────────────────────────
+# GMGN's limiter is a leaky bucket advertised as rate=20 / capacity=20, and one full
+# dossier costs weight 26-28 — MORE than a full bucket. A naive sequential blast
+# therefore always 429s on its tail, and the tail was where the most decisive call sat:
+# `holdings` (weight 5) feeds G1's conviction test, G4's honeypot check and profit
+# concentration, so it was the guaranteed casualty of every run.
+#
+# Two mechanisms fix that WITHOUT touching a single number the gates read:
+#   1. collect() issues the gate-critical calls FIRST — see its tier comments.
+#   2. a local model of the bucket paces spending so the tail does not walk into a 429.
+#      A 429, once earned, extends the ban by 5s per further request, so blind retrying
+#      costs unbounded time — one live run died on its FIRST call because a blind 360s
+#      wait landed 58s short of the stated reset and the request itself pushed the ban out.
+#
+# The model is a level that leaks forward in time (_bucket_level / _bucket_set) and is
+# persisted, because the bans actually observed came from consecutive dossiers rather than
+# from any single one. The refill semantics of `rate=20` are undocumented — see the note
+# under _LEAK_PER_S for why the per-minute reading is the one used.
+
+_CAPACITY = 20.0          # bucket depth, as advertised
+_LEAK_PER_S = 20.0 / 60.0  # `rate=20` read as per-minute — see the note below
+_RESERVE = 1.0            # never spend the last unit; a mis-estimated weight must not tip us
+_WEIGHT = {"stats": 3, "profits": 3, "activity": 3, "holdings": 5, "created-tokens": 2}
+
+# The per-minute reading of `rate=20` is the conservative one and it is the only one the
+# observations fit: a run that spent 18 weight in ~20s was served, and one that reached 21
+# was refused. A per-SECOND leak would have refilled the bucket between every call and
+# nothing would ever 429, so it is ruled out. If the real leak turns out to be faster than
+# this, the only cost is that we wait longer than necessary — never a ban. Erring the other
+# way costs a 5-minute escalating ban, so the asymmetry decides the default.
+
+# Routes whose payload is stable enough to reuse inside _CACHE_TTL_S. This list is a
+# correctness statement, not a performance one: SKILL.md records that the 1d window is
+# rolling and reads 15-20% low minutes after a screenshot, and `activity` / `holdings` are
+# the live book — caching any of those would present stale data as current, which is the one
+# failure mode a dossier must not have. Only the windows SKILL.md calls stable are eligible,
+# and `profits` is eligible ONLY at --period all.
+_CACHE_TTL_S = 90.0
+
+
+def _cacheable(route, period):
+    if route == "stats":
+        return True
+    return route == "profits" and period == "all"
+
+
+def note(msg):
+    """Diagnostics for the operator. Never stdout: the report is pasted verbatim."""
+    sys.stderr.write("[budget] %s\n" % msg)
+
+
+def _state_dir():
+    base = os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache")
+    d = os.path.join(base, "gmgn-wallet-analysis")
     try:
-        return json.loads(r.stdout)
+        os.makedirs(d, exist_ok=True)
+        return d
+    except OSError:
+        return None
+
+
+def _route_of(args):
+    route = args[1] if len(args) > 1 else ""
+    period = ""
+    for k, a in enumerate(args):
+        if a == "--period" and k + 1 < len(args):
+            period = args[k + 1]
+    return route, period
+
+
+def _bucket_path():
+    d = _state_dir()
+    return os.path.join(d, "bucket.json") if d else None
+
+
+def _bucket_level():
+    """Current level, leaked forward from the last recorded state. Survives across runs
+    because the bans we actually earned came from consecutive dossiers, not from one."""
+    p = _bucket_path()
+    if not p or not os.path.exists(p):
+        return _CAPACITY
+    try:
+        with io.open(p, encoding="utf-8") as fh:
+            st = json.load(fh)
+        lvl = float(st["level"]) + max(0.0, time.time() - float(st["ts"])) * _LEAK_PER_S
+        return max(0.0, min(_CAPACITY, lvl))
+    except (ValueError, OSError, KeyError, TypeError):
+        return _CAPACITY
+
+
+def _bucket_set(level):
+    p = _bucket_path()
+    if not p:
+        return
+    try:
+        blob = json.dumps({"level": max(0.0, min(_CAPACITY, level)), "ts": time.time()})
+        with io.open(p, "w", encoding="utf-8") as fh:
+            fh.write(blob)
+    except (OSError, TypeError, ValueError):
+        pass
+
+
+def _pace(weight):
+    """Spend `weight` from the bucket, waiting only for the refill actually needed.
+
+    The gate-critical set (stats_7d 3 + profits_all 3 + holdings 5 = 11) plus the first two
+    activity pages fits in the initial 20 with nothing to wait for, so the verdict is
+    decidable within a few seconds. `_RESERVE` keeps one unit unspent, which is why the
+    THIRD activity page and everything after it drips: 11 + 9 = 20 exactly, and 20 is not
+    spendable — 19 is. Each wait is the drip time of its own deficit, not a fixed interval.
+    """
+    level = _bucket_level()
+    if level - weight < _RESERVE:
+        deficit = _RESERVE + weight - level
+        delay = deficit / _LEAK_PER_S
+        note("pacing %.0fs for %.0f weight (bucket at %.1f/%.0f)"
+             % (delay, weight, level, _CAPACITY))
+        time.sleep(delay)
+        level = _bucket_level()
+    _bucket_set(level - weight)
+
+
+def _parse_reset_s(msg):
+    """Seconds until the server says the limit resets, or None.
+
+    Prefer the relative hint: it needs no clock agreement at all. The absolute form comes
+    with the server's own offset (`2026-08-26 17:26:55 GMT+08:00`) and that offset has to
+    be honoured — parsing it with time.mktime() reads it as LOCAL time, which happens to
+    be right only on a machine that shares the server's offset and is silently hours out
+    anywhere else.
+    """
+    # "(~30s remaining)" / "(~4 minutes)" — both wordings appear in real 429 bodies.
+    m = re.search(r"~\s*(\d+)\s*(s|sec|secs|second|seconds)\b", msg)
+    if m:
+        return float(m.group(1))
+    m = re.search(r"~\s*(\d+)\s*(m|min|mins|minute|minutes)\b", msg)
+    if m:
+        return float(m.group(1)) * 60.0
+    m = re.search(
+        r"resets? at\s+(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2}):(\d{2})"
+        r"(?:\s*(?:GMT|UTC)?\s*([+-])(\d{2}):?(\d{2}))?",
+        msg,
+    )
+    if not m:
+        return None
+    try:
+        y, mo, d, hh, mm, ss = (int(m.group(k)) for k in range(1, 7))
+        stamp = calendar.timegm((y, mo, d, hh, mm, ss, 0, 0, 0))
+        if m.group(7):
+            off = (int(m.group(8)) * 3600 + int(m.group(9)) * 60) * (1 if m.group(7) == "+" else -1)
+            stamp -= off
+        else:
+            # No offset stated: fall back to reading it as local time, which is the only
+            # remaining option, and cap the result so a clock skew cannot cause a long sleep.
+            stamp = time.mktime((y, mo, d, hh, mm, ss, 0, 0, -1))
+        return max(0.0, min(stamp - time.time(), 300.0))
+    except (ValueError, OverflowError):
+        return None
+
+
+def _cache_path(args):
+    d = _state_dir()
+    if not d:
+        return None
+    route, period = _route_of(args)
+    chain = wallet = ""
+    for k, a in enumerate(args):
+        if a == "--chain" and k + 1 < len(args):
+            chain = args[k + 1]
+        if a == "--wallet" and k + 1 < len(args):
+            wallet = args[k + 1]
+    if not _cacheable(route, period):
+        return None
+    safe = "".join(c for c in "%s_%s_%s_%s" % (chain, wallet, route, period)
+                   if c.isalnum() or c in "_-")
+    return os.path.join(d, safe + ".json")
+
+
+def _cache_get(args):
+    if os.environ.get("GMGN_NO_CACHE"):
+        return None
+    p = _cache_path(args)
+    if not p or not os.path.exists(p):
+        return None
+    try:
+        with io.open(p, encoding="utf-8") as fh:
+            blob = json.load(fh)
+        age = time.time() - float(blob["ts"])
+        if age > _CACHE_TTL_S:
+            return None
+        route, period = _route_of(args)
+        note("cache hit %s%s (age %.0fs, ttl %.0fs) — 0 weight"
+             % (route, ("/" + period) if period else "", age, _CACHE_TTL_S))
+        return blob["body"]
+    except (ValueError, OSError, KeyError, TypeError):
+        return None
+
+
+def _cache_put(args, body):
+    p = _cache_path(args)
+    if not p:
+        return
+    try:
+        with io.open(p, "w", encoding="utf-8") as fh:
+            fh.write(json.dumps({"ts": time.time(), "body": body}))
+    except (OSError, TypeError):
+        pass
+
+
+# A 429 states its own reset time, so honouring that is not "retrying blindly" — the risk
+# is the opposite one, re-requesting BEFORE it, which pushes the ban out by 5s each time.
+# One retry is enough for an ordinary refusal (observed live: a 429 on holdings recovered on
+# the first retry), but a ban that has already escalated answers the retry with a fresh,
+# shorter window, and giving up there throws away a run that was one more sleep from
+# succeeding. So: bounded attempts, each waiting out the window the server itself names,
+# under a total sleep budget so a pathological ban cannot hang the run indefinitely.
+_MAX_429_ATTEMPTS = 3
+_MAX_429_SLEEP_S = 180.0
+
+
+def cli(args, timeout=45):
+    cached = _cache_get(args)
+    if cached is not None:
+        return cached
+
+    route, _period = _route_of(args)
+    weight = float(_WEIGHT.get(route, 3))
+    slept = 0.0
+
+    for attempt in range(_MAX_429_ATTEMPTS):
+        _pace(weight)
+        r = subprocess.run(
+            ["gmgn-cli"] + args + ["--raw"], capture_output=True, text=True, timeout=timeout
+        )
+        if r.returncode == 0:
+            break
+        err = (r.stderr or r.stdout or "gmgn-cli failed").strip()
+        if "429" not in err and "RATE_LIMIT" not in err:
+            raise Gap(err[:400])
+        wait = _parse_reset_s(err)
+        if wait is None or attempt == _MAX_429_ATTEMPTS - 1:
+            raise Gap(err[:400])
+        nap = wait + 3.0
+        if slept + nap > _MAX_429_SLEEP_S:
+            note("429 on %s — %.0fs more would exceed the %.0fs sleep budget, giving up"
+                 % (route, nap, _MAX_429_SLEEP_S))
+            raise Gap(err[:400])
+        note("429 on %s — honouring server reset, sleeping %.0fs (attempt %d/%d)"
+             % (route, nap, attempt + 1, _MAX_429_ATTEMPTS))
+        time.sleep(nap)
+        slept += nap
+        # The ban window drained the bucket on the server side too, so start it full.
+        _bucket_set(_CAPACITY)
+    try:
+        body = json.loads(r.stdout)
     except json.JSONDecodeError:
         raise Gap("non-JSON response from gmgn-cli")
+    _cache_put(args, body)
+    return body
 
 
 def unwrap(resp):
@@ -413,25 +665,71 @@ def first_row(resp):
 
 
 def collect(chain, wallet, gaps):
-    """Tiered pull. Tier 1 is mandatory; everything else degrades into `gaps`."""
+    """Tiered pull, ordered by how much each call decides.
+
+    The order is not cosmetic. One full dossier costs weight 26-28 against a bucket of 20,
+    so SOMETHING will be refused on a cold-ish bucket — the only question is what. The old
+    order spent its budget on the two curve-shape calls first and issued `holdings` last, at
+    cumulative weight 26, which made the single most decisive call the guaranteed casualty:
+    without it G1 cannot corroborate a `wash_trader` tag (verdict falls to row 10, HOLD OFF),
+    G4's honeypot half never runs, and the profit engine block is dropped. Meanwhile
+    `stats_30d` and `profits_1d` only add depth to readings that already exist.
+
+    So the gate-critical set goes first and fits inside one bucket:
+
+      stats_7d(3) -> profits_all(3) -> holdings(5) = 11   <- verdict is decidable here
+      activity(3x3 = 9)                            = 20   <- copy window, entry band
+      stats_30d(3), profits_1d(3)                  = 26   <- depth only, best-effort
+      created-tokens(2), conditional
+
+    Nothing about WHAT is asked of the API changed — same routes, same parameters, same page
+    count. Only the sequence moved, so no threshold, formula or verdict row is affected.
+    """
     d = {}
 
-    # Tier 1 — 4 calls, weight 12. The verdict cannot be issued without these.
+    # ── Tier 1: the verdict cannot be issued without these. Weight 11, inside one bucket.
     d["stats_7d"] = first_row(
         cli(["portfolio", "stats", "--chain", chain, "--wallet", wallet, "--period", "7d"])
     )
-    for key, args in (
-        ("stats_30d", ["portfolio", "stats", "--period", "30d"]),
-        ("profits_1d", ["portfolio", "profits", "--period", "1d"]),
-        ("profits_all", ["portfolio", "profits", "--period", "all"]),
-    ):
-        try:
-            d[key] = first_row(cli(args[:2] + ["--chain", chain, "--wallet", wallet] + args[2:]))
-        except Gap as e:
-            d[key] = {}
-            gaps.append(f"{key}: {e}")
 
-    # Tier 2 — behaviour. activity is the only source of copy-window and entry band.
+    # profits_all is a G2 input: losing it makes G2 unevaluable, which is why it ranks above
+    # the two windows below rather than sitting with them.
+    try:
+        d["profits_all"] = first_row(
+            cli(["portfolio", "profits", "--chain", chain, "--wallet", wallet, "--period", "all"])
+        )
+    except Gap as e:
+        d["profits_all"] = {}
+        gaps.append(f"profits_all: {e}")
+
+    # holdings is CRITICAL auth (needs GMGN_PRIVATE_KEY). Absent key is the normal case.
+    # `--sell-out` is documented but rejected by gmgn-cli 1.5.8 ("unknown option"), so it
+    # is not passed. The response array is `list`; `holdings` is kept only as a fallback in
+    # case a future version renames it to match the docs.
+    try:
+        raw_h = unwrap(cli(["portfolio", "holdings", "--chain", chain, "--wallet", wallet,
+                            "--limit", "50", "--order-by", "total_profit", "--direction", "desc"]))
+        d["holdings"] = raw_h.get("list") or raw_h.get("holdings") or []
+        if not d["holdings"]:
+            gaps.append(T('holdings came back empty — live book, profit concentration and the honeypot check were all skipped'))
+    except Gap as e:
+        d["holdings"] = []
+        # Attribute the failure to its actual cause. This branch used to hardcode the
+        # missing-key wording, so a 429 told the reader to go and configure a credential
+        # they had already configured — the wrong instruction, and it hid the real reason.
+        txt = str(e)
+        if "429" in txt or "RATE_LIMIT" in txt:
+            gaps.append(
+                T('holdings refused by the rate limiter (not an auth problem): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing. Re-run once the limit resets.', e)
+            )
+        else:
+            gaps.append(
+                T('holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
+            )
+
+    # ── Tier 2: behaviour. activity is the only source of copy-window and entry band, and
+    # the page count stays at 3 — trimming it would move G3's entry-mcap p50 and starve the
+    # sample gates on 🧱 / 📦 / 🌙, which is a change to what is measured, not to how fast.
     acts, cursor = [], None
     for _page in range(3):
         args = ["portfolio", "activity", "--chain", chain, "--wallet", wallet, "--limit", "100"]
@@ -453,23 +751,19 @@ def collect(chain, wallet, gaps):
             T('activity empty — copy window, entry band and scale-in/out shape were not evaluated')
         )
 
-    # holdings is CRITICAL auth (needs GMGN_PRIVATE_KEY). Absent key is the normal case.
-    # `--sell-out` is documented but rejected by gmgn-cli 1.5.8 ("unknown option"), so it
-    # is not passed. The response array is `list`; `holdings` is kept only as a fallback in
-    # case a future version renames it to match the docs.
-    try:
-        raw_h = unwrap(cli(["portfolio", "holdings", "--chain", chain, "--wallet", wallet,
-                            "--limit", "50", "--order-by", "total_profit", "--direction", "desc"]))
-        d["holdings"] = raw_h.get("list") or raw_h.get("holdings") or []
-        if not d["holdings"]:
-            gaps.append(T('holdings came back empty — live book, profit concentration and the honeypot check were all skipped'))
-    except Gap as e:
-        d["holdings"] = []
-        gaps.append(
-            T('holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
-        )
+    # ── Tier 3: depth only. Both windows enrich readings that already exist above, so they
+    # are the correct things to lose when the bucket runs dry.
+    for key, args in (
+        ("stats_30d", ["portfolio", "stats", "--period", "30d"]),
+        ("profits_1d", ["portfolio", "profits", "--period", "1d"]),
+    ):
+        try:
+            d[key] = first_row(cli(args[:2] + ["--chain", chain, "--wallet", wallet] + args[2:]))
+        except Gap as e:
+            d[key] = {}
+            gaps.append(f"{key}: {e}")
 
-    # Tier 3 — only when the wallet looks like a launcher.
+    # ── Tier 4 — only when the wallet looks like a launcher.
     common = d["stats_7d"].get("common") or {}
     pnl = d["stats_7d"].get("pnl_stat") or {}
     created = i(common.get("created_token_count"))

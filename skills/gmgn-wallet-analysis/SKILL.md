@@ -388,6 +388,43 @@ last displayed digit. Two things this pinned down:
 
 `portfolio holdings` needs **critical auth** (`GMGN_API_KEY` + `GMGN_PRIVATE_KEY`). A wallet dossier is worth running without it — the script degrades and records the gap — but say plainly that the live-positions section is missing rather than letting its absence read as "no positions".
 
+### Pacing, and what it costs
+
+A full dossier costs weight 26-28 against a bucket of capacity 20, so an unpaced run always
+429s on its tail — and the tail was where the most decisive call sat. `holdings` (weight 5)
+feeds G1's corroboration test, G4's honeypot check and the profit engine, so it was the
+guaranteed casualty of every run: five observed runs in a row lost it and every one of them
+reported G1 as ⚪「cannot check」on a wallet whose tag was in fact refutable.
+
+Two things fix that, and neither changes a number the gates read:
+
+1. **The gate-critical calls go first.** `stats_7d`(3) → `profits_all`(3) → `holdings`(5) = 11,
+   inside one bucket, so the verdict is decidable within a few seconds. Depth-only calls
+   (`stats_30d`, `profits_1d`, `created-tokens`) go last, because they enrich readings that
+   already exist and are therefore the correct things to lose.
+2. **A local bucket model paces the tail.** Level leaks forward at `rate=20` read as
+   per-minute — the conservative reading, and the only one the observations fit. Erring slow
+   costs a few seconds of waiting; erring fast costs a 5-minute escalating ban, and that
+   asymmetry decides the default.
+
+Measured end to end on a healthy bucket, twice:
+
+| Run | Wall time | Result |
+|-----|-----------|--------|
+| cold bucket, no refusal | **21.6s** (16s of it pacing) | zero data gaps, all four gates measured |
+| cold bucket, one 429 on `holdings` | **38.0s** | zero data gaps — the retry recovered it |
+
+Compare with roughly 4 seconds unpaced, which reliably lost `holdings`. **A fast run is a bad
+sign here**: a 429 returns instantly, so 3-4 seconds means calls did not happen.
+
+### Caching
+
+`stats` at any period and `profits --period all` are reused for 90 seconds; nothing else is.
+That list is a correctness statement, not a speed one. `profits --period 1d` is a rolling
+window that reads 15-20% low minutes later, and `activity` / `holdings` are the live book —
+caching any of those would present stale data as current, which is the one thing a dossier
+must never do. Set `GMGN_NO_CACHE=1` to bypass it entirely.
+
 **On `429`:** stop. Read `X-RateLimit-Reset`, or `reset_at` from the body, convert to the user's local time and state it: *"Rate-limited — retry this wallet after 14:32:05 (~4 minutes)."* Report whatever tiers already succeeded rather than discarding the run, and re-issue only the missing calls afterwards. Repeated requests during a cooldown extend the ban by 5 seconds each, up to 5 minutes — never loop retries.
 
 ## Supported Chains
