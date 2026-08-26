@@ -282,6 +282,7 @@ breaks any of them is a regression.
 Verification is mechanical — this must stay at zero across all fixtures and both languages:
 
 ```bash
+python3 gen_fixtures.py
 for f in fixtures/*.json; do for L in zh en; do
   python3 analyze.py --fixture "$f" $L | python3 -c "
 import sys
@@ -450,7 +451,14 @@ genuine grinder (all pass), a sniper bot (G3), a one-lucky-coin wallet (G1), a c
 wallet** (`tagged-not-washing`: a `wash_trader` tag and seven honeypot flags, all four gates pass
 because both labels are refuted by behaviour), and an empty address. The last two are a matched
 pair — the same two labels, opposite verdicts — and a change that collapses them into the same
-answer is a regression. Run them offline, with no API key:
+answer is a regression.
+
+`fixtures/` is generated and **not** committed (see `.gitignore`): `gen_fixtures.py` is the
+single source of truth for what each fixture tests, and a checked-in copy can drift from it
+silently. Regenerate before running anything that reads them. `lang/zh.json` is the opposite —
+not generated, committed, and required at runtime.
+
+Run them offline, with no API key:
 
 ```bash
 python3 gen_fixtures.py && python3 analyze.py --fixture fixtures/grinder.json zh

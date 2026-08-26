@@ -1,0 +1,8 @@
+# gen_fixtures.py rebuilds these deterministically from the definitions in that file, which
+# is the single source of truth for what each fixture is meant to test. Committing the
+# generated JSON alongside it lets the two drift apart silently — a reviewer reading the
+# generator would not see that the checked-in copy no longer matches it.
+#
+# lang/zh.json is NOT generated and is committed: it is a runtime dependency, and without it
+# analyze.py has no Chinese output at all.
+fixtures/
