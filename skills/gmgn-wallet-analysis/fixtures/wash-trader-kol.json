@@ -1041,6 +1041,7 @@
    "usd_value": "3745",
    "accu_cost": "3745",
    "total_profit": "0",
+   "realized_profit": "0",
    "total_profit_pnl": "0.0",
    "history_total_sells": "0"
   },
@@ -1054,8 +1055,9 @@
    "usd_value": "113",
    "accu_cost": "628",
    "total_profit": "-514",
+   "realized_profit": "-514",
    "total_profit_pnl": "-0.82",
-   "history_total_sells": "1"
+   "history_total_sells": "0"
   },
   {
    "token": {
@@ -1067,8 +1069,9 @@
    "usd_value": "37",
    "accu_cost": "2657",
    "total_profit": "-2620",
+   "realized_profit": "-2620",
    "total_profit_pnl": "-0.98",
-   "history_total_sells": "1"
+   "history_total_sells": "0"
   },
   {
    "token": {
@@ -1080,6 +1083,7 @@
    "usd_value": "221",
    "accu_cost": "228",
    "total_profit": "-7",
+   "realized_profit": "-7",
    "total_profit_pnl": "-0.03",
    "history_total_sells": "1"
   },
@@ -1093,6 +1097,7 @@
    "usd_value": "77",
    "accu_cost": "80",
    "total_profit": "-2",
+   "realized_profit": "-2",
    "total_profit_pnl": "-0.03",
    "history_total_sells": "1"
   },
@@ -1106,8 +1111,9 @@
    "usd_value": "0.82",
    "accu_cost": "7",
    "total_profit": "-6",
+   "realized_profit": "-6",
    "total_profit_pnl": "-0.89",
-   "history_total_sells": "1"
+   "history_total_sells": "0"
   },
   {
    "token": {
@@ -1119,6 +1125,7 @@
    "usd_value": "210",
    "accu_cost": "340",
    "total_profit": "-130",
+   "realized_profit": "-130",
    "total_profit_pnl": "-0.38",
    "history_total_sells": "2"
   },
@@ -1132,6 +1139,7 @@
    "usd_value": "95",
    "accu_cost": "340",
    "total_profit": "-245",
+   "realized_profit": "-245",
    "total_profit_pnl": "-0.72",
    "history_total_sells": "1"
   },
@@ -1145,6 +1153,7 @@
    "usd_value": "610",
    "accu_cost": "340",
    "total_profit": "270",
+   "realized_profit": "270",
    "total_profit_pnl": "0.79",
    "history_total_sells": "2"
   }

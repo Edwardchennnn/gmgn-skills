@@ -82,11 +82,15 @@ def trades(n_tokens, buys_per, sells_per, mcap, buy_usd, hold_s, gap_s, gas=0.3,
     return rows
 
 
-HONEYPOTS = {"QQQB", "SPYB", "GOOGLB"}
+HONEYPOTS = {"QQQB", "SPYB", "GOOGLB", "XAUt", "NVDAB", "TSLAB", "AAPLB", "MSFTB"}
 
 
 def holds(spec, launchpad="flap"):
-    """spec: (symbol, usd_value, cost, total_profit, pnl_ratio, sell_count).
+    """spec: (symbol, usd_value, cost, total_profit, pnl_ratio, sell_count[, realized]).
+
+    `realized` defaults to `total_profit`. It is broken out separately because the
+    wash-trade corroboration check reads realized P&L per position: a self-dealt loop nets
+    ~0 per exit, while a real size position nets more than its own cost basis.
 
     Mirrors the REAL holdings schema confirmed against the live API: rows come back under
     `list`, costs are `accu_cost`, the P&L ratio is `total_profit_pnl`, sell counts are
@@ -98,9 +102,11 @@ def holds(spec, launchpad="flap"):
                       "is_honeypot": "true" if sym in HONEYPOTS else "false",
                       "launchpad_platform": launchpad},
             "usd_value": s(usd), "accu_cost": s(cost), "total_profit": s(tp),
+            "realized_profit": s(row[6] if len(row) > 6 else tp),
             "total_profit_pnl": s(pc), "history_total_sells": s(sells),
         }
-        for k, (sym, usd, cost, tp, pc, sells) in enumerate(spec)
+        for k, row in enumerate(spec)
+        for (sym, usd, cost, tp, pc, sells) in [row[:6]]
     ]
 
 
@@ -250,14 +256,127 @@ FIXTURES["wash-trader-kol"] = {
                        gas=4.05, dump=True),
     "holdings": holds([
         ("WBNB", 3_745, 3_745, 0, 0.0, 0),
-        ("QQQB", 113, 628, -514, -0.82, 1),
-        ("SPYB", 37, 2_657, -2_620, -0.98, 1),
+        ("QQQB", 113, 628, -514, -0.82, 0),
+        ("SPYB", 37, 2_657, -2_620, -0.98, 0),
         ("USD1", 221, 228, -7, -0.03, 1),
         ("MUB", 77, 80, -2, -0.03, 1),
-        ("GOOGLB", 0.82, 7, -6, -0.89, 1),
+        ("GOOGLB", 0.82, 7, -6, -0.89, 0),
         ("BNC", 210, 340, -130, -0.38, 2),
         ("EASY", 95, 340, -245, -0.72, 1),
         ("NAKA", 610, 340, 270, 0.79, 2),
+    ]),
+}
+
+# ── 9. tagged-but-not-washing — the false-positive case, modelled on a real BSC wallet
+#       (0xa7d4…2b9f). It carries a wash_trader tag AND seven honeypot-flagged holdings,
+#       and both are wrong: the tag fires on a ~$1K sliver of tokenised-stock churn while
+#       the six-figure gains come from size memecoin positions, and every "honeypot" has
+#       completed sells on its own row. Obeying either label rendered a 🔴 别碰 on a wallet
+#       whose profits are real. This fixture exists so that regression cannot come back. ──
+FIXTURES["tagged-not-washing"] = {
+    "_wallet": "0xa7d4ffc4eca3c71af150ce302560a9d04a1d2b9f",
+    "_chain": "bsc",
+    "stats_7d": stats(
+        65, 39, 161_220, 152_793, 0.6751, 183, 0.3333, 582_476, (0, 0, 162, 13, 8),
+        common={
+            "created_at": s(NOW - 428 * 86400), "created_token_count": "0",
+            "tags": ["app_smart_money", "kol", "wash_trader", "gmgn"],
+            "twitter_username": "Mirro7777", "is_blue_verified": "true",
+            "followers_count": "41071", "fund_from": "Binance: Hot Wallet 11",
+            "fund_amount": "120",
+        },
+    ),
+    "stats_30d": stats(280, 190, -2_100, 300_000, -0.007, 400, 0.3333, 582_476,
+                       (0, 2, 300, 60, 38)),
+    "profits_1d": profits(24_000, 89_000, 0, 0),
+    "profits_all": profits(0, 0, 458_589, 7_900_000, -75_405),
+    # laddering into a large position: $3.4K clips, minutes-scale, negligible gas
+    "activity": trades(40, 34, 6, mcap=31_800_000, buy_usd=3_395, hold_s=120, gap_s=45,
+                       gas=0.019),
+    # spec tail is `realized` — the size positions net far more than their own cost basis,
+    # the tokenised stocks round-trip hundreds of times for a small net loss.
+    "holdings": holds([
+        ("LOBSTER",  54_285, 49_710,   3_948,  0.08,  74, 110_340),
+        ("MarsCoin", 32_933, 33_420,  -1_782, -0.05,  13,  -6_039),
+        ("BIYOU",    11_424, 16_401,  -5_074, -0.31,  57,  24_713),
+        ("ASTEROID",  8_824, 23_213, -14_387, -0.62,   6,  -8_486),
+        ("NIULAI",    5_166,  7_759,  -2_661, -0.34,   5, 154_701),
+        ("CZ",        4_182,  6_369,  -2_268, -0.36,  43, 176_082),
+        ("QQQB",        526,    527,       0,  0.00,  57,     -90),
+        ("SPYB",        209,    215,       0,  0.00, 101,    -178),
+        ("XAUt",        199,    205,       0,  0.00,  77,    -131),
+        ("NVDAB",        56,     60,       0,  0.00,  95,    -519),
+        ("TSLAB",        29,     33,       0,  0.00,  28,    -541),
+        ("AAPLB",         8,     10,       0,  0.00,  44,    -768),
+        ("MSFTB",        13,     14,       0,  0.00,   1,      -5),
+    ]),
+}
+
+# ── 10. thin-sample — traded 4 tokens. Nothing bad was measured; nothing was measured at
+#        all. The verdict must be ⚪ 看不出来, never 🔴 — an unmeasured gate rendering as a
+#        red verdict is the same error as ⚪ rendering as ✅, in the other direction. ──
+FIXTURES["thin-sample"] = {
+    "_wallet": "ThinSampleWallet22222222222222222222222",
+    "stats_7d": stats(
+        7, 4, 3_100, 8_400, 0.369, 4, 0.75, 42_000, (1, 0, 2, 1, 0),
+        common={"created_at": s(NOW - 90 * 86400), "created_token_count": "0", "tags": []},
+    ),
+    "stats_30d": stats(9, 5, 3_400, 9_100, 0.374, 4, 0.75, 42_000, (1, 0, 2, 1, 0)),
+    "profits_1d": profits(0, 0, 0, 0),
+    "profits_all": profits(0, 0, 3_400, 9_100, 210),
+    "activity": trades(4, 2, 1, mcap=900_000, buy_usd=2_100, hold_s=42_000, gap_s=7_200),
+    "holdings": holds([("ALPHA", 4_200, 3_900, 300, 0.08, 1, 300)]),
+}
+
+# ── 11. unverifiable-wash — a wash_trader tag with NO holdings, so the corroboration check
+#        cannot run. Neither confirmed nor refuted: G1 is ⚪ and the verdict is 🟡 先别动.
+#        This is the pair-mate of wash-trader-kol (corroborated 🔴) and tagged-not-washing
+#        (refuted 🟢); the three together pin all outcomes of one tag. ──
+FIXTURES["unverifiable-wash"] = {
+    "_wallet": "0xc1a7e0b6d4f39a2b85c7e1f0d6a3b94827e51fd0",
+    "_chain": "bsc",
+    "stats_7d": stats(
+        40, 30, 47_300, 210_000, 0.225, 96, 0.48, 33_000, (2, 7, 51, 30, 6),
+        common={"created_at": s(NOW - 260 * 86400), "created_token_count": "0",
+                "tags": ["wash_trader", "gmgn"], "fund_from": "OKX", "fund_amount": "3000"},
+    ),
+    "stats_30d": stats(1_700, 1_580, 190_000, 880_000, 0.216, 340, 0.48, 33_000,
+                       (6, 25, 180, 105, 24)),
+    "profits_1d": profits(6_200, 29_000, 0, 0),
+    "profits_all": profits(0, 0, 640_000, 3_100_000, 8_400),
+    "activity": trades(12, 2, 2, mcap=1_800_000, buy_usd=5_200, hold_s=33_000, gap_s=3_600),
+    "holdings": [],          # ← the whole point: critical auth missing
+}
+
+# ── 12. unreachable-and-no-cut — G3 AND G4 both fail. Before the combined branch existed
+#        the G3 verdict short-circuited and the "it never cuts" half was silently dropped,
+#        so a reader was told to use it as a signal source with no mention that it rides
+#        positions to zero. Both sentences must appear. ──
+FIXTURES["unreachable-and-no-cut"] = {
+    "_wallet": "0xd30ca55e91b7f4268ad0c3e7195b8f4a6c2701be",
+    "_chain": "bsc",
+    "stats_7d": stats(
+        900, 210, 28_400, 96_000, 0.296, 74, 0.41, 260_000, (2, 4, 24, 14, 30),
+        common={"created_at": s(NOW - 190 * 86400), "created_token_count": "0",
+                "tags": ["sniper", "top_followed"], "followers_count": "22400",
+                "fund_from": "Bybit", "fund_amount": "1200"},
+    ),
+    "stats_30d": stats(3_400, 810, 104_000, 360_000, 0.289, 260, 0.41, 260_000,
+                       (7, 15, 88, 50, 100)),
+    "profits_1d": profits(3_900, 14_000, 0, 0),
+    "profits_all": profits(0, 0, 410_000, 1_500_000, -66_000),
+    # sub-$100k entries, seconds-scale — unreachable by hand
+    "activity": trades(36, 2, 1, mcap=58_000, buy_usd=310, hold_s=45, gap_s=210, gas=2.10),
+    # four positions down 90%+ with zero sells → hold-to-zero
+    "holdings": holds([
+        ("WINNER",  9_400, 2_100, 7_300,  3.48, 6, 24_000),
+        ("DEAD1",      70,  4_800, -4_730, -0.99, 0),
+        ("DEAD2",      41,  3_600, -3_559, -0.99, 0),
+        ("DEAD3",      18,  2_900, -2_882, -0.99, 0),
+        ("DEAD4",       9,  1_700, -1_691, -0.99, 0),
+        ("MID",     1_200,  1_100, 100, 0.09, 2, 140),
+        ("MID2",      800,    900, -100, -0.11, 1, 40),
+        ("MID3",      640,    700, -60, -0.09, 1, 25),
     ]),
 }
 

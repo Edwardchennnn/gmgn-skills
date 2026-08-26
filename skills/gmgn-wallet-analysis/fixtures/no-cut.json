@@ -642,6 +642,7 @@
    "usd_value": "320",
    "accu_cost": "8000",
    "total_profit": "-7680",
+   "realized_profit": "-7680",
    "total_profit_pnl": "-0.96",
    "history_total_sells": "0"
   },
@@ -655,6 +656,7 @@
    "usd_value": "210",
    "accu_cost": "6500",
    "total_profit": "-6290",
+   "realized_profit": "-6290",
    "total_profit_pnl": "-0.97",
    "history_total_sells": "0"
   },
@@ -668,6 +670,7 @@
    "usd_value": "90",
    "accu_cost": "5000",
    "total_profit": "-4910",
+   "realized_profit": "-4910",
    "total_profit_pnl": "-0.98",
    "history_total_sells": "0"
   },
@@ -681,6 +684,7 @@
    "usd_value": "60",
    "accu_cost": "4200",
    "total_profit": "-4140",
+   "realized_profit": "-4140",
    "total_profit_pnl": "-0.98",
    "history_total_sells": "0"
   },
@@ -694,6 +698,7 @@
    "usd_value": "14000",
    "accu_cost": "4000",
    "total_profit": "6000",
+   "realized_profit": "6000",
    "total_profit_pnl": "1.5",
    "history_total_sells": "2"
   },
@@ -707,6 +712,7 @@
    "usd_value": "7000",
    "accu_cost": "3000",
    "total_profit": "4800",
+   "realized_profit": "4800",
    "total_profit_pnl": "1.6",
    "history_total_sells": "1"
   },
@@ -720,6 +726,7 @@
    "usd_value": "5200",
    "accu_cost": "2400",
    "total_profit": "3900",
+   "realized_profit": "3900",
    "total_profit_pnl": "1.62",
    "history_total_sells": "2"
   },
@@ -733,6 +740,7 @@
    "usd_value": "2100",
    "accu_cost": "1500",
    "total_profit": "1700",
+   "realized_profit": "1700",
    "total_profit_pnl": "1.13",
    "history_total_sells": "1"
   },
@@ -746,6 +754,7 @@
    "usd_value": "800",
    "accu_cost": "1000",
    "total_profit": "-200",
+   "realized_profit": "-200",
    "total_profit_pnl": "-0.2",
    "history_total_sells": "1"
   }

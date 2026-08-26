@@ -151,7 +151,10 @@ def wrap(text, width):
 def put(out, prefix, text, hang=None):
     """Append `prefix + text`, wrapped, with continuation lines hanging under the text."""
     ind = " " * (dwidth(prefix) if hang is None else hang)
-    body = wrap(str(text), COL - dwidth(prefix))
+    # Budget for the WIDER of the two indents. A `hang` larger than the prefix would
+    # otherwise push every continuation line past COL — the one way a caller could break
+    # the width rule while still going through put().
+    body = wrap(str(text), COL - max(dwidth(prefix), len(ind)))
     out.append(prefix + body[0])
     for extra in body[1:]:
         out.append(ind + extra)
@@ -612,6 +615,108 @@ def compute(d, latency_s, my_size):
             f"is up {usd(m['realized_7d'])} — the profit came from that one token",
         )
 
+    # ── position scale, from holdings ────────────────────────────────────────────
+    # `avg_buy_usd` measures the CLIP, not the POSITION. A wallet that ladders a $54K
+    # position together out of $3.4K clips reads as a $3.4K trader on clip size alone, and
+    # a live run duly labelled exactly that wallet "ordinary, no distinguishing marks".
+    # Position size and buys-per-position are the honest markers, and holdings carries
+    # both — `history_total_buys` is the wallet's whole history on that token, not the
+    # 300-row activity slice.
+    m["top_pos_usd"] = None
+    m["med_buys_per_pos"] = None
+    if h:
+        vals = sorted((f(x.get("usd_value")) for x in h), reverse=True)
+        if vals and vals[0] > 0:
+            m["top_pos_usd"] = vals[0]
+        # Median over the WHOLE book is dominated by one-and-done dust positions, which
+        # says nothing about how the wallet builds the positions it cares about. Take the
+        # five largest by value — laddering is a property of size positions.
+        top = sorted(h, key=lambda x: -f(x.get("usd_value")))[:5]
+        bpp = sorted(b for b in (i(h_get(x, "history_total_buys", "buy_tx_count")) for x in top) if b > 0)
+        if len(bpp) >= 3:
+            m["med_buys_per_pos"] = bpp[len(bpp) // 2]
+
+    # ── wash-trade corroboration ────────────────────────────────────────────────
+    # `wash_trader` is a third-party heuristic label, not a finding. On this dataset it
+    # fires on any wallet that round-trips a low-liquidity token many times — including a
+    # $1K sliver of tokenised-stock churn on a wallet whose actual P&L is six-figure
+    # memecoin positions. Obeying the tag alone mis-classified exactly that wallet as
+    # un-copyable. So the tag now has to be corroborated against behaviour before it can
+    # veto anything, and the corroboration is a single number.
+    #
+    # A position carries a GENUINE edge when its realized profit exceeds its own cost
+    # basis, or clears $1,000 net per exit. Self-dealing cannot manufacture either: wash
+    # volume nets to roughly zero minus fees, so its per-exit figure is small or negative.
+    # `conviction_share` is the fraction of all realized gains that came from such
+    # positions. High share → the record is NOT explained by round-tripping.
+    m["conviction_share"] = None
+    m["conviction_top"] = []
+    if h:
+        gains, conv, conv_syms = 0.0, 0.0, []
+        for x in h:
+            # `realized_profit` is the right numerator — a wash trader's closed loops are
+            # what the tag is about. Fall back to `total_profit` only when the row omits it.
+            rp = f(h_get(x, "realized_profit", "total_profit"))
+            if rp <= 0:
+                continue
+            gains += rp
+            cost = f(h_get(x, "accu_cost", "cost", "history_bought_cost"))
+            sells = i(h_get(x, "history_total_sells", "sell_tx_count"))
+            per_exit = safe_div(rp, sells) if sells > 0 else rp
+            if (cost > 0 and rp >= cost) or per_exit >= 1000:
+                conv += rp
+                conv_syms.append(((x.get("token") or {}).get("symbol") or "?", rp))
+        if gains > 0:
+            m["conviction_share"] = conv / gains
+            m["conviction_top"] = sorted(conv_syms, key=lambda kv: -kv[1])[:3]
+
+    # ── where the money came from ───────────────────────────────────────────────
+    # "It made 15.8%" does not tell a reader whether the edge is speed or selection, and
+    # those two are copied in completely different ways: you cannot out-click a 288-trade/day
+    # sniper, but you can wait and buy what a conviction wallet just laddered into. So
+    # attribute the gains before interpreting them.
+    #   gain_top3_share — do a handful of winners carry it, or is it spread thin?
+    #   med_gain_per_exit — is each exit worth taking, or is this volume grinding?
+    m["gain_top3_share"] = None
+    m["med_gain_per_exit"] = None
+    if h:
+        wins = []
+        for x in h:
+            rp = f(h_get(x, "realized_profit", "total_profit"))
+            if rp <= 0:
+                continue
+            sells = i(h_get(x, "history_total_sells", "sell_tx_count"))
+            wins.append((rp, safe_div(rp, sells) if sells > 0 else rp))
+        if wins:
+            tot = sum(w[0] for w in wins)
+            top3 = sum(sorted((w[0] for w in wins), reverse=True)[:3])
+            m["gain_top3_share"] = safe_div(top3, tot)
+            pe = sorted(w[1] for w in wins)
+            m["med_gain_per_exit"] = pe[len(pe) // 2]
+
+    # If a wash-trading tag is present but the gains demonstrably come from positions with
+    # a real net edge, demote the tag in place: it stays visible as a warning with the
+    # number that refuted it, and it no longer vetoes G1. Mutating `tag_info` here means
+    # every render site downstream follows automatically.
+    m["wash_refuted"] = None
+    cs = m["conviction_share"]
+    if cs is not None and cs >= 0.5:
+        for t in m["tag_info"]:
+            if t["sev"] == "veto_g1":
+                m["wash_refuted"] = {"share": cs, "tag": t["name"]}
+                t["sev"] = "warn"
+                # A ✅-adjacent glyph would be wrong (the label is real, and it is telling
+                # you something about the wallet's churn) but so is 🚩 next to a sentence
+                # saying the flag does not hold. ❔ is the honest one.
+                t["emoji"] = "❔"
+                t["name"] = _(f"{t['name']}（核验不成立）", f"{t['name']} (refuted)")
+                t["meaning"] = _(
+                    f"GMGN 的标记，但本地核验不成立：{pct(cs)} 的已实现盈利来自净赚超过自身成本的仓位，"
+                    "对敲刷不出这种结果",
+                    f"GMGN's label, refuted locally: {pct(cs)} of realized gains came from positions "
+                    "netting more than their own cost basis — self-dealing cannot produce that",
+                )
+
     # ── dev record ──
     ct = d.get("created_tokens") or {}
     if ct:
@@ -657,17 +762,28 @@ def compute(d, latency_s, my_size):
     # `token.is_honeypot` ships inline on every holdings row, so this costs nothing and is
     # available whenever holdings is. `security_checked` records how many rows actually
     # carried the flag, so a missing flag is never read as "clean".
-    hp_names, flagged = [], 0
+    hp_names, flagged, hp_refuted = [], 0, []
     for h_row in (d.get("holdings") or []):
         tk = h_row.get("token") or {}
         if tk.get("is_honeypot") is None:
             continue
         flagged += 1
-        if _b(tk.get("is_honeypot")):
-            hp_names.append({"sym": tk.get("symbol") or (tok_addr(h_row) or "?")[:6],
-                             "usd": f(h_row.get("usd_value"))})
+        if not _b(tk.get("is_honeypot")):
+            continue
+        sym = tk.get("symbol") or (tok_addr(h_row) or "?")[:6]
+        sells = i(h_get(h_row, "history_total_sells", "sell_tx_count"))
+        # A honeypot is a token you CANNOT sell. When the same row records completed sells,
+        # the flag is contradicted by this wallet's own history — the usual cause is a
+        # transfer-restricted RWA / tokenised-stock contract that trips naive sell
+        # simulators. A live run failed G4 on seven such "honeypots", one of which this
+        # wallet had sold 101 times. The refutation is free: it is on the same row.
+        if sells > 0:
+            hp_refuted.append({"sym": sym, "sells": sells})
+            continue
+        hp_names.append({"sym": sym, "usd": f(h_row.get("usd_value"))})
     m["honeypots"] = hp_names
     m["honeypot_usd"] = sum(x["usd"] for x in hp_names)
+    m["hp_refuted"] = hp_refuted
     m["security_checked"] = flagged
 
     # Where it hunts — launchpad mix across the live book, also inline on token.
@@ -704,15 +820,33 @@ def gates(m):
     # measuring the wallet trading against itself, and no amount of good-looking
     # distribution rescues that.
     wash = [t for t in m["tag_info"] if t["sev"] == "veto_g1"]
-    if wash:
+    if wash and m["conviction_share"] is None:
+        # Tag present and uncheckable. This is exactly the ⚪ case: "we could not verify" is
+        # not "confirmed fake", and it is not "fine" either. Do not manufacture a ❌.
+        names = "、".join(t["name"] for t in wash) if ZH else ", ".join(t["name"] for t in wash)
+        g["G1"] = (
+            None,
+            _(
+                f"GMGN 标记「{names}」，但无法核验（holdings 不可用）—— "
+                f"这 7 天 {usd(m['realized_7d'])} 的盈亏既没被证伪也没被证实，配好 "
+                "GMGN_PRIVATE_KEY 后重跑",
+                f"GMGN flags this wallet as {names}, and it cannot be checked (holdings "
+                f"unavailable) — the {usd(m['realized_7d'])} in this window is neither confirmed "
+                "nor refuted. Configure GMGN_PRIVATE_KEY and re-run",
+            ),
+        )
+    elif wash:
         names = "、".join(t["name"] for t in wash) if ZH else ", ".join(t["name"] for t in wash)
         g["G1"] = (
             False,
             _(
-                f"GMGN 标记「{names}」—— {wash[0]['meaning']}。"
+                f"GMGN 标记「{names}」，且本地核验支持它：只有 {pct(m['conviction_share'])} "
+                f"的已实现盈利来自净赚超过自身成本的仓位，其余是来回对敲的量。"
                 f"这 7 天 {usd(m['realized_7d'])} 的已实现盈亏不可采信",
-                f"GMGN flags this wallet as {names} — {wash[0]['meaning']}. The "
-                f"{usd(m['realized_7d'])} realized P&L in this window cannot be taken at face value",
+                f"GMGN flags this wallet as {names}, and the local check agrees: only "
+                f"{pct(m['conviction_share'])} of realized gains came from positions netting more "
+                f"than their own cost basis — the rest is round-tripped volume. The "
+                f"{usd(m['realized_7d'])} realized P&L cannot be taken at face value",
             ),
         )
     elif m["is_dev"]:
@@ -753,13 +887,23 @@ def gates(m):
             )
         else:
             pcr_txt = _("利润集中度未测（holdings 不可用）", "profit concentration not measured (holdings unavailable)")
-        g["G1"] = (
-            True,
-            _(
-                f"{m['token_num']} 个币、{m['winners']} 个盈利，{pcr_txt}",
-                f"{m['token_num']} tokens, {m['winners']} profitable, {pcr_txt}",
-            ),
-        )
+        detail = [_(
+            f"{m['token_num']} 个币、{m['winners']} 个盈利，{pcr_txt}",
+            f"{m['token_num']} tokens, {m['winners']} profitable, {pcr_txt}",
+        )]
+        if m["wash_refuted"]:
+            top = "、".join(sym for sym, _v in m["conviction_top"]) if ZH \
+                else ", ".join(sym for sym, _v in m["conviction_top"])
+            detail.append(_(
+                f"GMGN 挂了「{m['wash_refuted']['tag']}」标记，本地核验不成立："
+                f"{pct(m['wash_refuted']['share'])} 的已实现盈利来自 {top} 这类净赚超过自身成本的"
+                "重仓，对敲刷不出这种结果 —— 标记降为提示，不否决战绩",
+                f"GMGN carries a \u300c{m['wash_refuted']['tag']}\u300d flag; the local check refutes "
+                f"it: {pct(m['wash_refuted']['share'])} of realized gains came from size positions "
+                f"like {top} that netted more than their own cost basis. Self-dealing cannot produce "
+                "that — the flag is downgraded to a caution, not a veto",
+            ))
+        g["G1"] = (True, detail)
 
     # G2 CURRENCY
     emoji, label = m["form"]
@@ -912,7 +1056,20 @@ def gates(m):
         if m["hold_to_zero"] is not None:
             reasons.append(_(f"抱到归零 {m['hold_to_zero']} 个（亏 90%+ 且零卖出）",
                              f"{m['hold_to_zero']} ridden to zero (down 90%+ with zero sells)"))
-        if m["security_checked"]:
+        if m["security_checked"] and m.get("hp_refuted"):
+            syms = "、".join(x["sym"] for x in m["hp_refuted"]) if ZH \
+                else ", ".join(x["sym"] for x in m["hp_refuted"])
+            mx = max(x["sells"] for x in m["hp_refuted"])
+            reasons.append(_(
+                f"已检查 {m['security_checked']} 个持仓的蜜罐标记：{len(m['hp_refuted'])} 个命中"
+                f"（{syms}）但都被自己的成交记录否掉 —— 其中一个已卖出 {mx:,} 次，"
+                "蜜罐是卖不出去的，这批是转账受限的代币化股票/RWA，误报",
+                f"honeypot flag checked on {m['security_checked']} positions: {len(m['hp_refuted'])} hit "
+                f"({syms}) but each is refuted by its own fill history — one has {mx:,} completed sells, "
+                "and a honeypot cannot be sold. These are transfer-restricted tokenised-stock / RWA "
+                "contracts — false positives",
+            ))
+        elif m["security_checked"]:
             reasons.append(_(f"已检查 {m['security_checked']} 个持仓的蜜罐标记，无命中",
                              f"honeypot flag checked on {m['security_checked']} positions, none hit"))
         else:
@@ -935,65 +1092,94 @@ def gates(m):
 
 
 def verdict(m, g):
-    """Returns (emoji, headline, what-to-do). The headline names the cause; the third
-    element is the ACTION, never a repeat of the gate reason shown further down."""
+    """Returns (emoji, headline, what-to-do).
+
+    Language rules for this layer, which is the only part most readers finish:
+      • The headline is a verb the reader can act on, then the cause in everyday words.
+        Not 「战绩不可采信」 (legalese) — 「它的盈利是刷出来的」.
+      • The action is ONE short imperative sentence. No sub-clauses, no hedging tail.
+      • Colour means what it says: 🔴 measured and bad, 🟡 act differently, ⚪ not measured.
+        An unmeasured gate must never render 🔴 — "we could not tell" is not "it is bad".
+      • The action never restates the gate reason printed below it.
+    """
     p = {k: v[0] for k, v in g.items()}
+
     if m["trades"] == 0:
         return ("⚪",
-                _("数据不足 · 不下判断", "NOT ENOUGH DATA · no verdict"),
-                _("先确认这是钱包地址而不是代币合约——下面有三步检查。",
-                  "First confirm this is a wallet and not a token contract — three checks below."))
+                _("看不出来 · 这 7 天没有交易", "NO READ · no trades in 7 days"),
+                _("先确认这是钱包地址，不是代币合约。下面有三步检查。",
+                  "First confirm this is a wallet, not a token contract. Three checks below."))
+
     if p["G1"] is False:
         if any(t["sev"] == "veto_g1" for t in m["tag_info"]):
             return ("🔴",
-                    _("别碰 · 刷量标记，战绩不可采信", "DO NOT COPY · wash-trading flag voids the record"),
-                    _("把它的盈亏数字当作未知。想看它买什么可以，但别把这份战绩当依据。",
-                      "Treat its P&L as unknown. Watch what it buys if you like, but do not "
-                      "use this record as evidence."))
+                    _("别跟 · 它的盈利是自己刷出来的", "DO NOT COPY · the profit is self-dealt"),
+                    _("当它的盈亏数字不存在。想看它买什么可以，别拿这个当依据。",
+                      "Treat its P&L as if it were not there. Watch what it buys; do not "
+                      "use these numbers."))
         if m["is_dev"]:
             return ("🔴",
-                    _("别碰 · 发币方自导自演", "DO NOT COPY · a launcher marking its own homework"),
-                    _("别评估它的交易能力，去查它历史发币的毕业率和安全记录（gmgn-wallet-score 的 Dev 角度）。",
-                      "Do not score its trading — check its launch survival and security record "
-                      "(gmgn-wallet-score, Dev angle)."))
+                    _("别跟 · 它是发币方，赚的是自己发的币",
+                      "DO NOT COPY · it is a launcher trading its own tokens"),
+                    _("别看它的交易能力，去查它发的币活下来几个（gmgn-wallet-score）。",
+                      "Do not read its trading. Check how many of its launches survived "
+                      "(gmgn-wallet-score)."))
         if m["one_coin_note"]:
             return ("🔴",
-                    _("别碰 · 战绩由一个币扛起", "DO NOT COPY · one token carried the whole record"),
-                    _("别按这份战绩下注。等它在更多币上重复出来，再重新评。",
-                      "Do not size off this record. Wait until it repeats across more tokens."))
-        return ("🔴",
-                _("先观察 · 样本太少，不足以判断", "WATCH FIRST · too few tokens to judge"),
-                _(f"只有 {m['token_num']} 个币，任何比率都不成立。先加观察名单，等交易满 5 个币以上再评。",
-                  f"Only {m['token_num']} tokens — no ratio here is meaningful. Watch it until it has "
-                  f"traded 5 or more."))
+                    _("别跟 · 全靠一个币赚钱，复制不了",
+                      "DO NOT COPY · one token made all the money"),
+                    _("等它在更多币上再赚一次，再回来看。",
+                      "Come back when it has done it again on other tokens."))
+        # Too thin to measure is ⚪, not 🔴. Nothing bad was found — nothing was found.
+        return ("⚪",
+                _(f"看不出来 · 只交易过 {m['token_num']} 个币",
+                  f"NO READ · only {m['token_num']} tokens traded"),
+                _("样本太小，任何比率都不成立。加观察名单，满 5 个币再看。",
+                  "The sample is too small for any ratio to hold. Watchlist it until it "
+                  "has traded 5."))
+
     if p["G2"] is False:
         return ("🔴",
-                _("别跟 · 手感已经没了", "DO NOT COPY · the edge has stopped working"),
-                _("现在别跟。7 天后再跑一次这份分析，看是回暖还是继续退。",
-                  "Not now. Re-run this in 7 days to see whether form recovers or keeps sliding."))
+                _("别跟 · 它最近已经不赚了", "DO NOT COPY · it has stopped making money"),
+                _("7 天后再跑一次，看是回暖还是继续掉。",
+                  "Re-run in 7 days to see whether it recovers or keeps sliding."))
+
+    # G3 and G4 are independent problems. Reporting only the first one silently drops the
+    # other — a wallet you cannot get filled on AND that never cuts needs both sentences.
+    if p["G3"] is False and p["G4"] is False:
+        return ("🟡",
+                _("能看不能抄 · 你抢不到它的价，它也不砍仓",
+                  "WATCH, DO NOT COPY · you cannot get its fills, and it never cuts"),
+                _("只当信号源看它买什么。真要自己进，止损必须你自己设。",
+                  "Use it only as a signal of what to look at. If you enter, set your own stop."))
     if p["G3"] is False:
         return ("🟡",
-                _("学它，别抄它单", "LEARN FROM IT, DO NOT COPY THE ENTRIES"),
-                _("战绩真、手感在，但你吃不到它的价位。当信号源用：看它买什么、在什么市值买，"
-                  "自己二次筛选后按自己的节奏进。",
-                  "Real record, live edge, unreachable fills. Use it as a signal source: note what it "
-                  "buys and at what market cap, then enter on your own terms."))
+                _("能看不能抄 · 你抢不到它的价", "WATCH, DO NOT COPY · you cannot get its fills"),
+                _("看它买什么、在什么市值买，然后按你自己的节奏进。",
+                  "Note what it buys and at what market cap, then enter on your own terms."))
     if p["G4"] is False:
         return ("🟡",
-                _("只跟进，不跟出", "COPY ENTRIES, SET YOUR OWN EXITS"),
-                _("它会选币但不砍仓。可以跟它进场，止损必须用你自己的。",
-                  "It picks well but does not cut. Take its entries; keep your own stop."))
+                _("跟买可以，跟卖不行 · 它不砍仓",
+                  "COPY THE BUYS, NOT THE EXITS · it does not cut losses"),
+                _("跟它进场，止损用你自己的。别等它先卖。",
+                  "Take its entries and keep your own stop. Do not wait for it to sell first."))
+
+    if p["G1"] is None:
+        return ("🟡",
+                _("先别动 · 有刷量嫌疑，但查不了", "HOLD OFF · a wash-trading flag we cannot check"),
+                _("配好 GMGN_PRIVATE_KEY 再跑一次。核验前别按这份战绩下注。",
+                  "Configure GMGN_PRIVATE_KEY and re-run. Do not size off this record first."))
     if p["G3"] is None or p["G4"] is None:
         return ("🟡",
-                _("先观察 · 关键项没测到", "WATCH FIRST · key gates unmeasured"),
-                _("四道闸门里有一道数据不足——先补齐（通常是配置 GMGN_PRIVATE_KEY）再决定。",
-                  "One of the four gates lacked data — fill that in (usually by configuring "
-                  "GMGN_PRIVATE_KEY) before deciding."))
+                _("先别动 · 四项里有一项没测到", "HOLD OFF · one of the four was not measured"),
+                _("先补数据（通常是配置 GMGN_PRIVATE_KEY），再决定。",
+                  "Fill in the missing data first — usually by configuring GMGN_PRIVATE_KEY."))
+
     size = usd(m["size_cap"]) if m["size_cap"] else _("你自己的常规仓位", "your normal size")
     win = dur(m["copy_window_s"]) if m["copy_window_s"] > 0 else None
     return ("🟢",
-            _("可以小仓跟 · 四道闸门全过", "COPYABLE AT SMALL SIZE · all four gates pass"),
-            _(f"起步 ≤ {size}" + (f"，下单要落在它买入后 {win}以内。" if win else "。"),
+            _("可以小仓跟 · 四项全过", "COPYABLE AT SMALL SIZE · all four pass"),
+            _(f"起步 ≤ {size}" + (f"，下单要在它买入后 {win}以内。" if win else "。"),
               f"Start at ≤ {size}" + (f", landing within {win} of its buy." if win else ".")))
 
 
@@ -1018,6 +1204,66 @@ def mark(v):
     return {True: "✅", False: "❌", None: "⚪"}[v]
 
 
+def profit_engine(m):
+    """(chip, one line with the numbers, what it means for copying) or None.
+
+    Three engines, separated by two independent numbers — trade cadence and how
+    concentrated the gains are. The point is not the label: it is that "speed" and
+    "selection" are copied differently, and a reader who cannot tell them apart will copy
+    the wrong half. Needs `holdings`; returns None rather than guessing without it.
+    """
+    if m["conviction_share"] is None or m["gain_top3_share"] is None:
+        return None
+    fast = m["per_day"] >= 50
+    concentrated = m["gain_top3_share"] >= 0.5
+    conv = m["conviction_share"] >= 0.6
+    win = dur(m["copy_window_s"]) if m["copy_window_n"] >= 3 else None
+
+    if fast and concentrated:
+        return (
+            _("🕸️ 撒网命中", "🕸️ spray-and-hit"),
+            _(f"{m['per_day']:,.0f} 笔/日、单笔均买 {usd(m['avg_buy_usd'])} 大量试错，"
+              f"前 3 个赢家扛起 {pct(m['gain_top3_share'])} 的利润",
+              f"{m['per_day']:,.0f} trades/day at {usd(m['avg_buy_usd'])} a clip, and the top 3 winners "
+              f"carry {pct(m['gain_top3_share'])} of the profit"),
+            _("利润来自出手次数×少数命中，不是来自选得准。"
+              + (f"你要在 {win} 内落单才可能吃到，人手做不到" if win else "跟单要拼手速，人手做不到"),
+              "the profit comes from volume of attempts times a few hits, not from picking well. "
+              + (f"You would need to land inside {win} — not achievable by hand" if win
+                 else "Copying it is a race on latency, not on judgement")),
+        )
+    if fast:
+        return (
+            _("⚙️ 周转磨利", "⚙️ turnover grind"),
+            _(f"{m['per_day']:,.0f} 笔/日，利润摊在很多仓位上（前 3 个只占 "
+              f"{pct(m['gain_top3_share'])}），单笔中位净赚 {usd(m['med_gain_per_exit'])}",
+              f"{m['per_day']:,.0f} trades/day with profit spread thin (top 3 = "
+              f"{pct(m['gain_top3_share'])}), median {usd(m['med_gain_per_exit'])} net per winning exit"),
+            _("利润来自成交量，单笔太薄，你的滑点和手续费会直接吃掉它",
+              "the profit is volume, and each exit is too thin to survive your slippage and fees"),
+        )
+    if conv and concentrated:
+        return (
+            _("🎯 选币重仓", "🎯 pick-and-size"),
+            _(f"{m['per_day']:,.0f} 笔/日不算快，{pct(m['conviction_share'])} 的利润来自净赚超过"
+              f"自身成本的重仓，前 3 个赢家占 {pct(m['gain_top3_share'])}",
+              f"{m['per_day']:,.0f} trades/day is not fast; {pct(m['conviction_share'])} of gains came "
+              f"from positions netting more than their own cost, top 3 winners = {pct(m['gain_top3_share'])}"),
+            _("利润来自选对标的然后加到重仓，不是来自手速 —— 这类是可以慢一步跟的",
+              "the profit comes from picking right and then sizing up, not from speed — this is the "
+              "kind you can follow a step behind"),
+        )
+    return (
+        _("🧩 分散积累", "🧩 diffuse accumulation"),
+        _(f"{m['per_day']:,.0f} 笔/日，利润既不集中（前 3 个 {pct(m['gain_top3_share'])}）"
+          f"也不靠手速，单笔中位净赚 {usd(m['med_gain_per_exit'])}",
+          f"{m['per_day']:,.0f} trades/day, gains neither concentrated (top 3 = "
+          f"{pct(m['gain_top3_share'])}) nor speed-driven, median {usd(m['med_gain_per_exit'])} per winning exit"),
+        _("没有单一利润引擎，跟它等于跟它的整个组合，不是跟某一笔",
+          "no single profit engine — following it means following the whole book, not any one trade"),
+    )
+
+
 def archetype(m):
     """Say what kind of counterparty this is, before any number gets interpreted."""
     tags = []
@@ -1033,7 +1279,13 @@ def archetype(m):
         tags.append(_(f"🆕 新号 {m['age_days']:.0f} 天", f"🆕 new wallet, {m['age_days']:.0f} days old"))
     if m["flip5_rate"] >= 0.3:
         tags.append(_(f"⚡ 秒抛 {pct(m['flip5_rate'])} 的回合 5 秒内出", f"⚡ 5-second flipper on {pct(m['flip5_rate'])} of round trips"))
-    if m["avg_buys_per_token"] >= 3:
+    if m["top_pos_usd"] and m["top_pos_usd"] >= 10_000:
+        tags.append(_(f"🏦 重仓型 单仓最大 {usd(m['top_pos_usd'])}",
+                      f"🏦 size-position trader, largest holding {usd(m['top_pos_usd'])}"))
+    if m["med_buys_per_pos"] and m["med_buys_per_pos"] >= 10:
+        tags.append(_(f"🧱 重仓分批建仓 中位 {m['med_buys_per_pos']:,} 笔买入/仓",
+                      f"🧱 ladders its size positions, median {m['med_buys_per_pos']:,} buys each"))
+    elif m["avg_buys_per_token"] >= 3:
         tags.append(_(f"🧱 分批建仓 均 {m['avg_buys_per_token']:.1f} 笔/币", f"🧱 scales in, {m['avg_buys_per_token']:.1f} buys/token"))
     if m["dump_share"] >= 0.7 and m["sampled"] >= 20:
         tags.append(_(f"💣 一把清 {pct(m['dump_share'])} 的仓位单笔出完", f"💣 dumps in one go on {pct(m['dump_share'])} of exits"))
@@ -1109,6 +1361,17 @@ def speed_read(m, g, why):
         key.append(_(f"可跟窗口 {dur(m['copy_window_s'])}", f"copy window {dur(m['copy_window_s'])}"))
     rows.append((_("关键数字", "key numbers"), " · ".join(key[:4]) or _("样本不足", "sample too thin")))
 
+    eng = profit_engine(m)
+    if eng:
+        bits = [eng[0].split(" ", 1)[-1]]
+        if m["gain_top3_share"] is not None:
+            bits.append(_(f"前 3 个赢家占 {pct(m['gain_top3_share'])}",
+                          f"top 3 winners = {pct(m['gain_top3_share'])}"))
+        if m["conviction_share"] is not None:
+            bits.append(_(f"重仓贡献 {pct(m['conviction_share'])}",
+                          f"{pct(m['conviction_share'])} from size positions"))
+        rows.append((_("利润来自", "profit from"), " · ".join(bits)))
+
     flags = [t for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3")] or \
             [t for t in m["tag_info"] if t["sev"] == "warn"]
     if m["honeypots"]:
@@ -1177,6 +1440,67 @@ def report(wallet, chain, m, g, gaps):
         put(out, f"  {wpad(lab, 10)} ", val)
     out.append("")
 
+    # ── 身份 ──
+    idl = []
+    if m["twitter_name"] or m["twitter"]:
+        who = m["twitter_name"] or ""
+        if m["twitter"]:
+            who += f" @{m['twitter']}"
+        bits = [who.strip()]
+        if m["blue"]:
+            bits.append(_("蓝V", "blue-verified"))
+        if m["followers"]:
+            bits.append(_(f"{m['followers']:,} 粉丝", f"{m['followers']:,} followers"))
+        idl.append(" · ".join(bits))
+        # Spell the profile out. Someone who searched this address wants to know whose
+        # account it is, and a bare @handle still leaves them to go and find it.
+        if m["twitter"]:
+            idl.append(f"x.com/{m['twitter']}")
+    elif not (m["tags"] or m["fund_from"] or m["fund_from_address"]):
+        idl.append(_("没有绑定 X 账号，也没有可查的资金来源 —— 匿名地址",
+                     "no X account bound and no traceable funding source — an anonymous address"))
+    else:
+        idl.append(_("没有绑定 X 账号（GMGN 上查不到公开身份）",
+                     "no X account bound (no public identity on GMGN)"))
+    neutral = [f"{t['emoji']} {t['name']}" for t in m["tag_info"] if t["sev"] == "neutral"]
+    prov = list(neutral)
+    if m["age_days"] is not None:
+        prov.append(_(f"钱包 {m['age_days']:.0f} 天", f"{m['age_days']:.0f}-day-old wallet"))
+    if m["fund_from"] or m["fund_from_address"]:
+        src = m["fund_from"] or f"{m['fund_from_address'][:6]}…"
+        prov.append(_(f"资金来自 {src}", f"funded from {src}")
+                    + (f" {usd(m['fund_amount'])}" if m["fund_amount"] else ""))
+    if m["launchpads"]:
+        prov.append(_("主要打 " + "、".join(f"{k}×{v}" for k, v in m["launchpads"]),
+                      "hunts on " + ", ".join(f"{k}×{v}" for k, v in m["launchpads"])))
+    if m["dev_total"]:
+        prov.append(_(f"发过 {m['dev_total']} 个币（毕业 {m['dev_open']} · 毕业率 {pct(m['dev_open_ratio'])}）",
+                      f"launched {m['dev_total']} tokens ({m['dev_open']} graduated · {pct(m['dev_open_ratio'])})"))
+    elif m["created_tokens_n"]:
+        prov.append(_(f"发过 {m['created_tokens_n']} 个币", f"launched {m['created_tokens_n']} tokens"))
+    if prov:
+        idl.append(" · ".join(prov))
+    for t in archetype(m):
+        if not (t.startswith("普通") or t.startswith("ordinary")):
+            idl.append(t)
+    who_lines = idl
+
+    # ── 它是谁：紧跟速读，在闸门之前 ────────────────────────────────────────
+    # A reader who searched this address wants to know WHOSE wallet it is before any
+    # judgement about it. Burying the bound X account below the gates and the risk flags
+    # made a newcomer scroll past four verdicts to reach the one fact they came for.
+    if who_lines:
+        out.append(_("👤 它是谁", "👤 WHO IT IS"))
+        for line in who_lines:
+            put(out, "  ", line)
+        eng = profit_engine(m)
+        if eng:
+            chip, detail, meaning = eng
+            put(out, f"  {wpad(_('利润引擎', 'engine'), 10)} ", chip)
+            put(out, " " * 13, detail, hang=13)
+            put(out, " " * 13 + "→ ", meaning, hang=15)
+        out.append("")
+
     # ── 四道闸门 ──
     strip = "  ".join(f"{mark(g[k][0])}{k}" for k in ("G1", "G2", "G3", "G4"))
     out.append(_(f"🚦 四道闸门    {strip}", f"🚦 THE FOUR GATES    {strip}"))
@@ -1201,7 +1525,17 @@ def report(wallet, chain, m, g, gaps):
                       f"🍯 {len(m['honeypots'])} honeypot positions ({syms}) · {usd(m['honeypot_usd'])} unsellable"))
     good = [f"{t['emoji']} {t['name']} · {t['meaning']}" for t in m["tag_info"] if t["sev"] == "good"]
     # A clean screen is reassurance, not a risk — it must not inflate the risk count.
-    if not m["honeypots"] and m["security_checked"]:
+    if not m["honeypots"] and m["security_checked"] and m.get("hp_refuted"):
+        syms = "、".join(x["sym"] for x in m["hp_refuted"]) if ZH \
+            else ", ".join(x["sym"] for x in m["hp_refuted"])
+        mx = max(x["sells"] for x in m["hp_refuted"])
+        good.append(_(
+            f"✅ 蜜罐标记 {len(m['hp_refuted'])} 个命中（{syms}）已被成交记录否掉 —— 最多的一个卖出过 "
+            f"{mx:,} 次，是转账受限的代币化股票，不是蜜罐",
+            f"✅ {len(m['hp_refuted'])} honeypot flags ({syms}) refuted by fill history — the busiest has "
+            f"{mx:,} completed sells; transfer-restricted tokenised stocks, not honeypots",
+        ))
+    elif not m["honeypots"] and m["security_checked"]:
         good.append(_(f"✅ 已检查 {m['security_checked']} 个持仓的蜜罐标记，无命中",
                       f"✅ honeypot flag checked on {m['security_checked']} positions, none hit"))
     if risk:
@@ -1215,44 +1549,6 @@ def report(wallet, chain, m, g, gaps):
     if risk or good:
         out.append("")
 
-    # ── 身份 ──
-    idl = []
-    if m["twitter_name"] or m["twitter"]:
-        who = m["twitter_name"] or ""
-        if m["twitter"]:
-            who += f" @{m['twitter']}"
-        bits = [who.strip()]
-        if m["blue"]:
-            bits.append(_("蓝V", "blue-verified"))
-        if m["followers"]:
-            bits.append(_(f"{m['followers']:,} 粉丝", f"{m['followers']:,} followers"))
-        idl.append(" · ".join(bits))
-    neutral = [f"{t['emoji']} {t['name']}" for t in m["tag_info"] if t["sev"] == "neutral"]
-    prov = list(neutral)
-    if m["age_days"] is not None:
-        prov.append(_(f"钱包 {m['age_days']:.0f} 天", f"{m['age_days']:.0f}-day-old wallet"))
-    if m["fund_from"] or m["fund_from_address"]:
-        src = m["fund_from"] or f"{m['fund_from_address'][:6]}…"
-        prov.append(_(f"资金来自 {src}", f"funded from {src}")
-                    + (f" {usd(m['fund_amount'])}" if m["fund_amount"] else ""))
-    if m["launchpads"]:
-        prov.append(_("主要打 " + "、".join(f"{k}×{v}" for k, v in m["launchpads"]),
-                      "hunts on " + ", ".join(f"{k}×{v}" for k, v in m["launchpads"])))
-    if m["dev_total"]:
-        prov.append(_(f"发过 {m['dev_total']} 个币（毕业 {m['dev_open']} · 毕业率 {pct(m['dev_open_ratio'])}）",
-                      f"launched {m['dev_total']} tokens ({m['dev_open']} graduated · {pct(m['dev_open_ratio'])})"))
-    elif m["created_tokens_n"]:
-        prov.append(_(f"发过 {m['created_tokens_n']} 个币", f"launched {m['created_tokens_n']} tokens"))
-    if prov:
-        idl.append(" · ".join(prov))
-    for t in archetype(m):
-        if not (t.startswith("普通") or t.startswith("ordinary")):
-            idl.append(t)
-    if idl:
-        out.append(_("👤 它是谁", "👤 WHO IT IS"))
-        for line in idl:
-            put(out, "  ", line)
-        out.append("")
 
     # ── 数字面板：每行自带结论 ──
     out.append(_("📊 数字面板（每行右侧是结论，不用自己算）", "📊 NUMBERS (the conclusion is on the right)"))

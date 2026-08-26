@@ -739,6 +739,7 @@
    "usd_value": "2100",
    "accu_cost": "400",
    "total_profit": "1700",
+   "realized_profit": "1700",
    "total_profit_pnl": "4.2",
    "history_total_sells": "5"
   }
