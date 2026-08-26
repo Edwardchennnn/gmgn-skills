@@ -144,6 +144,8 @@
  "high frequency, high friction; the loss is mostly cost": "高频高摩擦，净亏主要亏在成本",
  "holding": "持仓",
  "holdings came back empty — live book, profit concentration and the honeypot check were all skipped": "holdings 返回空 —— 当前持仓、利润集中度、蜜罐检查均未评估",
+ "holdings failed: {0} — profit concentration falls back to bucket inference; live book and honeypot check missing": "holdings 取数失败：{0} —— 利润集中度改用盈亏桶推断，当前持仓与蜜罐检查缺失",
+ "holdings refused by the rate limiter (not an auth problem): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing. Re-run once the limit resets.": "holdings 被限流拒绝（不是鉴权问题）：{0} —— 利润集中度改用盈亏桶推断，当前持仓与蜜罐检查缺失，等限流恢复后重跑即可",
  "holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing": "holdings 不可用（需要 GMGN_PRIVATE_KEY 的 critical auth）：{0} —— 利润集中度改用盈亏桶推断，当前持仓与蜜罐检查缺失",
  "honeypot flag checked on {0} positions, none hit": "已检查 {0} 个持仓的蜜罐标记，无命中",
  "honeypot flag checked on {0} positions: {1} hit ({2}) but each is refuted by its own fill history — one has {3:,} completed sells, and a honeypot cannot be sold. These are transfer-restricted tokenised-stock / RWA contracts — false positives": "已检查 {0} 个持仓的蜜罐标记：{1} 个命中（{2}）但都被自己的成交记录否掉 —— 其中一个已卖出 {3:,} 次，蜜罐是卖不出去的，这批是转账受限的代币化股票/RWA，误报",

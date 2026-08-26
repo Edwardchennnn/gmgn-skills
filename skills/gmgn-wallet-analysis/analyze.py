@@ -465,9 +465,24 @@ def collect(chain, wallet, gaps):
             gaps.append(T('holdings came back empty — live book, profit concentration and the honeypot check were all skipped'))
     except Gap as e:
         d["holdings"] = []
-        gaps.append(
-            T('holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
-        )
+        # Attribute the failure to its actual cause. This branch used to hardcode the
+        # missing-credential wording for every failure, so a rate-limit refusal told the
+        # reader to go and configure a key they had already configured — the wrong
+        # instruction, and it hid the real reason. Anything that is not recognisably a
+        # limiter refusal is reported verbatim rather than guessed at.
+        txt = str(e)
+        if "429" in txt or "RATE_LIMIT" in txt:
+            gaps.append(
+                T('holdings refused by the rate limiter (not an auth problem): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing. Re-run once the limit resets.', e)
+            )
+        elif "PRIVATE_KEY" in txt or "signature" in txt.lower() or "401" in txt or "403" in txt:
+            gaps.append(
+                T('holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
+            )
+        else:
+            gaps.append(
+                T('holdings failed: {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
+            )
 
     # Tier 3 — only when the wallet looks like a launcher.
     common = d["stats_7d"].get("common") or {}
