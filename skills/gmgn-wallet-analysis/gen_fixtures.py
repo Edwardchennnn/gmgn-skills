@@ -242,7 +242,7 @@ FIXTURES["wash-trader-kol"] = {
         common={
             "created_at": s(NOW - 470 * 86400), "created_token_count": "0",
             "tags": ["kol", "wash_trader", "top_followed", "top_renamed", "gmgn"],
-            "twitter_username": "aa_AFeng", "twitter_name": "阿峰_Afeng",
+            "twitter_username": "aa_AFeng", "twitter_name": "AFeng",
             "is_blue_verified": "true", "followers_count": "47999",
             "follow_count": "1820", "fund_from": "Binance", "fund_amount": "50000",
         },
@@ -271,7 +271,7 @@ FIXTURES["wash-trader-kol"] = {
 #       (0xa7d4…2b9f). It carries a wash_trader tag AND seven honeypot-flagged holdings,
 #       and both are wrong: the tag fires on a ~$1K sliver of tokenised-stock churn while
 #       the six-figure gains come from size memecoin positions, and every "honeypot" has
-#       completed sells on its own row. Obeying either label rendered a 🔴 别碰 on a wallet
+#       completed sells on its own row. Obeying either label rendered a 🔴 do-not-copy on a
 #       whose profits are real. This fixture exists so that regression cannot come back. ──
 FIXTURES["tagged-not-washing"] = {
     "_wallet": "0xa7d4ffc4eca3c71af150ce302560a9d04a1d2b9f",
@@ -313,7 +313,7 @@ FIXTURES["tagged-not-washing"] = {
 }
 
 # ── 10. thin-sample — traded 4 tokens. Nothing bad was measured; nothing was measured at
-#        all. The verdict must be ⚪ 看不出来, never 🔴 — an unmeasured gate rendering as a
+#        all. The verdict must be ⚪ "no read", never 🔴 — an unmeasured gate rendering as a
 #        red verdict is the same error as ⚪ rendering as ✅, in the other direction. ──
 FIXTURES["thin-sample"] = {
     "_wallet": "ThinSampleWallet22222222222222222222222",
@@ -329,7 +329,7 @@ FIXTURES["thin-sample"] = {
 }
 
 # ── 11. unverifiable-wash — a wash_trader tag with NO holdings, so the corroboration check
-#        cannot run. Neither confirmed nor refuted: G1 is ⚪ and the verdict is 🟡 先别动.
+#        cannot run. Neither confirmed nor refuted: G1 is ⚪ and the verdict is 🟡 hold-off.
 #        This is the pair-mate of wash-trader-kol (corroborated 🔴) and tagged-not-washing
 #        (refuted 🟢); the three together pin all outcomes of one tag. ──
 FIXTURES["unverifiable-wash"] = {

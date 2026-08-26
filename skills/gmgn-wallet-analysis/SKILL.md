@@ -47,22 +47,25 @@ wallet already verified against gmgn.ai's own leaderboard:
 
 | Change | Why |
 |--------|-----|
-| **No ⭐「官方认证」badge** | It fired on any non-empty `common.tags`, so it printed `wash_trader` under a commendation glyph — the exact thing this skill's tag rules forbid. Tags go through `TAGS`/severity and the corroboration check instead |
-| **Speed subtitle reads the MEDIAN copy window, not `avg_holding_period`** | The mean counts bags never sold, so it labelled a 2-minute scalper 「🧭 波段流 1–7 天」. Someone acting on that holds for days a position the wallet exits in minutes |
+| **No "officially verified" badge** | It fired on any non-empty `common.tags`, so it printed `wash_trader` under a commendation glyph — the exact thing this skill's tag rules forbid. Tags go through `TAGS`/severity and the corroboration check instead |
+| **Speed subtitle reads the MEDIAN copy window, not `avg_holding_period`** | The mean counts bags never sold, so it labelled a 2-minute scalper 🧭 swing / 1-7 days. Someone acting on that holds for days a position the wallet exits in minutes |
 | **P5 needs ROI > 50% plus ONE of {win rate ≥ 50%, heavy-loss share < 15%}** | Requiring all three pushed a wallet sitting at **#3 on GMGN's own BSC 7D leaderboard** down to P4. Memecoin P&L is low-hit-rate with a fat right tail; a 50% win-rate gate systematically demotes the profitable ones |
-| **The P5 gloss names the corroborator that carried it** | 「高频且高胜率低回撤」 above a 33.3% win rate is a heading contradicting its own contents. It now reads 「高频且强盈（7d 62.1% + 重亏占比仅 4.4%）」 |
+| **The P5 gloss names the corroborator that carried it** | "high frequency, high hit rate, shallow drawdowns" above a 33.3% win rate is a heading contradicting its own contents. It now reads "high frequency and strongly profitable (7d 62.1% + only 4.4% heavy losses)" |
 
 Two further rules, both from the same review:
 
-- **No label when `token_num < 5`.** The verdict already says ⚪ 看不出来; printing
-  「📈 稳步选手 · 常规频次、正收益，无明显短板」 next to it contradicts it.
-- **Activity-derived badges are gated on sample size.** `📦 集中押注` needs ≥5 distinct tokens
-  (top-3 of 3 is 100% by arithmetic) and `🌙 固定时段` needs ≥20 rows **and a span ≥ 12 hours**
+- **No label when `token_num < 5`.** The verdict already reads ⚪ NO READ; printing
+  "📈 steady hand · normal cadence, positive return, no glaring weakness" next to it
+  contradicts it.
+- **Activity-derived badges are gated on sample size.** `📦 concentrated bets` needs ≥5
+  distinct tokens (top-3 of 3 is 100% by arithmetic) and `🌙 fixed hours` needs ≥20 rows
+  **and a span ≥ 12 hours**
   (any 14-hour sample "clusters" inside a 6-hour window by arithmetic). The original fired both
   on a 14.2-hour sample and emitted no warning.
 
-Badges merged in: `🎰 彩票型`, `✂️ 分批止盈`, `📦 集中押注`, `🌙 固定时段`. Badges **not**
-merged: `🧊 囤积中` / `📤 派发中` duplicate the existing 24h `posture` reading, and `🚀 抢跑党`
+Badges merged in: `🎰 lottery profile`, `✂️ scales out`, `📦 concentrated bets`,
+`🌙 fixed hours`. Badges **not** merged: `🧊 accumulating` / `📤 distributing` duplicate the
+existing 24h `posture` reading, and `🚀 priority-fee bidder`
 needs a per-chain gas constant that would go stale silently — `gas_share` and `gas_drag` already
 carry that signal, self-normalised against the wallet's own trade size.
 
@@ -79,13 +82,13 @@ unavailable the block is omitted rather than guessed.
 
 | Engine | Fires when | What it means for the reader |
 |--------|-----------|------------------------------|
-| 🕸️ 撒网命中 | ≥50 trades/day **and** top-3 ≥ 50% | Profit is attempts × a few hits. Not a picking edge — copying it is a latency race |
-| ⚙️ 周转磨利 | ≥50 trades/day **and** top-3 < 50% | Profit is volume; each exit is too thin to survive your slippage |
-| 🎯 选币重仓 | <50 trades/day, conviction ≥ 60%, top-3 ≥ 50% | Profit is picking then sizing up. **This is the one you can follow a step behind** |
-| 🧩 分散积累 | none of the above | No single engine — following it means following the whole book |
+| 🕸️ spray-and-hit | ≥50 trades/day **and** top-3 ≥ 50% | Profit is attempts × a few hits. Not a picking edge — copying it is a latency race |
+| ⚙️ turnover grind | ≥50 trades/day **and** top-3 < 50% | Profit is volume; each exit is too thin to survive your slippage |
+| 🎯 pick-and-size | <50 trades/day, conviction ≥ 60%, top-3 ≥ 50% | Profit is picking then sizing up. **This is the one you can follow a step behind** |
+| 🧩 diffuse accumulation | none of the above | No single engine — following it means following the whole book |
 
-The engine chip and its number go in 速读 (`利润来自`); the sentence about what it means for
-copying appears **once**, under 它是谁. Do not print the implication in both places.
+The engine chip and its number go in the speed read (`profit from`); the sentence about what
+it means for copying appears **once**, under WHO IT IS. Never print the implication twice.
 
 ## The four gates
 
@@ -98,8 +101,9 @@ Each gate returns ✅ pass, ❌ fail, or ⚪ unevaluated. **⚪ never renders as
 | **G3 Reachability** | Can *you* get filled? | Median copy window < 3× your latency; or median entry mcap < $30k; or a `sandwich_bot`/`mev_bot` tag; or ≥10k followers while trading sub-$1M caps; or gas ≥25% of profit; or average buy < $50; or > 100 trades/day |
 | **G4 Survivability** | Does it cut losses? | ≥ 2 live positions are honeypots; or ≥ 35% of its tokens are down more than 50%; or ≥ 3 positions down 90%+ with zero sells |
 
-The verdict headline **names its own cause** — `别碰 · 刷量标记，战绩不可采信` rather than a generic
-`战绩不成立` — so the reason is legible without reading the gate detail.
+The verdict headline **names its own cause** — `DO NOT COPY · the profit is self-dealt` rather
+than a generic `the record does not hold` — so the reason is legible without reading the gate
+detail.
 
 Verdict is a pure function of the gates — G1 and G2 are vetoes, G3 and G4 change *what you do* rather than whether you act:
 
@@ -107,18 +111,18 @@ Eleven outcomes, short-circuited in this order. Every one has a fixture:
 
 | # | Gates | Verdict | Fixture |
 |---|-------|---------|---------|
-| 1 | no trades in the window | ⚪ 看不出来 · 这 7 天没有交易 | `empty` |
-| 2 | G1 ❌ via a corroborated `wash_trader` | 🔴 别跟 · 它的盈利是自己刷出来的 | `wash-trader-kol` |
-| 3 | G1 ❌ via launcher | 🔴 别跟 · 它是发币方，赚的是自己发的币 | `dev-launcher` |
-| 4 | G1 ❌ via one-coin | 🔴 别跟 · 全靠一个币赚钱，复制不了 | `lucky-one-coin` |
-| 5 | G1 ❌ via `token_num < 5` | ⚪ 看不出来 · 只交易过 N 个币 | `thin-sample` |
-| 6 | G2 ❌ | 🔴 别跟 · 它最近已经不赚了 | `cooled-star` |
-| 7 | G3 ❌ **and** G4 ❌ | 🟡 能看不能抄 · 你抢不到它的价，它也不砍仓 | `unreachable-and-no-cut` |
-| 8 | G3 ❌ | 🟡 能看不能抄 · 你抢不到它的价 | `sniper-bot` |
-| 9 | G4 ❌ | 🟡 跟买可以，跟卖不行 · 它不砍仓 | `no-cut` |
-| 10 | G1 ⚪ | 🟡 先别动 · 有刷量嫌疑，但查不了 | `unverifiable-wash` |
-| 11 | G3 or G4 ⚪ | 🟡 先别动 · 四项里有一项没测到 | `dev-launcher` (secondary) |
-| 12 | all ✅ | 🟢 可以小仓跟 · 四项全过 | `grinder`, `tagged-not-washing` |
+| 1 | no trades in the window | ⚪ NO READ · no trades in 7 days | `empty` |
+| 2 | G1 ❌ via a corroborated `wash_trader` | 🔴 DO NOT COPY · the profit is self-dealt | `wash-trader-kol` |
+| 3 | G1 ❌ via launcher | 🔴 DO NOT COPY · it is a launcher trading its own tokens | `dev-launcher` |
+| 4 | G1 ❌ via one-coin | 🔴 DO NOT COPY · one token made all the money | `lucky-one-coin` |
+| 5 | G1 ❌ via `token_num < 5` | ⚪ NO READ · only N tokens traded | `thin-sample` |
+| 6 | G2 ❌ | 🔴 DO NOT COPY · it has stopped making money | `cooled-star` |
+| 7 | G3 ❌ **and** G4 ❌ | 🟡 WATCH, DO NOT COPY · you cannot get its fills, and it never cuts | `unreachable-and-no-cut` |
+| 8 | G3 ❌ | 🟡 WATCH, DO NOT COPY · you cannot get its fills | `sniper-bot` |
+| 9 | G4 ❌ | 🟡 COPY THE BUYS, NOT THE EXITS · it does not cut losses | `no-cut` |
+| 10 | G1 ⚪ | 🟡 HOLD OFF · a wash-trading flag we cannot check | `unverifiable-wash` |
+| 11 | G3 or G4 ⚪ | 🟡 HOLD OFF · one of the four was not measured | `dev-launcher` (secondary) |
+| 12 | all ✅ | 🟢 COPYABLE AT SMALL SIZE · all four pass | `grinder`, `tagged-not-washing` |
 
 Three of these exist only because the first cut got them wrong, and none should be collapsed:
 
@@ -138,9 +142,9 @@ This layer is the only part most readers finish, so it is written to be read onc
 
 | Rule | Instead of | Write |
 |------|-----------|-------|
-| A verb the reader can act on, then the cause in everyday words | 别碰 · 刷量标记，战绩不可采信 | 别跟 · 它的盈利是自己刷出来的 |
-| No legalese, no compound clauses | 先观察 · 样本太少，不足以判断 | 看不出来 · 只交易过 4 个币 |
-| The action is ONE short imperative | 战绩真、手感在，但你吃不到它的价位。当信号源用：看它买什么、在什么市值买，自己二次筛选后按自己的节奏进。 | 看它买什么、在什么市值买，然后按你自己的节奏进。 |
+| A verb the reader can act on, then the cause in everyday words | DO NOT TOUCH · wash-trading flag, record inadmissible | DO NOT COPY · the profit is self-dealt |
+| No legalese, no compound clauses | WATCH FIRST · too small a sample to form a judgement | NO READ · only 4 tokens traded |
+| The action is ONE short imperative | "Real record, live edge, unreachable fills. Use it as a signal source: note what it buys and at what market cap, screen it yourself, then enter at your own pace." | "Note what it buys and at what market cap, then enter on your own terms." |
 | The colour is the claim | 🔴 for an unmeasured gate | ⚪ for unmeasured, 🔴 only for measured-and-bad |
 
 The action must never restate the gate reason printed below it — the reader would be reading
@@ -155,7 +159,7 @@ control flow.
 
 **A tag is a third-party heuristic label, never a finding.** No tag may change the verdict on
 its own — it opens a question that the wallet's own behaviour has to answer. This is not a
-style preference: obeying `wash_trader` unexamined rendered `🔴 别碰` on a real BSC wallet
+style preference: obeying `wash_trader` unexamined rendered `🔴 DO NOT COPY` on a real BSC wallet
 (`0xa7d4…2b9f`) whose $459K of realized profit came from six-figure memecoin positions, while
 the tag was firing on a ~$1K sliver of tokenised-stock churn. See **Corroborating
 `wash_trader`** below.
@@ -182,9 +186,9 @@ fees. So the discriminator is **where the gains came from**, per position:
 
 | `conviction_share` | G1 | Rendering |
 |--------------------|----|-----------|
-| ≥ 50% | not vetoed — G1 continues to its other checks | The tag stays visible as `❔ …（核验不成立）` carrying the share that refuted it |
+| ≥ 50% | not vetoed — G1 continues to its other checks | The tag stays visible as `❔ … (refuted)` carrying the share that refuted it |
 | < 50% | ❌ — the tag is corroborated | The gate line prints the share, not just the tag |
-| unmeasurable (`holdings` unavailable) | ⚪ — **not ❌, and not ✅** | Verdict is 🟡 先观察; tell the user to configure `GMGN_PRIVATE_KEY` and re-run |
+| unmeasurable (`holdings` unavailable) | ⚪ — **not ❌, and not ✅** | Verdict is 🟡 HOLD OFF; tell the user to configure `GMGN_PRIVATE_KEY` and re-run |
 
 Note what the third row protects against: an unverifiable accusation is not a finding either.
 Do not manufacture a 🔴 out of a tag you could not check.
@@ -211,7 +215,8 @@ sold **101 times**. Refuted flags are excluded from the G4 count and reported in
 reassurance block with the sell count that killed them, never silently dropped.
 
 **When `holdings` is unavailable the honeypot half of G4 has not run, and G4's pass must say so**
-(`⚪ 蜜罐未检查（holdings 不可用）—— 本项通过仅基于砍仓行为`). A live run caught exactly this: G4
+(`⚪ honeypot NOT checked (holdings unavailable) — this pass covers loss-cutting only`). A
+live run caught exactly this: G4
 rendered a bare ✅ while the check had silently never executed — the "⚪ must never read as ✅"
 rule violated by the skill that states it. `security_checked` counts the rows that actually
 carried the flag, so a missing field can never be read as clean.
@@ -240,11 +245,11 @@ here only as fallbacks in `h_get()` in case some chain still returns them.
 The output format is a hard requirement of this skill, not a preference. Every line carries its own
 conclusion so nothing has to be cross-referenced or recomputed by the reader:
 
-- **The verdict is the first thing on the page**, its cause is in the headline, and the 速读
-  block (定性 / 关键数字 / 利润来自 / 最大风险) finishes the decision before any detail.
-- **Identity comes immediately after 速读, before the gates.** The bound X account is printed
+- **The verdict is the first thing on the page**, its cause is in the headline, and the speed
+  read (what it is / key numbers / profit from / top risk) finishes the decision before detail.
+- **Identity comes immediately after the speed read, before the gates.** The X account is printed
   with its full `x.com/<handle>` so the reader does not have to go and find it, and its absence
-  is stated explicitly ("没有绑定 X 账号") rather than left as a missing line.
+  is stated explicitly ("no X account bound") rather than left as a missing line.
 - **Never print a number without its consequence.** `1,103 trades/day` alone is a fact the reader
   must interpret; `1,103 trades/day → bot cadence, no hand keeps pace` is a finished thought.
 - **Reconcile contradictory numbers rather than printing both.** `avg_holding_period` counts
@@ -254,7 +259,8 @@ conclusion so nothing has to be cross-referenced or recomputed by the reader:
 - **State friction as a share, not a level.** `$4 gas` is meaningless; `$26 net per exit against
   $4 gas ≈ 31% of profit → no room left for your slippage` is the decision.
 - **No prose paragraphs, no conclusion at the bottom.** A dossier that ends in
-  "以上仅供参考，请自行判断" has moved the entire analytical burden back onto the reader.
+  "the above is for reference only, use your own judgement" has moved the entire analytical
+  burden back onto the reader.
 
 ## Language and legibility rules
 
@@ -265,13 +271,13 @@ breaks any of them is a regression.
 |------|-----|--------------------|
 | **No line exceeds 76 display columns**, counting CJK glyphs as 2 | A 231-column reason line is unreadable in any terminal, and `textwrap` counts characters, not columns — a line of Chinese is twice as wide as its length | `dwidth()` / `wrap()` / `put()`. Every emitted line goes through `put()`; strings with embedded `\n` bypass it and must be split into separate `put()` calls |
 | **The verdict block states the ACTION, never a repeat of the gate reason** | Reading the same sentence twice before reaching anything new is pure latency | `verdict()` returns `(emoji, headline, what-to-do)`; the "why" lives only in the gate line |
-| **Multiple reasons render as separate bullets, never joined with 「；」** | Three glued clauses read as one unparseable sentence | Gate details may be a `list`; the renderer emits one bullet per item |
-| **One name per concept** | 可跟窗口 / 中位窗口 / 窗口 for the same quantity forces the reader to re-derive that they match. Note the analysis period is 数据区间, never 窗口 | Terminology fixed at the format-string level |
+| **Multiple reasons render as separate bullets, never glued with semicolons** | Three glued clauses read as one unparseable sentence | Gate details may be a `list`; the renderer emits one bullet per item |
+| **One name per concept** | "copy window" / "median window" / "window" for the same quantity forces the reader to re-derive that they match. The analysis period is the "data range", never a "window" | Terminology fixed at the format-string level |
 | **Panel conclusions are terse chips (≤10 display columns), not sentences** | The right-hand column is meant to be scanned vertically; a sentence there breaks the scan and overflows the row | `roi_label` / `cadence_label` / `entry_label` / `friction_label` return chips; the reasoning lives in the gate bullets |
-| **Gate names carry a plain-language gloss** | 时效性 is precise but not instantly readable; 「现在还在赚吗」is | `GATE_GLOSS`, rendered once per gate row |
-| **Money: no cents at or above \$10; thousands separators always** | `$213.46` and `1103 笔/日` are false precision and a reading speed-bump respectively | `usd()`, and `:,` on every count |
-| **A section heading must not contradict its contents** | 「风险旗标（0）」above a ⭐ positive marker reads as a contradiction | The heading switches to 「✅ 无风险旗标」when the risk list is empty |
-| **Never print the same fact twice** | 「普通交易钱包，无特征标记」appeared in both 速读 and 它是谁 | Deduplicated at the renderer |
+| **Gate names carry a plain-language gloss** | "CURRENCY" is precise but not instantly readable; "is it still earning now" is | `GATE_GLOSS`, rendered once per gate row |
+| **Money: no cents at or above \$10; thousands separators always** | `$213.46` and `1103 trades/day` are false precision and a reading speed-bump respectively | `usd()`, and `:,` on every count |
+| **A section heading must not contradict its contents** | "RISK FLAGS (0)" above a positive marker reads as a contradiction | The heading switches to "✅ NO RISK FLAGS" when the risk list is empty |
+| **Never print the same fact twice** | "ordinary trading wallet, no distinguishing marks" appeared in both the speed read and WHO IT IS | Deduplicated at the renderer |
 
 Verification is mechanical — this must stay at zero across all fixtures and both languages:
 
@@ -284,11 +290,38 @@ print(max(ws), sum(1 for w in ws if w>78))"
 done; done
 ```
 
+## Language
+
+**This file, `analyze.py`, and `gen_fixtures.py` are English only.** English is the source of
+truth: every user-facing string in `analyze.py` is written in English, and `lang/<code>.json`
+maps an English template to its translation.
+
+| Piece | Where |
+|-------|-------|
+| The English text | in `analyze.py`, as the first argument to `T()` |
+| A translation | `lang/zh.json`, keyed by that exact English string |
+| The list separator | `lang/<code>.json` under `__list_separator__` (`", "` in English) |
+
+`T("...")` looks the key up and falls back to English when it is missing, so a partial or
+absent translation degrades to English — never to a crash or a blank line. Templates use
+**positional** placeholders (`{0}`, `{1}`), not named ones, because the same value often reads
+in a different position in another language and a translator has to be able to move it.
+
+Adding a language is one file: copy `lang/zh.json`, translate the values, and pass the new code
+as the `<LANG>` argument. Adding a string is `T("the English sentence")` plus one entry per
+language file; leaving the entry out is safe.
+
+**Two Chinese fragments are deliberately kept in this file**, both in this section's sense
+*matching data rather than prose*: the phrases inside `description:`, and the 「CA」/「合约」/
+「代币」 list in Step 1. Those are literal things a user types, and translating them to English
+would stop the skill from triggering on Chinese input and stop Step 1 from catching a Chinese
+speaker who meant a token contract. Do not "clean them up".
+
 ## Step 1 — Confirm it is a wallet, not a token
 
 Run these checks before the first command:
 
-1. **The user said 「CA」, 「合约」, 「代币」, "contract", or "token"** → they most likely mean a token contract. Ask which they want: this wallet dossier, or a token analysis (`gmgn-token` / `gmgn-holder-analysis`). Do not guess.
+1. **The user said 「CA」, 「合约」, 「代币」 (Chinese for contract / token), "contract", or "token"** → they most likely mean a token contract. Ask which they want: this wallet dossier, or a token analysis (`gmgn-token` / `gmgn-holder-analysis`). Do not guess.
 2. **Malformed address** — an EVM address that is not `0x` + 40 hex, or a Solana address outside 32–44 base58 characters → say so and stop. Do not "fix" it.
 3. **Two or more addresses** → use the one the user named and say which; if they named none, ask.
 4. **Only a symbol or name, no address** → ask for the address. This skill cannot resolve names.
@@ -313,7 +346,7 @@ The script does everything: pulls the data in tiers, computes the gates, and pri
 
 Two things you *should* add after the report, when they apply:
 
-1. If the report's ⑥ 下一步 section names tokens the wallet bought in the last 24h, and the user seems ready to act, offer to run `gmgn-holder-analysis` or `gmgn-token security` on them. Do not run those unprompted — each is more rate-limit budget.
+1. If the report's WHAT TO DO NEXT section names tokens the wallet bought in the last 24h, and the user seems ready to act, offer to run `gmgn-holder-analysis` or `gmgn-token security` on them. Do not run those unprompted — each is more rate-limit budget.
 2. If a gate came back ⚪, say in one sentence what would make it measurable (usually: configure `GMGN_PRIVATE_KEY` so `portfolio holdings` works).
 
 ## Data plan and rate limits
@@ -330,9 +363,10 @@ All routes go through GMGN's leaky-bucket limiter (`rate=20`, `capacity=20`). A 
 | 2 | `portfolio holdings` | 5 | **critical** | Live book, profit concentration, hold-to-zero, **honeypot flags**, launchpad mix | G1 falls back to bucket inference; G4 loses hold-to-zero AND says the honeypot half was not checked |
 | 3 | `portfolio created-tokens` | 2 | exist | Launch record — only when the wallet looks like a launcher | Dev record omitted |
 
-**Cross-checked against the site.** `gmgn-cli` and gmgn.ai's public 牛人榜 read the same source:
+**Cross-checked against the site.** `gmgn-cli` and gmgn.ai's public leaderboard read the same
+source:
 across three BSC wallets, seventeen fields (7D ROI, P&L USD, win rate, buy/sell counts, native
-balance, `bought_cost + sold_income` = the site's 交易额 column, `remark_count`) matched to the
+balance, `bought_cost + sold_income` = the site's volume column, `remark_count`) matched to the
 last displayed digit. Two things this pinned down:
 
 - **The 1d window is rolling.** A `profits --period 1d` pull minutes after a screenshot reads

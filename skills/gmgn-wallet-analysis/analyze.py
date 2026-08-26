@@ -30,11 +30,52 @@ import time
 
 # ─────────────────────────── plumbing ───────────────────────────
 
-ZH = True
 
 
-def _(zh, en):
-    return zh if ZH else en
+# ─── language ────────────────────────────────────────────────────────────────
+# English is the source of truth: every user-facing string in this file is written in
+# English, and `lang/<code>.json` maps an English template to its translation. A key that
+# is missing from the table falls back to English, which is always a correct answer — so a
+# partial translation degrades into mixed language, never into a crash or a blank line.
+#
+# Templates use positional placeholders (`{0}`, `{1}`) rather than named ones, because the
+# same value often reads in a different position in another language and the translator
+# needs to be able to move it.
+LANG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lang")
+LANG_TABLE = {}
+
+
+def load_lang(code):
+    """Populate LANG_TABLE for `code`. Absent or unreadable table => English throughout."""
+    LANG_TABLE.clear()
+    if code == "en":
+        return
+    path = os.path.join(LANG_DIR, f"{code}.json")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            data = json.load(fh)
+    except (OSError, ValueError):
+        return
+    if isinstance(data, dict):
+        LANG_TABLE.update({k: v for k, v in data.items() if isinstance(v, str)})
+
+
+def joinsym(items):
+    """Join a list of symbols with the locale's separator. Keyed explicitly rather than on
+    the separator itself, because ", " is too generic to be safe as a table key."""
+    return LANG_TABLE.get("__list_separator__", ", ").join(items)
+
+
+def T(en, *args):
+    """Translate an English template and interpolate. `en` is the table key verbatim."""
+    tpl = LANG_TABLE.get(en, en)
+    if not args:
+        return tpl.replace("{{", "{").replace("}}", "}")
+    try:
+        return tpl.format(*args)
+    except (IndexError, KeyError, ValueError):
+        # A translation with the wrong placeholders must not take the report down.
+        return en.format(*args)
 
 
 def f(v, default=0.0):
@@ -93,14 +134,14 @@ def mc(v):
 def dur(sec):
     sec = f(sec)
     if sec <= 0:
-        return _("未知", "unknown")
+        return T('unknown')
     if sec < 60:
-        return f"{sec:.0f}{_(' 秒', 's')}"
+        return f"{sec:.0f}{T('s')}"
     if sec < 3600:
-        return f"{sec / 60:.0f}{_(' 分', 'm')}"
+        return f"{sec / 60:.0f}{T('m')}"
     if sec < 86400:
-        return f"{sec / 3600:.1f}{_(' 小时', 'h')}"
-    return f"{sec / 86400:.1f}{_(' 天', 'd')}"
+        return f"{sec / 3600:.1f}{T('h')}"
+    return f"{sec / 86400:.1f}{T('d')}"
 
 
 def med(xs):
@@ -181,42 +222,46 @@ def safe_div(a, b, default=0.0):
 #   warn    — changes how you read the numbers
 #   good    — a positive signal, still not a reason to skip a gate
 TAGS = {
-    "wash_trader": ("🚩", "veto_g1", "刷量/对敲交易者", "wash trader",
-                    "盈亏可能来自自我对敲，不是市场收益", "P&L may be self-dealt, not market-earned"),
-    "sandwich_bot": ("🥪", "veto_g3", "三明治夹子", "sandwich bot",
-                     "它的收益来自夹你这类订单", "its profit comes from sandwiching orders like yours"),
-    "mev_bot": ("🥪", "veto_g3", "MEV 机器人", "MEV bot",
-                "收益来自排序权，不是选币", "profit comes from ordering power, not token selection"),
-    "rat_trader": ("🐀", "warn", "老鼠仓", "rat trader",
-                   "常见于提前埋伏自己人的盘", "typically front-runs launches it is close to"),
-    "bundler": ("📦", "warn", "打包买入", "bundler",
-                "与发币方同区块建仓", "builds its position in the launch block"),
-    "sniper": ("🎯", "warn", "狙击", "sniper",
-               "极早入场，你拿不到同价", "enters far too early for you to match its price"),
-    "insider": ("🕵️", "warn", "内幕关联", "insider",
-                "信息优势不可复制", "an information edge you cannot replicate"),
-    "dev": ("🏭", "warn", "发币方", "token creator",
-            "自己发币自己交易", "trades tokens it launched itself"),
-    "kol": ("📣", "warn", "KOL", "KOL",
-            "喊单者，你大概不是第一个进的", "a caller — you are probably not the first one in"),
-    "top_followed": ("👥", "warn", "被大量跟单", "heavily followed",
-                     "跟单盘已经推过价，你的滑点更差", "copy flow already moved the price; your slippage is worse"),
-    "top_renamed": ("🎭", "warn", "多次改名", "renamed repeatedly",
-                    "身份在洗，历史声誉不可延续", "identity keeps churning; past reputation does not carry"),
-    "fresh_wallet": ("🆕", "warn", "新钱包", "fresh wallet",
-                     "没有可供检验的历史", "no history to check"),
-    "smart_money": ("⭐", "good", "聪明钱", "smart money",
-                    "GMGN 官方正向标记", "GMGN's own positive marker"),
-    "bluechip_owner": ("💎", "good", "蓝筹持有者", "bluechip holder",
-                       "持有过存活下来的资产", "has held assets that survived"),
-    "whale": ("🐋", "neutral", "巨鲸", "whale",
-              "规模远超你，行为不可照搬", "operates at a size that does not transfer to you"),
-    "gmgn": ("🔧", "neutral", "GMGN 用户", "GMGN user",
-             "通过 GMGN 下单，无风险含义", "trades through GMGN — no risk meaning"),
-    "photon": ("🔧", "neutral", "Photon 用户", "Photon user", "下单渠道", "order channel"),
-    "bullx": ("🔧", "neutral", "BullX 用户", "BullX user", "下单渠道", "order channel"),
-    "maestro": ("🔧", "neutral", "Maestro 用户", "Maestro bot user", "下单渠道", "order channel"),
-    "pepeboost": ("🔧", "neutral", "PepeBoost 用户", "PepeBoost user", "下单渠道", "order channel"),
+    'wash_trader': ('🚩', 'veto_g1', 'wash trader',
+     'P&L may be self-dealt, not market-earned'),
+    'sandwich_bot': ('🥪', 'veto_g3', 'sandwich bot',
+     'its profit comes from sandwiching orders like yours'),
+    'mev_bot': ('🥪', 'veto_g3', 'MEV bot',
+     'profit comes from ordering power, not token selection'),
+    'rat_trader': ('🐀', 'warn', 'rat trader',
+     'typically front-runs launches it is close to'),
+    'bundler': ('📦', 'warn', 'bundler',
+     'builds its position in the launch block'),
+    'sniper': ('🎯', 'warn', 'sniper',
+     'enters far too early for you to match its price'),
+    'insider': ('🕵️', 'warn', 'insider',
+     'an information edge you cannot replicate'),
+    'dev': ('🏭', 'warn', 'token creator',
+     'trades tokens it launched itself'),
+    'kol': ('📣', 'warn', 'KOL',
+     'a caller — you are probably not the first one in'),
+    'top_followed': ('👥', 'warn', 'heavily followed',
+     'copy flow already moved the price; your slippage is worse'),
+    'top_renamed': ('🎭', 'warn', 'renamed repeatedly',
+     'identity keeps churning; past reputation does not carry'),
+    'fresh_wallet': ('🆕', 'warn', 'fresh wallet',
+     'no history to check'),
+    'smart_money': ('⭐', 'good', 'smart money',
+     "GMGN's own positive marker"),
+    'bluechip_owner': ('💎', 'good', 'bluechip holder',
+     'has held assets that survived'),
+    'whale': ('🐋', 'neutral', 'whale',
+     'operates at a size that does not transfer to you'),
+    'gmgn': ('🔧', 'neutral', 'GMGN user',
+     'trades through GMGN — no risk meaning'),
+    'photon': ('🔧', 'neutral', 'Photon user',
+     'order channel'),
+    'bullx': ('🔧', 'neutral', 'BullX user',
+     'order channel'),
+    'maestro': ('🔧', 'neutral', 'Maestro bot user',
+     'order channel'),
+    'pepeboost': ('🔧', 'neutral', 'PepeBoost user',
+     'order channel'),
 }
 
 
@@ -227,14 +272,13 @@ def read_tags(raw_tags):
         key = str(t).strip()
         row = TAGS.get(key.lower())
         if row:
-            emoji, sev, zh, en, zh_m, en_m = row
+            emoji, sev, name, meaning = row
             out.append({"key": key, "emoji": emoji, "sev": sev,
-                        "name": _(zh, en), "meaning": _(zh_m, en_m), "known": True})
+                        "name": T(name), "meaning": T(meaning), "known": True})
         else:
             out.append({"key": key, "emoji": "❔", "sev": "neutral",
                         "name": f"`{key}`",
-                        "meaning": _("未知标签，原样显示，未参与判定",
-                                     "unrecognised tag, shown verbatim, not used in any gate"),
+                        "meaning": T('unrecognised tag, shown verbatim, not used in any gate'),
                         "known": False})
     return out
 
@@ -312,10 +356,7 @@ def collect(chain, wallet, gaps):
     d["activity"] = acts
     if not acts:
         gaps.append(
-            _(
-                "activity 为空 —— 可跟窗口、入场市值带、加仓/出货姿势本次均未评估",
-                "activity empty — copy window, entry band and scale-in/out shape were not evaluated",
-            )
+            T('activity empty — copy window, entry band and scale-in/out shape were not evaluated')
         )
 
     # holdings is CRITICAL auth (needs GMGN_PRIVATE_KEY). Absent key is the normal case.
@@ -327,16 +368,11 @@ def collect(chain, wallet, gaps):
                             "--limit", "50", "--order-by", "total_profit", "--direction", "desc"]))
         d["holdings"] = raw_h.get("list") or raw_h.get("holdings") or []
         if not d["holdings"]:
-            gaps.append(_("holdings 返回空 —— 当前持仓、利润集中度、蜜罐检查均未评估",
-                          "holdings came back empty — live book, profit concentration and the "
-                          "honeypot check were all skipped"))
+            gaps.append(T('holdings came back empty — live book, profit concentration and the honeypot check were all skipped'))
     except Gap as e:
         d["holdings"] = []
         gaps.append(
-            _(f"holdings 不可用（需要 GMGN_PRIVATE_KEY 的 critical auth）：{e} —— "
-              "利润集中度改用盈亏桶推断，当前持仓与蜜罐检查缺失",
-              f"holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {e} — profit "
-              "concentration falls back to bucket inference; live book and honeypot check missing")
+            T('holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
         )
 
     # Tier 3 — only when the wallet looks like a launcher.
@@ -450,19 +486,19 @@ def compute(d, latency_s, my_size):
 
     r7, ra = m["roi_7d"], m["roi_all"]
     if r7 is None or ra is None:
-        m["form"] = ("⚪", _("无法判断", "unknown"))
+        m["form"] = ("⚪", T('cannot tell'))
     elif ra <= 0 and r7 <= 0:
-        m["form"] = ("⚫", _("长期亏", "never worked"))
+        m["form"] = ("⚫", T('never worked'))
     elif ra > 0.1 and r7 <= -0.1:
-        m["form"] = ("💀", _("崩坏", "broken down"))
+        m["form"] = ("💀", T('broken down'))
     elif r7 > max(0.1, ra):
-        m["form"] = ("🔥", _("升温", "heating up"))
+        m["form"] = ("🔥", T('heating up'))
     elif abs(r7 - ra) <= 0.15:
-        m["form"] = ("➡️", _("持平", "steady"))
+        m["form"] = ("➡️", T('steady'))
     elif r7 < ra - 0.15:
-        m["form"] = ("❄️", _("退潮", "cooling off"))
+        m["form"] = ("❄️", T('cooling off'))
     else:
-        m["form"] = ("➡️", _("持平", "steady"))
+        m["form"] = ("➡️", T('steady'))
 
     # ── activity-derived behaviour ──
     acts = d.get("activity") or []
@@ -571,13 +607,13 @@ def compute(d, latency_s, my_size):
     m["buy_usd_24h"], m["sell_usd_24h"] = b24, s24
     m["recent_buys"] = sorted(recent_buys.items(), key=lambda kv: -kv[1])[:5]
     if b24 + s24 <= 0:
-        m["posture"] = ("😴", _("24h 静默", "quiet for 24h"))
+        m["posture"] = ("😴", T('quiet for 24h'))
     elif s24 > 2 * b24:
-        m["posture"] = ("📤", _("在出货", "distributing"))
+        m["posture"] = ("📤", T('distributing'))
     elif b24 > 2 * s24:
-        m["posture"] = ("🧊", _("在建仓", "accumulating"))
+        m["posture"] = ("🧊", T('accumulating'))
     else:
-        m["posture"] = ("🔁", _("对冲/换仓", "rotating"))
+        m["posture"] = ("🔁", T('rotating'))
 
     # ── holdings-derived: profit concentration + hold-to-zero ──
     h = d.get("holdings") or []
@@ -630,12 +666,7 @@ def compute(d, latency_s, my_size):
         and m["token_num"] >= 8
         and losers > 0.5 * m["token_num"]
     ):
-        m["one_coin_note"] = _(
-            f"{m['token_num']} 个币里只有 {big} 个翻过 2 倍，{losers} 个亏损，却整体盈利 "
-            f"{usd(m['realized_7d'])} —— 利润几乎只来自那一个币",
-            f"of {m['token_num']} tokens only {big} cleared 2x while {losers} lost money, yet the wallet "
-            f"is up {usd(m['realized_7d'])} — the profit came from that one token",
-        )
+        m["one_coin_note"] = T('of {0} tokens only {1} cleared 2x while {2} lost money, yet the wallet is up {3} — the profit came from that one token', m['token_num'], big, losers, usd(m['realized_7d']))
 
     # ── position scale, from holdings ────────────────────────────────────────────
     # `avg_buy_usd` measures the CLIP, not the POSITION. A wallet that ladders a $54K
@@ -731,13 +762,8 @@ def compute(d, latency_s, my_size):
                 # you something about the wallet's churn) but so is 🚩 next to a sentence
                 # saying the flag does not hold. ❔ is the honest one.
                 t["emoji"] = "❔"
-                t["name"] = _(f"{t['name']}（核验不成立）", f"{t['name']} (refuted)")
-                t["meaning"] = _(
-                    f"GMGN 的标记，但本地核验不成立：{pct(cs)} 的已实现盈利来自净赚超过自身成本的仓位，"
-                    "对敲刷不出这种结果",
-                    f"GMGN's label, refuted locally: {pct(cs)} of realized gains came from positions "
-                    "netting more than their own cost basis — self-dealing cannot produce that",
-                )
+                t["name"] = T('{0} (refuted)', t['name'])
+                t["meaning"] = T("GMGN's label, refuted locally: {0} of realized gains came from positions netting more than their own cost basis — self-dealing cannot produce that", pct(cs))
 
     # ── dev record ──
     ct = d.get("created_tokens") or {}
@@ -772,13 +798,7 @@ def compute(d, latency_s, my_size):
     m["hold_conflict"] = None
     if m["avg_hold_s"] > 0 and m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
         if m["avg_hold_s"] > 8 * m["copy_window_s"]:
-            m["hold_conflict"] = _(
-                f"接口给的平均持仓 {dur(m['avg_hold_s'])}，但活跃样本里首买→首卖的中位只有 "
-                f"{dur(m['copy_window_s'])} —— 均值被少数一直没卖的仓位拖高。看中位，别看均值",
-                f"the API's average hold is {dur(m['avg_hold_s'])}, but the median first-buy→first-sell in "
-                f"the live sample is {dur(m['copy_window_s'])} — the mean is dragged up by bags it never "
-                f"sold. Read the median, not the mean",
-            )
+            m["hold_conflict"] = T("the API's average hold is {0}, but the median first-buy→first-sell in the live sample is {1} — the mean is dragged up by bags it never sold. Read the median, not the mean", dur(m['avg_hold_s']), dur(m['copy_window_s']))
 
     # ── honeypots in the live book ──
     # `token.is_honeypot` ships inline on every holdings row, so this costs nothing and is
@@ -834,7 +854,7 @@ def gates(m):
     # No trades at all: nothing is assessable. Every gate is ⚪, not ❌ — "unevaluated"
     # and "failed" must never render the same, or a fresh wallet reads as a bad wallet.
     if m["trades"] == 0:
-        blank = _("7 天内没有买卖记录，无从评估", "no buys or sells in 7 days — nothing to evaluate")
+        blank = T('no buys or sells in 7 days — nothing to evaluate')
         return {k: (None, blank) for k in ("G1", "G2", "G3", "G4")}
 
     # G1 AUTHENTICITY — a wash-trading marker outranks every other test here. If the
@@ -845,86 +865,45 @@ def gates(m):
     if wash and m["conviction_share"] is None:
         # Tag present and uncheckable. This is exactly the ⚪ case: "we could not verify" is
         # not "confirmed fake", and it is not "fine" either. Do not manufacture a ❌.
-        names = "、".join(t["name"] for t in wash) if ZH else ", ".join(t["name"] for t in wash)
+        names = joinsym(t["name"] for t in wash)
         g["G1"] = (
             None,
-            _(
-                f"GMGN 标记「{names}」，但无法核验（holdings 不可用）—— "
-                f"这 7 天 {usd(m['realized_7d'])} 的盈亏既没被证伪也没被证实，配好 "
-                "GMGN_PRIVATE_KEY 后重跑",
-                f"GMGN flags this wallet as {names}, and it cannot be checked (holdings "
-                f"unavailable) — the {usd(m['realized_7d'])} in this window is neither confirmed "
-                "nor refuted. Configure GMGN_PRIVATE_KEY and re-run",
-            ),
+            T('GMGN flags this wallet as {0}, and it cannot be checked (holdings unavailable) — the {1} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run', names, usd(m['realized_7d'])),
         )
     elif wash:
-        names = "、".join(t["name"] for t in wash) if ZH else ", ".join(t["name"] for t in wash)
+        names = joinsym(t["name"] for t in wash)
         g["G1"] = (
             False,
-            _(
-                f"GMGN 标记「{names}」，且本地核验支持它：只有 {pct(m['conviction_share'])} "
-                f"的已实现盈利来自净赚超过自身成本的仓位，其余是来回对敲的量。"
-                f"这 7 天 {usd(m['realized_7d'])} 的已实现盈亏不可采信",
-                f"GMGN flags this wallet as {names}, and the local check agrees: only "
-                f"{pct(m['conviction_share'])} of realized gains came from positions netting more "
-                f"than their own cost basis — the rest is round-tripped volume. The "
-                f"{usd(m['realized_7d'])} realized P&L cannot be taken at face value",
-            ),
+            T('GMGN flags this wallet as {0}, and the local check agrees: only {1} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume. The {2} realized P&L cannot be taken at face value', names, pct(m['conviction_share']), usd(m['realized_7d'])),
         )
     elif m["is_dev"]:
         g["G1"] = (
             False,
-            _(
-                f"发币方钱包：自己发了 {m['created_tokens_n']} 个币 / 交易过 {m['token_num']} 个 —— "
-                "胜率和入场时机是自己写的，不是市场读出来的",
-                f"launcher wallet: created {m['created_tokens_n']} vs traded {m['token_num']} — "
-                "its win rate and entry timing are self-authored, not a market read",
-            ),
+            T('launcher wallet: created {0} vs traded {1} — its win rate and entry timing are self-authored, not a market read', m['created_tokens_n'], m['token_num']),
         )
     elif m["token_num"] < 5:
         g["G1"] = (
             False,
-            _(
-                f"样本只有 {m['token_num']} 个币，任何比率都不成立",
-                f"only {m['token_num']} tokens — no ratio computed on this is meaningful",
-            ),
+            T('only {0} tokens — no ratio computed on this is meaningful', m['token_num']),
         )
     elif m["one_coin_note"]:
         g["G1"] = (False, m["one_coin_note"])
     elif m["pcr_trusted"] and m["pcr"] >= 0.75:
         g["G1"] = (
             False,
-            _(
-                f"利润集中度 {pct(m['pcr'])}（{m['holdings_n']} 个仓位口径）—— 一个币扛起了整份战绩，复制不了",
-                f"profit concentration {pct(m['pcr'])} (across {m['holdings_n']} positions) — one coin carried the record",
-            ),
+            T('profit concentration {0} (across {1} positions) — one coin carried the record', pct(m['pcr']), m['holdings_n']),
         )
     else:
         if m["pcr_trusted"]:
-            pcr_txt = _(f"利润集中度 {pct(m['pcr'])}", f"profit concentration {pct(m['pcr'])}")
+            pcr_txt = T('profit concentration {0}', pct(m['pcr']))
         elif m["pcr"] is not None:
-            pcr_txt = _(
-                f"利润集中度 {pct(m['pcr'])}（仅 {m['holdings_n']} 个仓位，样本太薄，未作为判据）",
-                f"profit concentration {pct(m['pcr'])} (only {m['holdings_n']} positions — too thin to rely on)",
-            )
+            pcr_txt = T('profit concentration {0} (only {1} positions — too thin to rely on)', pct(m['pcr']), m['holdings_n'])
         else:
-            pcr_txt = _("利润集中度未测（holdings 不可用）", "profit concentration not measured (holdings unavailable)")
-        detail = [_(
-            f"{m['token_num']} 个币、{m['winners']} 个盈利，{pcr_txt}",
-            f"{m['token_num']} tokens, {m['winners']} profitable, {pcr_txt}",
-        )]
+            pcr_txt = T('profit concentration not measured (holdings unavailable)')
+        detail = [T('{0} tokens, {1} profitable, {2}', m['token_num'], m['winners'], pcr_txt)]
         if m["wash_refuted"]:
-            top = "、".join(sym for sym, _v in m["conviction_top"]) if ZH \
-                else ", ".join(sym for sym, _v in m["conviction_top"])
-            detail.append(_(
-                f"GMGN 挂了「{m['wash_refuted']['tag']}」标记，本地核验不成立："
-                f"{pct(m['wash_refuted']['share'])} 的已实现盈利来自 {top} 这类净赚超过自身成本的"
-                "重仓，对敲刷不出这种结果 —— 标记降为提示，不否决战绩",
-                f"GMGN carries a \u300c{m['wash_refuted']['tag']}\u300d flag; the local check refutes "
-                f"it: {pct(m['wash_refuted']['share'])} of realized gains came from size positions "
-                f"like {top} that netted more than their own cost basis. Self-dealing cannot produce "
-                "that — the flag is downgraded to a caution, not a veto",
-            ))
+            top = joinsym(sym for sym, _v in m["conviction_top"])
+            detail.append(T('GMGN carries a "{0}" flag; the local check refutes it: {1} of realized gains came from size positions like {2} that netted more than their own cost basis. Self-dealing cannot produce that — the flag is downgraded to a caution, not a veto', m['wash_refuted']['tag'], pct(m['wash_refuted']['share']), top))
         g["G1"] = (True, detail)
 
     # G2 CURRENCY
@@ -933,29 +912,20 @@ def gates(m):
     ra = m["roi_all"]
     r7t = pct(r7) if r7 is not None else "n/a"
     rat = pct(ra) if ra is not None else "n/a"
-    if label in (_("崩坏", "broken down"), _("长期亏", "never worked")):
+    if label in (T('broken down'), T('never worked')):
         g["G2"] = (
             False,
-            _(
-                f"{emoji} {label}：7d {r7t} vs 全期 {rat}",
-                f"{emoji} {label}: 7d {r7t} vs all-time {rat}",
-            ),
+            T('{0} {1}: 7d {2} vs all-time {3}', emoji, label, r7t, rat),
         )
     elif r7 is not None and r7 <= 0 and m["roi_30d"] is not None and m["roi_30d"] <= 0:
         g["G2"] = (
             False,
-            _(
-                f"近 7d 和 30d 都是负的（{r7t} / {pct(m['roi_30d'] or 0)}）",
-                f"both 7d and 30d are negative ({r7t} / {pct(m['roi_30d'] or 0)})",
-            ),
+            T('both 7d and 30d are negative ({0} / {1})', r7t, pct(m['roi_30d'] or 0)),
         )
     else:
         g["G2"] = (
             True,
-            _(
-                f"{emoji} {label}：7d {r7t} vs 全期 {rat}",
-                f"{emoji} {label}: 7d {r7t} vs all-time {rat}",
-            ),
+            T('{0} {1}: 7d {2} vs all-time {3}', emoji, label, r7t, rat),
         )
 
     # G3 REACHABILITY
@@ -967,147 +937,91 @@ def gates(m):
         # slow block, RPC hiccup, or confirmation delay puts you on the wrong side of its exit.
         if cw < lat * 3:
             reasons_fail.append(
-                _(
-                    f"可跟窗口中位 {dur(cw)}，你的延迟 {dur(lat)} —— 余量不足 3 倍，"
-                    "你买进去的时候它大概已经在卖了",
-                    f"median copy window {dur(cw)} against your {dur(lat)} latency — under 3x margin, "
-                    "it is likely already selling when you land",
-                )
+                T('median copy window {0} against your {1} latency — under 3x margin, it is likely already selling when you land', dur(cw), dur(lat))
             )
         else:
             reasons_ok.append(
-                _(f"可跟窗口 {dur(cw)}（延迟预算 {dur(lat)}）",
-                  f"copy window {dur(cw)} (your latency budget {dur(lat)})")
+                T('copy window {0} (your latency budget {1})', dur(cw), dur(lat))
             )
     if m["entry_n"] >= 5:
         if m["entry_p50"] > 0 and m["entry_p50"] < 30_000:
             reasons_fail.append(
-                _(
-                    f"入场市值中位 {mc(m['entry_p50'])} —— 这是狙击/内盘位，你进场就是它的 5–10 倍成本",
-                    f"median entry mcap {mc(m['entry_p50'])} — sniper/pre-graduation territory; you enter at 5–10x its cost",
-                )
+                T('median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost', mc(m['entry_p50']))
             )
         else:
             reasons_ok.append(
-                _(f"入场市值 p25/p50/p75 = {mc(m['entry_p25'])}/{mc(m['entry_p50'])}/{mc(m['entry_p75'])}",
-                  f"entry mcap p25/p50/p75 = {mc(m['entry_p25'])}/{mc(m['entry_p50'])}/{mc(m['entry_p75'])}")
+                T('entry mcap p25/p50/p75 = {0}/{1}/{2}', mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']))
             )
     for t in m["tag_info"]:
         if t["sev"] == "veto_g3":
-            reasons_fail.append(_(f"GMGN 标记「{t['name']}」—— {t['meaning']}",
-                                  f"GMGN flags it as {t['name']} — {t['meaning']}"))
+            reasons_fail.append(T('GMGN flags it as {0} — {1}', t['name'], t['meaning']))
     if m["followers"] >= 10_000 and (m["entry_p50"] == 0 or m["entry_p50"] < 1_000_000):
         reasons_fail.append(
-            _(
-                f"公开身份 {m['followers']:,} 粉丝且主打小市值 —— 跟单盘在你之前就已经推过价",
-                f"a public identity with {m['followers']:,} followers trading small caps — copy flow "
-                f"has already moved the price before your order",
-            )
+            T('a public identity with {0:,} followers trading small caps — copy flow has already moved the price before your order', m['followers'])
         )
     # Gas that eats a large share of the per-trade net leaves nothing for your slippage.
     if m["gas_drag"] is not None and m["gas_drag"] >= 0.25:
         reasons_fail.append(
-            _(
-                f"估算 gas 吃掉利润的 {pct(m['gas_drag'])}（{m['trades']:,} 笔 × 均 "
-                f"{usd(m['avg_gas_usd'])} ≈ {usd(m['gas_total_est'])} vs 已实现 {usd(m['realized_7d'])}）"
-                f"，单笔净赚只有 {usd(m['net_per_sell'])} —— 你的滑点没有空间",
-                f"gas is an estimated {pct(m['gas_drag'])} of the profit ({m['trades']:,} trades × "
-                f"{usd(m['avg_gas_usd'])} ≈ {usd(m['gas_total_est'])} vs {usd(m['realized_7d'])} realized), "
-                f"leaving {usd(m['net_per_sell'])} net per trade — no room for your slippage",
-            )
+            T('gas is an estimated {0} of the profit ({1:,} trades × {2} ≈ {3} vs {4} realized), leaving {5} net per trade — no room for your slippage', pct(m['gas_drag']), m['trades'], usd(m['avg_gas_usd']), usd(m['gas_total_est']), usd(m['realized_7d']), usd(m['net_per_sell']))
         )
     if m["avg_buy_usd"] > 0 and m["avg_buy_usd"] < 50:
         reasons_fail.append(
-            _(
-                f"平均单笔买入 {usd(m['avg_buy_usd'])} —— 边际薄到手续费和滑点就吃掉了",
-                f"average buy {usd(m['avg_buy_usd'])} — thin enough that fees and slippage eat the edge",
-            )
+            T('average buy {0} — thin enough that fees and slippage eat the edge', usd(m['avg_buy_usd']))
         )
     if m["per_day"] > 100:
         reasons_fail.append(
-            _(
-                f"{m['per_day']:,.0f} 笔/日 —— 机器节奏，人手跟不动",
-                f"{m['per_day']:,.0f} trades/day — bot cadence, no hand can keep pace",
-            )
+            T('{0:,.0f} trades/day — bot cadence, no hand can keep pace', m['per_day'])
         )
     if m["copy_window_n"] < 3 and m["entry_n"] < 5:
         g["G3"] = (
             None,
-            _("activity 样本不足，可及性未评估", "activity sample too thin — reachability not evaluated"),
+            T('activity sample too thin — reachability not evaluated'),
         )
     elif reasons_fail:
         g["G3"] = (False, reasons_fail)
     else:
-        g["G3"] = (True, reasons_ok or [_("未发现可及性障碍", "no reachability obstacle found")])
+        g["G3"] = (True, reasons_ok or [T('no reachability obstacle found')])
 
     # G4 SURVIVABILITY
     if m["token_num"] < 5:
-        g["G4"] = (None, _("样本不足，生存性未评估", "sample too thin — survivability not evaluated"))
+        g["G4"] = (None, T('sample too thin — survivability not evaluated'))
     elif len(m["honeypots"]) >= 2:
-        syms = "、".join(x["sym"] for x in m["honeypots"]) if ZH else ", ".join(x["sym"] for x in m["honeypots"])
+        syms = joinsym(x["sym"] for x in m["honeypots"])
         g["G4"] = (
             False,
-            _(
-                f"当前持仓里 {len(m['honeypots'])} 个是蜜罐（{syms}，合计 {usd(m['honeypot_usd'])} "
-                f"卖不出来）—— 它自己的风控就没挡住，你照抄会踩同样的坑",
-                f"{len(m['honeypots'])} live positions are honeypots ({syms}, {usd(m['honeypot_usd'])} "
-                f"that cannot be sold) — its own screening did not catch them, and copying it walks into the same ones",
-            ),
+            T('{0} live positions are honeypots ({1}, {2} that cannot be sold) — its own screening did not catch them, and copying it walks into the same ones', len(m['honeypots']), syms, usd(m['honeypot_usd'])),
         )
     elif m["lt50_share"] >= 0.35:
         g["G4"] = (
             False,
-            _(
-                f"{pct(m['lt50_share'])} 的币亏超 50%（{m['buckets']['lt_n50']}/{m['token_num']}）—— 不砍仓",
-                f"{pct(m['lt50_share'])} of its tokens are down >50% ({m['buckets']['lt_n50']}/{m['token_num']}) — it does not cut",
-            ),
+            T('{0} of its tokens are down >50% ({1}/{2}) — it does not cut', pct(m['lt50_share']), m['buckets']['lt_n50'], m['token_num']),
         )
     elif m["hold_to_zero"] is not None and m["hold_to_zero"] >= 3:
         g["G4"] = (
             False,
-            _(
-                f"{m['hold_to_zero']} 个仓位亏 90%+ 且一次没卖 —— 抱到归零是常态",
-                f"{m['hold_to_zero']} positions down 90%+ with zero sells — riding to zero is the habit",
-            ),
+            T('{0} positions down 90%+ with zero sells — riding to zero is the habit', m['hold_to_zero']),
         )
     else:
         reasons = [
-            _(f"重亏占比 {pct(m['lt50_share'])}（{m['buckets']['lt_n50']}/{m['token_num']} 个币亏超 50%）",
-              f"heavy-loss share {pct(m['lt50_share'])} ({m['buckets']['lt_n50']}/{m['token_num']} down >50%)")
+            T('heavy-loss share {0} ({1}/{2} down >50%)', pct(m['lt50_share']), m['buckets']['lt_n50'], m['token_num'])
         ]
         if m["hold_to_zero"] is not None:
-            reasons.append(_(f"抱到归零 {m['hold_to_zero']} 个（亏 90%+ 且零卖出）",
-                             f"{m['hold_to_zero']} ridden to zero (down 90%+ with zero sells)"))
+            reasons.append(T('{0} ridden to zero (down 90%+ with zero sells)', m['hold_to_zero']))
         if m["security_checked"] and m.get("hp_refuted"):
-            syms = "、".join(x["sym"] for x in m["hp_refuted"]) if ZH \
-                else ", ".join(x["sym"] for x in m["hp_refuted"])
+            syms = joinsym(x["sym"] for x in m["hp_refuted"])
             mx = max(x["sells"] for x in m["hp_refuted"])
-            reasons.append(_(
-                f"已检查 {m['security_checked']} 个持仓的蜜罐标记：{len(m['hp_refuted'])} 个命中"
-                f"（{syms}）但都被自己的成交记录否掉 —— 其中一个已卖出 {mx:,} 次，"
-                "蜜罐是卖不出去的，这批是转账受限的代币化股票/RWA，误报",
-                f"honeypot flag checked on {m['security_checked']} positions: {len(m['hp_refuted'])} hit "
-                f"({syms}) but each is refuted by its own fill history — one has {mx:,} completed sells, "
-                "and a honeypot cannot be sold. These are transfer-restricted tokenised-stock / RWA "
-                "contracts — false positives",
-            ))
+            reasons.append(T('honeypot flag checked on {0} positions: {1} hit ({2}) but each is refuted by its own fill history — one has {3:,} completed sells, and a honeypot cannot be sold. These are transfer-restricted tokenised-stock / RWA contracts — false positives', m['security_checked'], len(m['hp_refuted']), syms, mx))
         elif m["security_checked"]:
-            reasons.append(_(f"已检查 {m['security_checked']} 个持仓的蜜罐标记，无命中",
-                             f"honeypot flag checked on {m['security_checked']} positions, none hit"))
+            reasons.append(T('honeypot flag checked on {0} positions, none hit', m['security_checked']))
         else:
-            reasons.append(_("⚪ 蜜罐未检查（holdings 不可用）—— 本项通过仅基于砍仓行为，不含蜜罐",
-                             "⚪ honeypot NOT checked (holdings unavailable) — this pass covers "
-                             "loss-cutting only, not honeypots"))
+            reasons.append(T('⚪ honeypot NOT checked (holdings unavailable) — this pass covers loss-cutting only, not honeypots'))
         g["G4"] = (True, reasons)
 
     # A launcher's entry timing and loss-cutting are measurements of its own token's
     # price, which it controls. Reporting them as ✅ would be reporting self-dealing
     # as skill — so they are marked unevaluated, not passed.
     if m["is_dev"]:
-        na = _(
-            "发币方钱包，该项衡量的是它对自己代币的操作，不成立",
-            "launcher wallet — this measures its handling of its own token, so it does not apply",
-        )
+        na = T('launcher wallet — this measures its handling of its own token, so it does not apply')
         g["G3"] = (None, na)
         g["G4"] = (None, na)
     return g
@@ -1118,7 +1032,7 @@ def verdict(m, g):
 
     Language rules for this layer, which is the only part most readers finish:
       • The headline is a verb the reader can act on, then the cause in everyday words.
-        Not 「战绩不可采信」 (legalese) — 「它的盈利是刷出来的」.
+        Not "the record cannot be taken as evidence" (legalese) — "the profit is faked".
       • The action is ONE short imperative sentence. No sub-clauses, no hedging tail.
       • Colour means what it says: 🔴 measured and bad, 🟡 act differently, ⚪ not measured.
         An unmeasured gate must never render 🔴 — "we could not tell" is not "it is bad".
@@ -1128,97 +1042,81 @@ def verdict(m, g):
 
     if m["trades"] == 0:
         return ("⚪",
-                _("看不出来 · 这 7 天没有交易", "NO READ · no trades in 7 days"),
-                _("先确认这是钱包地址，不是代币合约。下面有三步检查。",
-                  "First confirm this is a wallet, not a token contract. Three checks below."))
+                T('NO READ · no trades in 7 days'),
+                T('First confirm this is a wallet, not a token contract. Three checks below.'))
 
     if p["G1"] is False:
         if any(t["sev"] == "veto_g1" for t in m["tag_info"]):
             return ("🔴",
-                    _("别跟 · 它的盈利是自己刷出来的", "DO NOT COPY · the profit is self-dealt"),
-                    _("当它的盈亏数字不存在。想看它买什么可以，别拿这个当依据。",
-                      "Treat its P&L as if it were not there. Watch what it buys; do not "
-                      "use these numbers."))
+                    T('DO NOT COPY · the profit is self-dealt'),
+                    T('Treat its P&L as if it were not there. Watch what it buys; do not use these numbers.'))
         if m["is_dev"]:
             return ("🔴",
-                    _("别跟 · 它是发币方，赚的是自己发的币",
-                      "DO NOT COPY · it is a launcher trading its own tokens"),
-                    _("别看它的交易能力，去查它发的币活下来几个（gmgn-wallet-score）。",
-                      "Do not read its trading. Check how many of its launches survived "
-                      "(gmgn-wallet-score)."))
+                    T('DO NOT COPY · it is a launcher trading its own tokens'),
+                    T('Do not read its trading. Check how many of its launches survived (gmgn-wallet-score).'))
         if m["one_coin_note"]:
             return ("🔴",
-                    _("别跟 · 全靠一个币赚钱，复制不了",
-                      "DO NOT COPY · one token made all the money"),
-                    _("等它在更多币上再赚一次，再回来看。",
-                      "Come back when it has done it again on other tokens."))
+                    T('DO NOT COPY · one token made all the money'),
+                    T('Come back when it has done it again on other tokens.'))
         # Too thin to measure is ⚪, not 🔴. Nothing bad was found — nothing was found.
         return ("⚪",
-                _(f"看不出来 · 只交易过 {m['token_num']} 个币",
-                  f"NO READ · only {m['token_num']} tokens traded"),
-                _("样本太小，任何比率都不成立。加观察名单，满 5 个币再看。",
-                  "The sample is too small for any ratio to hold. Watchlist it until it "
-                  "has traded 5."))
+                T('NO READ · only {0} tokens traded', m['token_num']),
+                T('The sample is too small for any ratio to hold. Watchlist it until it has traded 5.'))
 
     if p["G2"] is False:
         return ("🔴",
-                _("别跟 · 它最近已经不赚了", "DO NOT COPY · it has stopped making money"),
-                _("7 天后再跑一次，看是回暖还是继续掉。",
-                  "Re-run in 7 days to see whether it recovers or keeps sliding."))
+                T('DO NOT COPY · it has stopped making money'),
+                T('Re-run in 7 days to see whether it recovers or keeps sliding.'))
 
     # G3 and G4 are independent problems. Reporting only the first one silently drops the
     # other — a wallet you cannot get filled on AND that never cuts needs both sentences.
     if p["G3"] is False and p["G4"] is False:
         return ("🟡",
-                _("能看不能抄 · 你抢不到它的价，它也不砍仓",
-                  "WATCH, DO NOT COPY · you cannot get its fills, and it never cuts"),
-                _("只当信号源看它买什么。真要自己进，止损必须你自己设。",
-                  "Use it only as a signal of what to look at. If you enter, set your own stop."))
+                T('WATCH, DO NOT COPY · you cannot get its fills, and it never cuts'),
+                T('Use it only as a signal of what to look at. If you enter, set your own stop.'))
     if p["G3"] is False:
         return ("🟡",
-                _("能看不能抄 · 你抢不到它的价", "WATCH, DO NOT COPY · you cannot get its fills"),
-                _("看它买什么、在什么市值买，然后按你自己的节奏进。",
-                  "Note what it buys and at what market cap, then enter on your own terms."))
+                T('WATCH, DO NOT COPY · you cannot get its fills'),
+                T('Note what it buys and at what market cap, then enter on your own terms.'))
     if p["G4"] is False:
         return ("🟡",
-                _("跟买可以，跟卖不行 · 它不砍仓",
-                  "COPY THE BUYS, NOT THE EXITS · it does not cut losses"),
-                _("跟它进场，止损用你自己的。别等它先卖。",
-                  "Take its entries and keep your own stop. Do not wait for it to sell first."))
+                T('COPY THE BUYS, NOT THE EXITS · it does not cut losses'),
+                T('Take its entries and keep your own stop. Do not wait for it to sell first.'))
 
     if p["G1"] is None:
         return ("🟡",
-                _("先别动 · 有刷量嫌疑，但查不了", "HOLD OFF · a wash-trading flag we cannot check"),
-                _("配好 GMGN_PRIVATE_KEY 再跑一次。核验前别按这份战绩下注。",
-                  "Configure GMGN_PRIVATE_KEY and re-run. Do not size off this record first."))
+                T('HOLD OFF · a wash-trading flag we cannot check'),
+                T('Configure GMGN_PRIVATE_KEY and re-run. Do not size off this record first.'))
     if p["G3"] is None or p["G4"] is None:
         return ("🟡",
-                _("先别动 · 四项里有一项没测到", "HOLD OFF · one of the four was not measured"),
-                _("先补数据（通常是配置 GMGN_PRIVATE_KEY），再决定。",
-                  "Fill in the missing data first — usually by configuring GMGN_PRIVATE_KEY."))
+                T('HOLD OFF · one of the four was not measured'),
+                T('Fill in the missing data first — usually by configuring GMGN_PRIVATE_KEY.'))
 
-    size = usd(m["size_cap"]) if m["size_cap"] else _("你自己的常规仓位", "your normal size")
+    size = usd(m["size_cap"]) if m["size_cap"] else T('your normal size')
     win = dur(m["copy_window_s"]) if m["copy_window_s"] > 0 else None
+    if win:
+        act = T('Start at ≤ {0}, landing within {1} of its buy.', size, win)
+    else:
+        act = T('Start at ≤ {0}.', size)
     return ("🟢",
-            _("可以小仓跟 · 四项全过", "COPYABLE AT SMALL SIZE · all four pass"),
-            _(f"起步 ≤ {size}" + (f"，下单要在它买入后 {win}以内。" if win else "。"),
-              f"Start at ≤ {size}" + (f", landing within {win} of its buy." if win else ".")))
+            T('COPYABLE AT SMALL SIZE · all four pass'),
+            act)
 
 
 # ─────────────────────────── report ───────────────────────────
 
 GATE_NAMES = {
-    "G1": ("真实性", "AUTHENTICITY"),
-    "G2": ("时效性", "CURRENCY"),
-    "G3": ("可及性", "REACHABILITY"),
-    "G4": ("生存性", "SURVIVABILITY"),
+    "G1": "AUTHENTICITY",
+    "G2": "CURRENCY",
+    "G3": "REACHABILITY",
+    "G4": "SURVIVABILITY",
 }
 
 GATE_GLOSS = {
-    "G1": ("数据可信吗", "is the data trustworthy"),
-    "G2": ("现在还在赚吗", "is it still earning now"),
-    "G3": ("你吃得到吗", "can you get filled"),
-    "G4": ("它会砍仓吗", "does it cut losses"),
+    "G1": "is the data trustworthy",
+    "G2": "is it still earning now",
+    "G3": "can you get filled",
+    "G4": "does it cut losses",
 }
 
 
@@ -1229,57 +1127,57 @@ def mark(v):
 # ─── style layer: main title + speed subtitle ────────────────────────────────
 # Merged in from the wallet-style testbench. Four deliberate changes were made on the
 # way in, each because the original mis-labelled a wallet we had already verified:
-#   1. No ⭐「官方认证」badge. It fired on any non-empty `common.tags`, so it printed
+#   1. No "officially verified" badge. It fired on any non-empty `common.tags`, so it printed
 #      `wash_trader` under a commendation glyph. Tags go through TAGS/severity instead.
 #   2. The speed subtitle reads the MEDIAN copy window, not `avg_holding_period`. The
-#      mean counts bags never sold, so it called a 2-minute scalper 「波段流 1–7 天」.
+#      mean counts bags never sold, so it called a 2-minute scalper a 1-7 day swing trader.
 #   3. P5 needs ROI > 50% plus ONE of {win rate ≥ 50%, heavy-loss share < 15%}, not all
 #      three. Memecoin P&L is low-hit-rate with a fat right tail; requiring 50% win rate
 #      pushed a wallet sitting at #3 on GMGN's own 7D leaderboard down to P4.
 #   4. Activity-derived badges are gated on sample size (see top3_buy_share / hour_peak).
-# The `token_num >= 5` floor on P5 is kept as-is: one lucky coin must not score 一击必杀.
+# The `token_num >= 5` floor on P5 is kept as-is: one lucky coin must not score "one-shot".
 
 TITLES = {
-    ("L4", "P5"): ("🖨️", "印钞机", "机器级频次还能稳定强盈，跟不上，只能看",
-                   "money printer", "machine cadence and still strongly profitable"),
-    ("L4", "P4"): ("⚙️", "全自动P机", "薄利多销，单笔小、总量大",
-                   "full-auto grinder", "thin margins, huge volume"),
-    ("L4", "P3"): ("🪫", "磨损户", "交易赚的被手续费和滑点磨平",
-                   "worn down", "whatever it earns, fees and slippage take back"),
-    ("L4", "P2"): ("🔥", "烧Gas机", "高频高摩擦，净亏主要亏在成本",
-                   "gas burner", "high frequency, high friction; the loss is mostly cost"),
-    ("L4", "P1"): ("💥", "自毁装置", "机器级频次配大面积重亏，策略已失效",
-                   "self-destruct", "machine cadence plus broad heavy losses"),
-    ("L3", "P5"): ("🌾", "收割机", "高频且强盈，这一格最强",
-                   "harvester", "high frequency and strongly profitable — the strongest cell"),
-    ("L3", "P4"): ("⚔️", "P小将", "手勤、赚得住，典型的活跃盈利户",
-                   "active winner", "busy hands that keep the money"),
-    ("L3", "P3"): ("🌀", "陀螺", "转得快但原地踏步",
-                   "spinning top", "spinning fast, going nowhere"),
-    ("L3", "P2"): ("💸", "手续费贡献者", "交易量不小，钱流去了链上",
-                   "fee donor", "real volume, and the money went on-chain"),
-    ("L3", "P1"): ("🩸", "连败突击兵", "高频硬冲，重亏占比高",
-                   "bleeding out", "charging in fast with a heavy tail of big losses"),
-    ("L2", "P5"): ("🦅", "老猎手", "出手不多，收益强，节奏可复制",
-                   "old hunter", "swings rarely, earns well — the most copyable rhythm"),
-    ("L2", "P4"): ("📈", "稳步选手", "常规频次、正收益，无明显短板",
-                   "steady hand", "normal cadence, positive return, no glaring weakness"),
-    ("L2", "P3"): ("☕", "温吞户", "有在做，但没做出结果",
-                   "lukewarm", "active, but it has not turned into anything"),
-    ("L2", "P2"): ("🐑", "亏损散户", "最常见的一档",
-                   "retail loser", "the most common cell on the board"),
-    ("L2", "P1"): ("🕳️", "深套户", "半数以上币亏超 50%",
-                   "deep underwater", "most of its coins are down more than 50%"),
-    ("L1", "P5"): ("🗡️", "一击必杀", "极少出手，出手就中",
-                   "one-shot", "almost never trades, and lands it when it does"),
-    ("L1", "P4"): ("🧘", "佛系赢家", "赢在选得对，不是赢在操作",
-                   "zen winner", "the gain came from picks, not from working the trades"),
-    ("L1", "P3"): ("👀", "观望者", "样本太少，标签仅供参考",
-                   "bystander", "too small a sample to mean much"),
-    ("L1", "P2"): ("💧", "试水亏损", "试了几次，没成",
-                   "toe in the water", "tried a few times, none worked"),
-    ("L1", "P1"): ("⚰️", "一把归零", "单次或极少次数直接打光",
-                   "wiped out", "one or two swings, wiped out"),
+    ('L4', 'P5'): ('🖨️', 'money printer',
+     'machine cadence and still strongly profitable'),
+    ('L4', 'P4'): ('⚙️', 'full-auto grinder',
+     'thin margins, huge volume'),
+    ('L4', 'P3'): ('\U0001faab', 'worn down',
+     'whatever it earns, fees and slippage take back'),
+    ('L4', 'P2'): ('🔥', 'gas burner',
+     'high frequency, high friction; the loss is mostly cost'),
+    ('L4', 'P1'): ('💥', 'self-destruct',
+     'machine cadence plus broad heavy losses'),
+    ('L3', 'P5'): ('🌾', 'harvester',
+     'high frequency and strongly profitable — the strongest cell'),
+    ('L3', 'P4'): ('⚔️', 'active winner',
+     'busy hands that keep the money'),
+    ('L3', 'P3'): ('🌀', 'spinning top',
+     'spinning fast, going nowhere'),
+    ('L3', 'P2'): ('💸', 'fee donor',
+     'real volume, and the money went on-chain'),
+    ('L3', 'P1'): ('🩸', 'bleeding out',
+     'charging in fast with a heavy tail of big losses'),
+    ('L2', 'P5'): ('🦅', 'old hunter',
+     'swings rarely, earns well — the most copyable rhythm'),
+    ('L2', 'P4'): ('📈', 'steady hand',
+     'normal cadence, positive return, no glaring weakness'),
+    ('L2', 'P3'): ('☕', 'lukewarm',
+     'active, but it has not turned into anything'),
+    ('L2', 'P2'): ('🐑', 'retail loser',
+     'the most common cell on the board'),
+    ('L2', 'P1'): ('🕳️', 'deep underwater',
+     'most of its coins are down more than 50%'),
+    ('L1', 'P5'): ('🗡️', 'one-shot',
+     'almost never trades, and lands it when it does'),
+    ('L1', 'P4'): ('🧘', 'zen winner',
+     'the gain came from picks, not from working the trades'),
+    ('L1', 'P3'): ('👀', 'bystander',
+     'too small a sample to mean much'),
+    ('L1', 'P2'): ('💧', 'toe in the water',
+     'tried a few times, none worked'),
+    ('L1', 'P1'): ('⚰️', 'wiped out',
+     'one or two swings, wiped out'),
 }
 
 
@@ -1298,17 +1196,17 @@ def pnl_level(m):
     """P5 requires ROI > 50% and ONE corroborating shape, not all three. See note above.
 
     Returns (level, basis) — `basis` names the corroborator that carried P5, so the title's
-    「强盈」 is never a bare claim. A 33%-win-rate wallet reaching P5 on its heavy-loss share
+    "strongly profitable" is never a bare claim. A 33%-win-rate wallet reaching P5 on its
     must not be glossed as high-hit-rate.
     """
     roi = m["roi_7d"] if m["roi_7d"] is not None else 0.0
     hits = []
     if m["winrate"] >= 0.5:
-        hits.append(_(f"胜率 {pct(m['winrate'])}", f"{pct(m['winrate'])} hit rate"))
+        hits.append(T('{0} hit rate', pct(m['winrate'])))
     if m["lt50_share"] < 0.15:
-        hits.append(_(f"重亏占比仅 {pct(m['lt50_share'])}", f"only {pct(m['lt50_share'])} heavy losses"))
+        hits.append(T('only {0} heavy losses', pct(m['lt50_share'])))
     if roi > 0.5 and m["token_num"] >= 5 and hits:
-        return ("P5", _(f"7d {pct(roi)} + {hits[0]}", f"7d {pct(roi)} + {hits[0]}"))
+        return ("P5", T('7d {0} + {1}', pct(roi), hits[0]))
     if roi > 0.1:
         return ("P4", None)
     if m["lt50_share"] >= 0.40 and m["realized_7d"] < 0:
@@ -1322,18 +1220,18 @@ def pnl_level(m):
 
 def style_title(m):
     """(emoji, name, gloss, cell). None when there is nothing to label."""
-    # No label on a sample that cannot carry one. The verdict already says 看不出来 for a
-    # sub-5-token wallet; printing 「稳步选手 · 常规频次、正收益、无明显短板」 next to it
-    # would contradict it. Silence is the honest label here.
+    # No label on a sample that cannot carry one. The verdict already reads "no read" for a
+    # sub-5-token wallet; printing "steady hand - normal cadence, positive return, no glaring
+    # weakness" next to it would contradict it. Silence is the honest label here.
     if m["trades"] == 0 or m["token_num"] < 5:
         return None
     plevel, basis = pnl_level(m)
     cell = (freq_level(m["per_day"]), plevel)
-    e, zh, gz, en, ge = TITLES[cell]
-    gloss = _(gz, ge)
+    e, name, gloss_en = TITLES[cell]
+    gloss = T(gloss_en)
     if basis:
-        gloss += _(f"（{basis}）", f" ({basis})")
-    return (e, _(zh, en), gloss, f"{cell[0]}×{cell[1]}")
+        gloss += T(' ({0})', basis)
+    return (e, T(name), gloss, f"{cell[0]}×{cell[1]}")
 
 
 def style_speed(m):
@@ -1342,12 +1240,20 @@ def style_speed(m):
         return None
     s = m["copy_window_s"]
     if s < 60:
-        return ("⚡", _("秒杀流", "flash flipper"), _("< 60 秒", "< 60s"))
+        return ("⚡", T('flash flipper'), T('< 60s'))
     if s < 86_400:
-        return ("🐇", _("日内流", "intraday"), _("< 24 小时", "< 24h"))
+        return ("🐇", T('intraday'), T('< 24h'))
     if s < 604_800:
-        return ("🧭", _("波段流", "swing"), _("1 – 7 天", "1–7 days"))
-    return ("💎", _("长持流", "long hold"), _("> 7 天", "> 7 days"))
+        return ("🧭", T('swing'), T('1–7 days'))
+    return ("💎", T('long hold'), T('> 7 days'))
+
+
+def spray_tail(win):
+    """The copy-window clause of the spray-and-hit engine. Hoisted out of the sentence so
+    the sentence stays a single translatable template rather than a concatenation."""
+    if win:
+        return T('You would need to land inside {0} — not achievable by hand', win)
+    return T('Copying it is a race on latency, not on judgement')
 
 
 def profit_engine(m):
@@ -1367,46 +1273,26 @@ def profit_engine(m):
 
     if fast and concentrated:
         return (
-            _("🕸️ 撒网命中", "🕸️ spray-and-hit"),
-            _(f"{m['per_day']:,.0f} 笔/日、单笔均买 {usd(m['avg_buy_usd'])} 大量试错，"
-              f"前 3 个赢家扛起 {pct(m['gain_top3_share'])} 的利润",
-              f"{m['per_day']:,.0f} trades/day at {usd(m['avg_buy_usd'])} a clip, and the top 3 winners "
-              f"carry {pct(m['gain_top3_share'])} of the profit"),
-            _("利润来自出手次数×少数命中，不是来自选得准。"
-              + (f"你要在 {win} 内落单才可能吃到，人手做不到" if win else "跟单要拼手速，人手做不到"),
-              "the profit comes from volume of attempts times a few hits, not from picking well. "
-              + (f"You would need to land inside {win} — not achievable by hand" if win
-                 else "Copying it is a race on latency, not on judgement")),
+            T('🕸️ spray-and-hit'),
+            T('{0:,.0f} trades/day at {1} a clip, and the top 3 winners carry {2} of the profit', m['per_day'], usd(m['avg_buy_usd']), pct(m['gain_top3_share'])),
+            T('the profit comes from volume of attempts times a few hits, not from picking well. {0}', spray_tail(win)),
         )
     if fast:
         return (
-            _("⚙️ 周转磨利", "⚙️ turnover grind"),
-            _(f"{m['per_day']:,.0f} 笔/日，利润摊在很多仓位上（前 3 个只占 "
-              f"{pct(m['gain_top3_share'])}），单笔中位净赚 {usd(m['med_gain_per_exit'])}",
-              f"{m['per_day']:,.0f} trades/day with profit spread thin (top 3 = "
-              f"{pct(m['gain_top3_share'])}), median {usd(m['med_gain_per_exit'])} net per winning exit"),
-            _("利润来自成交量，单笔太薄，你的滑点和手续费会直接吃掉它",
-              "the profit is volume, and each exit is too thin to survive your slippage and fees"),
+            T('⚙️ turnover grind'),
+            T('{0:,.0f} trades/day with profit spread thin (top 3 = {1}), median {2} net per winning exit', m['per_day'], pct(m['gain_top3_share']), usd(m['med_gain_per_exit'])),
+            T('the profit is volume, and each exit is too thin to survive your slippage and fees'),
         )
     if conv and concentrated:
         return (
-            _("🎯 选币重仓", "🎯 pick-and-size"),
-            _(f"{m['per_day']:,.0f} 笔/日不算快，{pct(m['conviction_share'])} 的利润来自净赚超过"
-              f"自身成本的重仓，前 3 个赢家占 {pct(m['gain_top3_share'])}",
-              f"{m['per_day']:,.0f} trades/day is not fast; {pct(m['conviction_share'])} of gains came "
-              f"from positions netting more than their own cost, top 3 winners = {pct(m['gain_top3_share'])}"),
-            _("利润来自选对标的然后加到重仓，不是来自手速 —— 这类是可以慢一步跟的",
-              "the profit comes from picking right and then sizing up, not from speed — this is the "
-              "kind you can follow a step behind"),
+            T('🎯 pick-and-size'),
+            T('{0:,.0f} trades/day is not fast; {1} of gains came from positions netting more than their own cost, top 3 winners = {2}', m['per_day'], pct(m['conviction_share']), pct(m['gain_top3_share'])),
+            T('the profit comes from picking right and then sizing up, not from speed — this is the kind you can follow a step behind'),
         )
     return (
-        _("🧩 分散积累", "🧩 diffuse accumulation"),
-        _(f"{m['per_day']:,.0f} 笔/日，利润既不集中（前 3 个 {pct(m['gain_top3_share'])}）"
-          f"也不靠手速，单笔中位净赚 {usd(m['med_gain_per_exit'])}",
-          f"{m['per_day']:,.0f} trades/day, gains neither concentrated (top 3 = "
-          f"{pct(m['gain_top3_share'])}) nor speed-driven, median {usd(m['med_gain_per_exit'])} per winning exit"),
-        _("没有单一利润引擎，跟它等于跟它的整个组合，不是跟某一笔",
-          "no single profit engine — following it means following the whole book, not any one trade"),
+        T('🧩 diffuse accumulation'),
+        T('{0:,.0f} trades/day, gains neither concentrated (top 3 = {1}) nor speed-driven, median {2} per winning exit', m['per_day'], pct(m['gain_top3_share']), usd(m['med_gain_per_exit'])),
+        T('no single profit engine — following it means following the whole book, not any one trade'),
     )
 
 
@@ -1414,98 +1300,91 @@ def archetype(m):
     """Say what kind of counterparty this is, before any number gets interpreted."""
     tags = []
     if m["is_dev"]:
-        tags.append(_("🏭 发币方（自导自演）", "🏭 launcher (marks its own homework)"))
+        tags.append(T('🏭 launcher (marks its own homework)'))
     if m["per_day"] > 50:
-        tags.append(_(f"🤖 机器级 {m['per_day']:,.0f} 笔/日", f"🤖 bot-tier {m['per_day']:,.0f} trades/day"))
+        tags.append(T('🤖 bot-tier {0:,.0f} trades/day', m['per_day']))
     if m["entry_n"] >= 5 and 0 < m["entry_p50"] < 100_000:
-        tags.append(_(f"🎯 狙击手 中位入场 {mc(m['entry_p50'])}", f"🎯 sniper, median entry {mc(m['entry_p50'])}"))
+        tags.append(T('🎯 sniper, median entry {0}', mc(m['entry_p50'])))
     if m["avg_buy_usd"] >= 10_000:
-        tags.append(_(f"🐋 巨鲸 单笔均 {usd(m['avg_buy_usd'])}", f"🐋 whale, {usd(m['avg_buy_usd'])} per buy"))
+        tags.append(T('🐋 whale, {0} per buy', usd(m['avg_buy_usd'])))
     if m["age_days"] is not None and m["age_days"] < 30:
-        tags.append(_(f"🆕 新号 {m['age_days']:.0f} 天", f"🆕 new wallet, {m['age_days']:.0f} days old"))
+        tags.append(T('🆕 new wallet, {0:.0f} days old', m['age_days']))
     if m["flip5_rate"] >= 0.3:
-        tags.append(_(f"⚡ 秒抛 {pct(m['flip5_rate'])} 的回合 5 秒内出", f"⚡ 5-second flipper on {pct(m['flip5_rate'])} of round trips"))
+        tags.append(T('⚡ 5-second flipper on {0} of round trips', pct(m['flip5_rate'])))
     if m["top_pos_usd"] and m["top_pos_usd"] >= 10_000:
-        tags.append(_(f"🏦 重仓型 单仓最大 {usd(m['top_pos_usd'])}",
-                      f"🏦 size-position trader, largest holding {usd(m['top_pos_usd'])}"))
+        tags.append(T('🏦 size-position trader, largest holding {0}', usd(m['top_pos_usd'])))
     if m["med_buys_per_pos"] and m["med_buys_per_pos"] >= 10:
-        tags.append(_(f"🧱 重仓分批建仓 中位 {m['med_buys_per_pos']:,} 笔买入/仓",
-                      f"🧱 ladders its size positions, median {m['med_buys_per_pos']:,} buys each"))
+        tags.append(T('🧱 ladders its size positions, median {0:,} buys each', m['med_buys_per_pos']))
     elif m["avg_buys_per_token"] >= 3:
-        tags.append(_(f"🧱 分批建仓 均 {m['avg_buys_per_token']:.1f} 笔/币", f"🧱 scales in, {m['avg_buys_per_token']:.1f} buys/token"))
+        tags.append(T('🧱 scales in, {0:.1f} buys/token', m['avg_buys_per_token']))
     # 🎰 low hit rate carried by one or two outsized wins — a different animal from a
     # wallet with the same ROI and an even distribution.
     if m["winrate"] < 0.35 and m["buckets"]["gt5"] >= 1 and m["token_num"] >= 5:
-        tags.append(_(f"🎰 彩票型 胜率 {pct(m['winrate'])} 但 {m['buckets']['gt5']} 个币翻过 5 倍",
-                      f"🎰 lottery profile, {pct(m['winrate'])} hit rate but {m['buckets']['gt5']} "
-                      "tokens above 5x"))
+        tags.append(T('🎰 lottery profile, {0} hit rate but {1} tokens above 5x', pct(m['winrate']), m['buckets']['gt5']))
     if m["avg_sells_per_token"] >= 3:
-        tags.append(_(f"✂️ 分批止盈 均 {m['avg_sells_per_token']:.1f} 笔卖出/币",
-                      f"✂️ scales out, {m['avg_sells_per_token']:.1f} sells/token"))
+        tags.append(T('✂️ scales out, {0:.1f} sells/token', m['avg_sells_per_token']))
     # Both of the next two are None unless the sample can carry them — see the metric.
     if m["top3_buy_share"] is not None and m["top3_buy_share"] >= 0.7:
-        tags.append(_(f"📦 集中押注 前 3 个币占买入额 {pct(m['top3_buy_share'])}",
-                      f"📦 concentrated bets, top 3 tokens are {pct(m['top3_buy_share'])} of buy spend"))
+        tags.append(T('📦 concentrated bets, top 3 tokens are {0} of buy spend', pct(m['top3_buy_share'])))
     if m["hour_peak_share"] is not None and m["hour_peak_share"] >= 0.7:
-        tags.append(_(f"🌙 固定时段 {pct(m['hour_peak_share'])} 的交易挤在某 6 小时内",
-                      f"🌙 fixed hours, {pct(m['hour_peak_share'])} of trades inside one 6-hour window"))
+        tags.append(T('🌙 fixed hours, {0} of trades inside one 6-hour window', pct(m['hour_peak_share'])))
     if m["dump_share"] >= 0.7 and m["sampled"] >= 20:
-        tags.append(_(f"💣 一把清 {pct(m['dump_share'])} 的仓位单笔出完", f"💣 dumps in one go on {pct(m['dump_share'])} of exits"))
-    return tags or [_("普通交易钱包，无特征标记", "ordinary trading wallet, no distinguishing marks")]
+        tags.append(T('💣 dumps in one go on {0} of exits', pct(m['dump_share'])))
+    return tags
 
 
 def roi_label(v):
     if v is None:
-        return _("未知", "unknown")
+        return T('unknown')
     if v > 0.5:
-        return _("强盈", "strongly profitable")
+        return T('strongly profitable')
     if v > 0.1:
-        return _("净盈", "net positive")
+        return T('net positive')
     if abs(v) <= 0.1:
-        return _("打平", "flat")
+        return T('flat')
     if v > -0.3:
-        return _("净亏", "net negative")
-    return _("重伤", "badly down")
+        return T('net negative')
+    return T('badly down')
 
 
 def cadence_label(per_day):
     if per_day > 50:
-        return _("机器级，跟不动", "bot-tier, unfollowable")
+        return T('bot-tier, unfollowable')
     if per_day > 10:
-        return _("高频，需脚本", "high freq, needs tooling")
+        return T('high freq, needs tooling')
     if per_day >= 1:
-        return _("常规，可手动", "normal, hand-tradeable")
-    return _("低频，样本慢", "low freq, slow evidence")
+        return T('normal, hand-tradeable')
+    return T('low freq, slow evidence')
 
 
 def entry_label(p50):
     if p50 <= 0:
-        return _("未测", "not measured")
+        return T('not measured')
     if p50 < 30_000:
-        return _("内盘位，进场即高价", "pre-graduation, you pay up")
+        return T('pre-graduation, you pay up')
     if p50 < 100_000:
-        return _("狙击位，拿不到同价", "sniper range, no match")
+        return T('sniper range, no match')
     if p50 < 300_000:
-        return _("小市值，滑点大", "small cap, heavy slippage")
+        return T('small cap, heavy slippage')
     if p50 < 3_000_000:
-        return _("中市值，可跟", "mid cap, copyable")
-    return _("大市值，容量足", "large cap, deep")
+        return T('mid cap, copyable')
+    return T('large cap, deep')
 
 
 def friction_label(m):
     if m["gas_drag"] is None:
-        return _("gas 数据不足，未评估", "not enough gas data to evaluate")
+        return T('not enough gas data to evaluate')
     if m["gas_drag"] >= 0.25:
-        return _("摩擦吃掉大头", "friction eats the bulk")
+        return T('friction eats the bulk')
     if m["gas_drag"] >= 0.10:
-        return _("摩擦不小", "meaningful friction")
-    return _("摩擦可控", "friction manageable")
+        return T('meaningful friction')
+    return T('friction manageable')
 
 
 def speed_read(m, g, why):
     """Three lines, each a finished thought. Nothing here requires the reader to compute."""
     rows = []
-    marks = [t for t in archetype(m) if not t.startswith("普通") and not t.startswith("ordinary")]
+    marks = archetype(m)
     st, sp = style_title(m), style_speed(m)
     if st:
         head = f"{st[0]} {st[1]}"
@@ -1513,56 +1392,47 @@ def speed_read(m, g, why):
             head += f" · {sp[0]} {sp[1]}"
         if marks:
             head += " · " + marks[0]
-        rows.append((_("定性", "what it is"), head))
+        rows.append((T('what it is'), head))
     else:
-        rows.append((_("定性", "what it is"),
-                     " · ".join(marks[:2]) if marks else _("普通交易钱包，无特征标记",
-                                                           "ordinary trading wallet, no distinguishing marks")))
+        rows.append((T('what it is'),
+                     " · ".join(marks[:2]) if marks else T('ordinary trading wallet, no distinguishing marks')))
     key = []
     if m["per_day"] > 10:
-        key.append(_(f"{m['per_day']:,.0f} 笔/日", f"{m['per_day']:,.0f} trades/day"))
+        key.append(T('{0:,.0f} trades/day', m['per_day']))
     if m["gas_drag"] is not None and m["gas_drag"] >= 0.10:
-        key.append(_(f"单笔净赚 {usd(m['net_per_sell'])} vs gas {usd(m['avg_gas_usd'])}",
-                     f"{usd(m['net_per_sell'])} net vs {usd(m['avg_gas_usd'])} gas"))
+        key.append(T('{0} net vs {1} gas', usd(m['net_per_sell']), usd(m['avg_gas_usd'])))
     if m["entry_p50"] > 0:
-        key.append(_(f"入场中位 {mc(m['entry_p50'])}", f"median entry {mc(m['entry_p50'])}"))
+        key.append(T('median entry {0}', mc(m['entry_p50'])))
     if m["roi_7d"] is not None:
-        key.append(_(f"7d {pct(m['roi_7d'])}", f"7d {pct(m['roi_7d'])}"))
+        key.append(T('7d {0}', pct(m['roi_7d'])))
     if m["copy_window_n"] >= 3:
-        key.append(_(f"可跟窗口 {dur(m['copy_window_s'])}", f"copy window {dur(m['copy_window_s'])}"))
-    rows.append((_("关键数字", "key numbers"), " · ".join(key[:4]) or _("样本不足", "sample too thin")))
+        key.append(T('copy window {0}', dur(m['copy_window_s'])))
+    rows.append((T('key numbers'), " · ".join(key[:4]) or T('sample too thin')))
 
     eng = profit_engine(m)
     if eng:
         bits = [eng[0].split(" ", 1)[-1]]
         if m["gain_top3_share"] is not None:
-            bits.append(_(f"前 3 个赢家占 {pct(m['gain_top3_share'])}",
-                          f"top 3 winners = {pct(m['gain_top3_share'])}"))
+            bits.append(T('top 3 winners = {0}', pct(m['gain_top3_share'])))
         if m["conviction_share"] is not None:
-            bits.append(_(f"重仓贡献 {pct(m['conviction_share'])}",
-                          f"{pct(m['conviction_share'])} from size positions"))
-        rows.append((_("利润来自", "profit from"), " · ".join(bits)))
+            bits.append(T('{0} from size positions', pct(m['conviction_share'])))
+        rows.append((T('profit from'), " · ".join(bits)))
 
     flags = [t for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3")] or \
             [t for t in m["tag_info"] if t["sev"] == "warn"]
     if m["honeypots"]:
-        rows.append((_("最大风险", "top risk"),
-                     _(f"持仓里 {len(m['honeypots'])} 个蜜罐，{usd(m['honeypot_usd'])} 卖不出来"
-                       " —— 它自己也会踩雷",
-                       f"{len(m['honeypots'])} honeypots in its live book, {usd(m['honeypot_usd'])} "
-                       "unsellable — its own screening fails too")))
+        rows.append((T('top risk'),
+                     T('{0} honeypots in its live book, {1} unsellable — its own screening fails too', len(m['honeypots']), usd(m['honeypot_usd']))))
     elif flags:
-        rows.append((_("最大风险", "top risk"), f"{flags[0]['emoji']} {flags[0]['name']} · {flags[0]['meaning']}"))
+        rows.append((T('top risk'), f"{flags[0]['emoji']} {flags[0]['name']} · {flags[0]['meaning']}"))
     elif m["lt50_share"] >= 0.35:
-        rows.append((_("最大风险", "top risk"),
-                     _(f"{pct(m['lt50_share'])} 的币亏超 50% —— 它不砍仓",
-                       f"{pct(m['lt50_share'])} of tokens down >50% — it does not cut")))
+        rows.append((T('top risk'),
+                     T('{0} of tokens down >50% — it does not cut', pct(m['lt50_share']))))
     elif not m["security_checked"]:
-        rows.append((_("最大风险", "top risk"),
-                     _("无高危旗标，但蜜罐与当前持仓未检查（holdings 不可用）",
-                       "no high-severity flags — but honeypots and the live book were not checked")))
+        rows.append((T('top risk'),
+                     T('no high-severity flags — but honeypots and the live book were not checked')))
     else:
-        rows.append((_("最大风险", "top risk"), _("无高危旗标", "no high-severity flags")))
+        rows.append((T('top risk'), T('no high-severity flags')))
 
     return rows
 
@@ -1573,45 +1443,39 @@ def report(wallet, chain, m, g, gaps):
     emoji, headline, why = verdict(m, g)
     BAR = "━" * 66
 
-    # ── 判决：第一屏只有这一件事 ──
+    # ── verdict: the only thing on the first screen ──
     out.append(BAR)
     out.append(f"{emoji} {headline}")
     out.append(BAR)
-    put(out, _("怎么办  ", "DO THIS  "), why)
+    put(out, T('DO THIS  '), why)
     out.append("")
     out.append(
-        _(f"{w} · {chain} · 数据区间 7d（全期数据来自 profits --period all）",
-          f"{w} · {chain} · window 7d (all-time from profits --period all)")
+        T('{0} · {1} · window 7d (all-time from profits --period all)', w, chain)
     )
     out.append("")
 
     if m["trades"] == 0:
-        out.append(_("下一步", "NEXT"))
+        out.append(T('NEXT'))
         for step in (
-            _("确认这是钱包地址而不是代币合约（代币合约也能查通，但每项都返回 0，看起来像答案，其实不是）。",
-              "Confirm this is a wallet, not a token contract — a contract queries fine and returns "
-              "zeros everywhere, which looks like an answer and is not one."),
-            _("确认链选对了：base58 → sol，0x → bsc/base/eth。",
-              "Confirm the chain: base58 → sol, 0x → bsc/base/eth."),
-            _("确认是钱包后，用 gmgn-portfolio holdings 看它是否只收过转账/空投。",
-              "If it is a wallet, use gmgn-portfolio holdings to see whether it only ever received "
-              "transfers or airdrops."),
+            T('Confirm this is a wallet, not a token contract — a contract queries fine and returns zeros everywhere, which looks like an answer and is not one.'),
+            T('Confirm the chain: base58 → sol, 0x → bsc/base/eth.'),
+            T('If it is a wallet, use gmgn-portfolio holdings to see whether it only ever received transfers or airdrops.'),
         ):
             put(out, "  • ", step)
         if gaps:
             out.append("")
-            out.append(_("数据缺口：", "DATA GAPS:"))
+            out.append(T('DATA GAPS:'))
             for gp in gaps:
                 out.append(f"  ⚪ {gp}")
         return "\n".join(out)
 
-    # ── 速读：三行读完，不需要往下翻 ──
-    out.append(_("⚡ 速读", "⚡ SPEED READ"))
+    # ── speed read: finishes the decision without scrolling ──
+    out.append(T('⚡ SPEED READ'))
     for lab, val in speed_read(m, g, why):
         put(out, f"  {wpad(lab, 10)} ", val)
     out.append("")
 
-    # ── 身份 ──
+    # ── identity ──
     idl = []
     if m["twitter_name"] or m["twitter"]:
         who = m["twitter_name"] or ""
@@ -1619,49 +1483,44 @@ def report(wallet, chain, m, g, gaps):
             who += f" @{m['twitter']}"
         bits = [who.strip()]
         if m["blue"]:
-            bits.append(_("蓝V", "blue-verified"))
+            bits.append(T('blue-verified'))
         if m["followers"]:
-            bits.append(_(f"{m['followers']:,} 粉丝", f"{m['followers']:,} followers"))
+            bits.append(T('{0:,} followers', m['followers']))
         idl.append(" · ".join(bits))
         # Spell the profile out. Someone who searched this address wants to know whose
         # account it is, and a bare @handle still leaves them to go and find it.
         if m["twitter"]:
             idl.append(f"x.com/{m['twitter']}")
     elif not (m["tags"] or m["fund_from"] or m["fund_from_address"]):
-        idl.append(_("没有绑定 X 账号，也没有可查的资金来源 —— 匿名地址",
-                     "no X account bound and no traceable funding source — an anonymous address"))
+        idl.append(T('no X account bound and no traceable funding source — an anonymous address'))
     else:
-        idl.append(_("没有绑定 X 账号（GMGN 上查不到公开身份）",
-                     "no X account bound (no public identity on GMGN)"))
+        idl.append(T('no X account bound (no public identity on GMGN)'))
     neutral = [f"{t['emoji']} {t['name']}" for t in m["tag_info"] if t["sev"] == "neutral"]
     prov = list(neutral)
     if m["age_days"] is not None:
-        prov.append(_(f"钱包 {m['age_days']:.0f} 天", f"{m['age_days']:.0f}-day-old wallet"))
+        prov.append(T('{0:.0f}-day-old wallet', m['age_days']))
     if m["fund_from"] or m["fund_from_address"]:
         src = m["fund_from"] or f"{m['fund_from_address'][:6]}…"
-        prov.append(_(f"资金来自 {src}", f"funded from {src}")
+        prov.append(T('funded from {0}', src)
                     + (f" {usd(m['fund_amount'])}" if m["fund_amount"] else ""))
     if m["launchpads"]:
-        prov.append(_("主要打 " + "、".join(f"{k}×{v}" for k, v in m["launchpads"]),
-                      "hunts on " + ", ".join(f"{k}×{v}" for k, v in m["launchpads"])))
+        mix = T(', ').join(f"{k}×{v}" for k, v in m["launchpads"])
+        prov.append(T('hunts on {0}', mix))
     if m["dev_total"]:
-        prov.append(_(f"发过 {m['dev_total']} 个币（毕业 {m['dev_open']} · 毕业率 {pct(m['dev_open_ratio'])}）",
-                      f"launched {m['dev_total']} tokens ({m['dev_open']} graduated · {pct(m['dev_open_ratio'])})"))
+        prov.append(T('launched {0} tokens ({1} graduated · {2})', m['dev_total'], m['dev_open'], pct(m['dev_open_ratio'])))
     elif m["created_tokens_n"]:
-        prov.append(_(f"发过 {m['created_tokens_n']} 个币", f"launched {m['created_tokens_n']} tokens"))
+        prov.append(T('launched {0} tokens', m['created_tokens_n']))
     if prov:
         idl.append(" · ".join(prov))
-    for t in archetype(m):
-        if not (t.startswith("普通") or t.startswith("ordinary")):
-            idl.append(t)
+    idl.extend(archetype(m))
     who_lines = idl
 
-    # ── 它是谁：紧跟速读，在闸门之前 ────────────────────────────────────────
+    # ── who it is: straight after the speed read, ahead of the gates ──────────────
     # A reader who searched this address wants to know WHOSE wallet it is before any
     # judgement about it. Burying the bound X account below the gates and the risk flags
     # made a newcomer scroll past four verdicts to reach the one fact they came for.
     if who_lines:
-        out.append(_("👤 它是谁", "👤 WHO IT IS"))
+        out.append(T('👤 WHO IT IS'))
         # The style title is the one thing a reader can repeat out loud, so it leads the
         # block. Its gloss goes on the same logical line; the grid cell is printed so the
         # label is traceable back to the two axes that produced it.
@@ -1669,116 +1528,91 @@ def report(wallet, chain, m, g, gaps):
         if st:
             head = f"{st[0]} {st[1]}"
             if sp:
-                head += f" · {sp[0]} {sp[1]}（{sp[2]}）" if ZH else f" · {sp[0]} {sp[1]} ({sp[2]})"
-            put(out, f"  {wpad(_('风格', 'style'), 10)} ", head)
-            put(out, " " * 13, _(f"{st[2]} · 频次×盈亏 {st[3]}", f"{st[2]} · cadence×P&L {st[3]}"),
+                head += f" · {sp[0]} {sp[1]}" + T(" ({0})", sp[2])
+            put(out, f"  {wpad(T('style'), 10)} ", head)
+            put(out, " " * 13, T('{0} · cadence×P&L {1}', st[2], st[3]),
                 hang=13)
         for line in who_lines:
             put(out, "  ", line)
         eng = profit_engine(m)
         if eng:
             chip, detail, meaning = eng
-            put(out, f"  {wpad(_('利润引擎', 'engine'), 10)} ", chip)
+            put(out, f"  {wpad(T('engine'), 10)} ", chip)
             put(out, " " * 13, detail, hang=13)
             put(out, " " * 13 + "→ ", meaning, hang=15)
         out.append("")
 
-    # ── 四道闸门 ──
+    # ── the four gates ──
     strip = "  ".join(f"{mark(g[k][0])}{k}" for k in ("G1", "G2", "G3", "G4"))
-    out.append(_(f"🚦 四道闸门    {strip}", f"🚦 THE FOUR GATES    {strip}"))
+    out.append(T('🚦 THE FOUR GATES    {0}', strip))
     for k in ("G1", "G2", "G3", "G4"):
-        zh, en = GATE_NAMES[k]
-        gz, ge = GATE_GLOSS[k]
-        gloss = f"（{_(gz, ge)}）" if ZH else f" ({_(gz, ge)})"
-        out.append(f"  {mark(g[k][0])} {k} {_(zh, en)}{gloss}")
+        name = GATE_NAMES[k]
+        gloss_en = GATE_GLOSS[k]
+        gloss = T(" ({0})", T(gloss_en))
+        out.append(f"  {mark(g[k][0])} {k} {T(name)}{gloss}")
         detail = g[k][1]
         for item in (detail if isinstance(detail, list) else [detail]):
             put(out, "     • ", item, hang=7)
     out.append("")
 
-    # ── 风险旗标：二元事实，不用读段落 ──
+    # ── risk flags: binary facts, no paragraph to parse ──
     risk = []
     for t in m["tag_info"]:
         if t["sev"] in ("veto_g1", "veto_g3", "warn"):
             risk.append(f"{t['emoji']} {t['name']} · {t['meaning']}")
     if m["honeypots"]:
-        syms = "、".join(x["sym"] for x in m["honeypots"]) if ZH else ", ".join(x["sym"] for x in m["honeypots"])
-        risk.append(_(f"🍯 蜜罐持仓 {len(m['honeypots'])} 个（{syms}）· {usd(m['honeypot_usd'])} 卖不出来",
-                      f"🍯 {len(m['honeypots'])} honeypot positions ({syms}) · {usd(m['honeypot_usd'])} unsellable"))
+        syms = joinsym(x["sym"] for x in m["honeypots"])
+        risk.append(T('🍯 {0} honeypot positions ({1}) · {2} unsellable', len(m['honeypots']), syms, usd(m['honeypot_usd'])))
     good = [f"{t['emoji']} {t['name']} · {t['meaning']}" for t in m["tag_info"] if t["sev"] == "good"]
     # A clean screen is reassurance, not a risk — it must not inflate the risk count.
     if not m["honeypots"] and m["security_checked"] and m.get("hp_refuted"):
-        syms = "、".join(x["sym"] for x in m["hp_refuted"]) if ZH \
-            else ", ".join(x["sym"] for x in m["hp_refuted"])
+        syms = joinsym(x["sym"] for x in m["hp_refuted"])
         mx = max(x["sells"] for x in m["hp_refuted"])
-        good.append(_(
-            f"✅ 蜜罐标记 {len(m['hp_refuted'])} 个命中（{syms}）已被成交记录否掉 —— 最多的一个卖出过 "
-            f"{mx:,} 次，是转账受限的代币化股票，不是蜜罐",
-            f"✅ {len(m['hp_refuted'])} honeypot flags ({syms}) refuted by fill history — the busiest has "
-            f"{mx:,} completed sells; transfer-restricted tokenised stocks, not honeypots",
-        ))
+        good.append(T('✅ {0} honeypot flags ({1}) refuted by fill history — the busiest has {2:,} completed sells; transfer-restricted tokenised stocks, not honeypots', len(m['hp_refuted']), syms, mx))
     elif not m["honeypots"] and m["security_checked"]:
-        good.append(_(f"✅ 已检查 {m['security_checked']} 个持仓的蜜罐标记，无命中",
-                      f"✅ honeypot flag checked on {m['security_checked']} positions, none hit"))
+        good.append(T('✅ honeypot flag checked on {0} positions, none hit', m['security_checked']))
     if risk:
-        out.append(_(f"🚩 风险旗标（{len(risk)}）", f"🚩 RISK FLAGS ({len(risk)})"))
+        out.append(T('🚩 RISK FLAGS ({0})', len(risk)))
         for r in risk:
             put(out, "  ", r)
     else:
-        out.append(_("✅ 无风险旗标", "✅ NO RISK FLAGS"))
+        out.append(T('✅ NO RISK FLAGS'))
     for gd in good:
         put(out, "  ", gd)
     if risk or good:
         out.append("")
 
 
-    # ── 数字面板：每行自带结论 ──
-    out.append(_("📊 数字面板（每行右侧是结论，不用自己算）", "📊 NUMBERS (the conclusion is on the right)"))
+    # ── numbers panel: every row carries its own conclusion ──
+    out.append(T('📊 NUMBERS (the conclusion is on the right)'))
     rows = []
-    rows.append((_("盈亏", "P&L"),
-                 _(f"{usd(m['realized_7d'])} / 成本 {usd(m['cost_7d'])} = "
-                   f"{pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a'}",
-                   f"{usd(m['realized_7d'])} on {usd(m['cost_7d'])} cost = "
-                   f"{pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a'}"),
+    rows.append((T('P&L'),
+                 T('{0} on {1} cost = {2}', usd(m['realized_7d']), usd(m['cost_7d']), pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a'),
                  roi_label(m["roi_7d"])))
-    rows.append((_("手感", "form"),
-                 _(f"1d {pct(m['roi_1d']) if m['roi_1d'] is not None else 'n/a'} · "
-                   f"7d {pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a'} · "
-                   f"30d {pct(m['roi_30d']) if m['roi_30d'] is not None else 'n/a'} · "
-                   f"全期 {pct(m['roi_all']) if m['roi_all'] is not None else 'n/a'}",
-                   f"1d {pct(m['roi_1d']) if m['roi_1d'] is not None else 'n/a'} · "
-                   f"7d {pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a'} · "
-                   f"30d {pct(m['roi_30d']) if m['roi_30d'] is not None else 'n/a'} · "
-                   f"all {pct(m['roi_all']) if m['roi_all'] is not None else 'n/a'}"),
+    rows.append((T('form'),
+                 T('1d {0} · 7d {1} · 30d {2} · all {3}', pct(m['roi_1d']) if m['roi_1d'] is not None else 'n/a', pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a', pct(m['roi_30d']) if m['roi_30d'] is not None else 'n/a', pct(m['roi_all']) if m['roi_all'] is not None else 'n/a'),
                  f"{m['form'][0]} {m['form'][1]}"))
-    rows.append((_("节奏", "cadence"),
-                 _(f"{m['trades']:,} 笔（{m['buy']:,} 买 / {m['sell']:,} 卖）= {m['per_day']:,.0f} 笔/日",
-                   f"{m['trades']:,} trades ({m['buy']:,} buy / {m['sell']:,} sell) = {m['per_day']:,.0f}/day"),
+    rows.append((T('cadence'),
+                 T('{0:,} trades ({1:,} buy / {2:,} sell) = {3:,.0f}/day', m['trades'], m['buy'], m['sell'], m['per_day']),
                  cadence_label(m["per_day"])))
-    fr = _(f"单笔净赚 {usd(m['net_per_sell'])} · gas 均 {usd(m['avg_gas_usd'])}",
-           f"{usd(m['net_per_sell'])} net per exit · {usd(m['avg_gas_usd'])} avg gas")
+    fr = T('{0} net per exit · {1} avg gas', usd(m['net_per_sell']), usd(m['avg_gas_usd']))
     if m["gas_drag"] is not None:
-        fr += _(f" ≈ 吃掉利润 {pct(m['gas_drag'])}", f" ≈ {pct(m['gas_drag'])} of profit")
-    rows.append((_("摩擦", "friction"), fr, friction_label(m)))
-    hold = _(f"均 {dur(m['avg_hold_s'])} · 可跟窗口中位 {dur(m['copy_window_s'])}（{m['copy_window_n']} 个回合）",
-             f"mean {dur(m['avg_hold_s'])} · median copy window {dur(m['copy_window_s'])} ({m['copy_window_n']} round trips)")
-    rows.append((_("持仓", "holding"), hold,
-                 _("⚠️ 看中位", "⚠️ read the median")
-                 if m["hold_conflict"] else _("均值可用", "mean is usable")))
-    rows.append((_("入场", "entry"),
-                 _(f"p25/p50/p75 {mc(m['entry_p25'])}/{mc(m['entry_p50'])}/{mc(m['entry_p75'])}"
-                   f"（{m['entry_n']} 笔可测）",
-                   f"p25/p50/p75 {mc(m['entry_p25'])}/{mc(m['entry_p50'])}/{mc(m['entry_p75'])}"
-                   f" ({m['entry_n']} measurable)"),
+        fr += T(' ≈ {0} of profit', pct(m['gas_drag']))
+    rows.append((T('friction'), fr, friction_label(m)))
+    hold = T('mean {0} · median copy window {1} ({2} round trips)', dur(m['avg_hold_s']), dur(m['copy_window_s']), m['copy_window_n'])
+    rows.append((T('holding'), hold,
+                 T('⚠️ read the median')
+                 if m["hold_conflict"] else T('mean is usable')))
+    rows.append((T('entry'),
+                 T('p25/p50/p75 {0}/{1}/{2} ({3} measurable)', mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']), m['entry_n']),
                  entry_label(m["entry_p50"])))
-    rows.append((_("规模", "size"),
-                 _(f"单笔均买 {usd(m['avg_buy_usd'])}", f"{usd(m['avg_buy_usd'])} per buy"),
-                 _(f"跟单起步 ≤ {usd(m['size_cap'])}", f"start at ≤ {usd(m['size_cap'])}")
-                 if m["size_cap"] else _("无法计算", "not computable")))
-    rows.append((_("胜率", "win rate"),
-                 _(f"{pct(m['winrate'])} 于 {m['token_num']} 个币 · 重亏占比 {pct(m['lt50_share'])}",
-                   f"{pct(m['winrate'])} over {m['token_num']} tokens · {pct(m['lt50_share'])} heavy losses"),
-                 _("会砍仓", "cuts losses") if m["lt50_share"] < 0.35 else _("不砍仓", "does not cut")))
+    rows.append((T('size'),
+                 T('{0} per buy', usd(m['avg_buy_usd'])),
+                 T('start at ≤ {0}', usd(m['size_cap']))
+                 if m["size_cap"] else T('not computable')))
+    rows.append((T('win rate'),
+                 T('{0} over {1} tokens · {2} heavy losses', pct(m['winrate']), m['token_num'], pct(m['lt50_share'])),
+                 T('cuts losses') if m["lt50_share"] < 0.35 else T('does not cut')))
     lab_w = max(dwidth(r[0]) for r in rows) + 2
     concl_w = max(dwidth(r[2]) for r in rows)
     # Reserve room for the conclusion column so the arrow stays alignable on every row.
@@ -1797,60 +1631,51 @@ def report(wallet, chain, m, g, gaps):
     if m["one_coin_note"]:
         put(out, "  ⚠️ ", m["one_coin_note"])
     if m["pcr"] is not None and m["pcr_trusted"]:
-        out.append(_(f"  利润集中度 {pct(m['pcr'])}（最大盈利仓位占全部盈利）",
-                     f"  profit concentration {pct(m['pcr'])} (largest winner's share of all gains)"))
+        out.append(T("  profit concentration {0} (largest winner's share of all gains)", pct(m['pcr'])))
     out.append("")
 
-    # ── 盈亏分布 ──
+    # ── P&L distribution ──
     b = m["buckets"]
     peak = max(b.values()) or 1
-    out.append(_(f"📉 盈亏分布（{m['token_num']} 个币，计币不计钱）",
-                 f"📉 OUTCOME DISTRIBUTION ({m['token_num']} tokens — counts tokens, not dollars)"))
+    out.append(T('📉 OUTCOME DISTRIBUTION ({0} tokens — counts tokens, not dollars)', m['token_num']))
     for lab, k in ((">500%", "gt5"), ("200–500%", "x2_5"), ("0–200%", "x0_2"),
                    ("−50–0%", "n50_0"), ("<−50%", "lt_n50")):
         n = b[k]
         out.append(f"  {lab:<10} {n:>5}  " + ("█" * max(1, int(round(30 * n / peak))) if n else ""))
     out.append("")
 
-    # ── 现在在干嘛 ──
+    # ── what it is doing now ──
     pe, pl = m["posture"]
-    out.append(_("🔄 它现在在干嘛", "🔄 WHAT IT IS DOING NOW"))
-    out.append(_(f"  {pe} {pl} · 24h 买 {usd(m['buy_usd_24h'])} / 卖 {usd(m['sell_usd_24h'])}",
-                 f"  {pe} {pl} · 24h bought {usd(m['buy_usd_24h'])} / sold {usd(m['sell_usd_24h'])}"))
+    out.append(T('🔄 WHAT IT IS DOING NOW'))
+    out.append(T('  {0} {1} · 24h bought {2} / sold {3}', pe, pl, usd(m['buy_usd_24h']), usd(m['sell_usd_24h'])))
     if m["recent_buys"]:
-        put(out, _("  24h 买入：", "  bought in 24h: "),
+        put(out, T('  bought in 24h: '),
             ", ".join(f"{sym} {usd(v)}" for sym, v in m["recent_buys"]))
     if m["open_book"]:
-        out.append(_(f"  持仓 {m['holdings_n']} 个 · 合计 {usd(m['open_value'])}",
-                     f"  {m['holdings_n']} positions · {usd(m['open_value'])} total"))
+        out.append(T('  {0} positions · {1} total', m['holdings_n'], usd(m['open_value'])))
         hp_syms = {x["sym"] for x in m["honeypots"]}
         for bk in m["open_book"]:
             tag = " 🍯" if bk["sym"] in hp_syms else ""
             out.append(f"    {wpad(bk['sym'] + tag, 14)}{usd(bk['usd']):>10}  {pct(bk['chg'], 0):>8}  "
-                       + _(f"成本 {usd(bk['cost'])} · 卖 {bk['sells']} 次",
-                           f"cost {usd(bk['cost'])} · {bk['sells']} sells"))
+                       + T('cost {0} · {1} sells', usd(bk['cost']), bk['sells']))
     else:
-        out.append(_("  持仓：未取到（见数据缺口）", "  live book: unavailable (see data gaps)"))
+        out.append(T('  live book: unavailable (see data gaps)'))
     out.append("")
 
-    # ── 下一步 ──
-    out.append(_("✅ 下一步", "✅ WHAT TO DO NEXT"))
+    # ── what to do next ──
+    out.append(T('✅ WHAT TO DO NEXT'))
     for a in actions(m, g):
         put(out, "  • ", a)
     out.append("")
 
-    put(out, "", _(f"样本  activity {m['sampled']:,} 条 / {m['distinct_tokens_sampled']} 个币 · 覆盖 {m['span_h']:.1f} 小时"
-                 + ("（触到分页上限，只覆盖最活跃的一段）" if m["hit_limit"] else ""),
-                 f"sample  {m['sampled']:,} activity rows / {m['distinct_tokens_sampled']} tokens · "
-                   f"spans {m['span_h']:.1f}h" + (" (hit page cap — busiest slice only)" if m["hit_limit"] else "")))
+    cap = T(' (hit page cap — busiest slice only)') if m["hit_limit"] else ""
+    put(out, "", T('sample  {0:,} activity rows / {1} tokens · spans {2:.1f}h{3}', m['sampled'], m['distinct_tokens_sampled'], m['span_h'], cap))
     if gaps:
-        out.append(_("数据缺口（未评估 ≠ 通过）：", "DATA GAPS (unevaluated ≠ passed):"))
+        out.append(T('DATA GAPS (unevaluated ≠ passed):'))
         for gp in gaps:
             put(out, "  ⚪ ", gp)
     out.append("")
-    put(out, "", _("以上全部是已发生行为的度量，不是预测，也不是投资建议。",
-                   "Everything above measures behaviour that already happened. "
-                   "Not a prediction, not advice."))
+    put(out, "", T('Everything above measures behaviour that already happened. Not a prediction, not advice.'))
     return "\n".join(out)
 
 
@@ -1859,68 +1684,39 @@ def actions(m, g):
     p = {k: v[0] for k, v in g.items()}
     if m["trades"] == 0:
         return [
-            _(
-                "先确认你给的是钱包地址而不是代币合约；如果确实是钱包，等它有真实买卖记录再看。",
-                "Confirm this is a wallet, not a token contract. If it is a wallet, wait for real trades.",
-            )
+            T('Confirm this is a wallet, not a token contract. If it is a wallet, wait for real trades.')
         ]
     if m["recent_buys"]:
         syms = ", ".join(s for s, _v in m["recent_buys"][:3])
         a.append(
-            _(
-                f"它 24h 内买的是 {syms} —— 用 gmgn-token / gmgn-holder-analysis 单独查这几个币的筹码，别只因为它买了就买。",
-                f"It bought {syms} in the last 24h — run gmgn-token / gmgn-holder-analysis on those before following it in.",
-            )
+            T('It bought {0} in the last 24h — run gmgn-token / gmgn-holder-analysis on those before following it in.', syms)
         )
     if p["G3"] is False:
         a.append(
-            _(
-                "别抄单。把它当信号源：它买什么、在什么市值买，自己二次筛选后按自己的节奏进。",
-                "Do not mirror it. Treat it as a signal source: note what and at what mcap, then enter on your own terms.",
-            )
+            T('Do not mirror it. Treat it as a signal source: note what and at what mcap, then enter on your own terms.')
         )
     elif p["G3"] is True and m["size_cap"]:
         a.append(
-            _(
-                f"起步规模 ≤ {usd(m['size_cap'])}（它自己单笔均 {usd(m['avg_buy_usd'])}；超过它的单笔规模，你的滑点会比它差）。"
-                f"下单前用 gmgn-swap 看报价。",
-                f"Start at ≤ {usd(m['size_cap'])} (it averages {usd(m['avg_buy_usd'])} per buy; above its own size your "
-                f"slippage is worse than its). Quote through gmgn-swap before sending.",
-            )
+            T('Start at ≤ {0} (it averages {1} per buy; above its own size your slippage is worse than its). Quote through gmgn-swap before sending.', usd(m['size_cap']), usd(m['avg_buy_usd']))
         )
     if p["G4"] is False:
         a.append(
-            _(
-                "自己设止损 —— 它不砍仓，你跟到底就是陪它归零。",
-                "Set your own stop — it does not cut, and riding it to the end means riding it to zero.",
-            )
+            T('Set your own stop — it does not cut, and riding it to the end means riding it to zero.')
         )
     if m["copy_window_s"] > 0:
         a.append(
-            _(
-                f"如果要跟，你的下单要落在它买入后 {dur(m['copy_window_s'])}以内，否则不要进。",
-                f"If you copy it, your order must land within {dur(m['copy_window_s'])} of its buy — otherwise skip the trade.",
-            )
+            T('If you copy it, your order must land within {0} of its buy — otherwise skip the trade.', dur(m['copy_window_s']))
         )
     if m["is_dev"]:
         a.append(
-            _(
-                "这是发币方。别评估它的“交易能力”，去查它历史发币的毕业率和安全性（gmgn-wallet-score 的 Dev 角度）。",
-                "This is a launcher. Do not score its trading — check its launch survival and security record (gmgn-wallet-score, Dev angle).",
-            )
+            T('This is a launcher. Do not score its trading — check its launch survival and security record (gmgn-wallet-score, Dev angle).')
         )
-    if m["form"][1] in (_("退潮", "cooling off"), _("崩坏", "broken down")):
+    if m["form"][1] in (T('cooling off'), T('broken down')):
         a.append(
-            _(
-                "它的钱是过去赚的。7 天后再跑一次这份分析，看是回暖还是继续退。",
-                "Its money is historical. Re-run this in 7 days to see whether form recovers or keeps sliding.",
-            )
+            T('Its money is historical. Re-run this in 7 days to see whether form recovers or keeps sliding.')
         )
     a.append(
-        _(
-            "想要 0–100 评分和延迟/滑点回测，接 gmgn-wallet-score。",
-            "For 0-100 scores and a latency/slippage backtest, use gmgn-wallet-score.",
-        )
+        T('For 0-100 scores and a latency/slippage backtest, use gmgn-wallet-score.')
     )
     return a
 
@@ -1929,7 +1725,6 @@ def actions(m, g):
 
 
 def main(argv):
-    global ZH
     args = [a for a in argv[1:]]
     latency_s, my_size, fixture = 3.0, None, None
     rest = []
@@ -1949,7 +1744,7 @@ def main(argv):
             k += 1
 
     lang = next((x for x in rest if x in ("zh", "en")), "zh")
-    ZH = lang == "zh"
+    load_lang(lang)
     rest = [x for x in rest if x not in ("zh", "en")]
 
     gaps = []
@@ -1968,14 +1763,7 @@ def main(argv):
             d = collect(chain, wallet, gaps)
         except Gap as e:
             print(
-                _(
-                    f"取数失败，无法出结论：{e}\n"
-                    "先确认 gmgn-cli config --check 通过；429 请按提示的 reset 时间再试；"
-                    "401/403 且凭证正确时先排查 IPv6（gmgn-cli 只走 IPv4）。",
-                    f"Data pull failed, no verdict possible: {e}\n"
-                    "Check `gmgn-cli config --check` first; on 429 wait for the stated reset; "
-                    "on 401/403 with valid credentials check IPv6 (gmgn-cli is IPv4 only).",
-                )
+                T('Data pull failed, no verdict possible: {0}\nCheck `gmgn-cli config --check` first; on 429 wait for the stated reset; on 401/403 with valid credentials check IPv6 (gmgn-cli is IPv4 only).', e)
             )
             return 1
 
