@@ -1636,6 +1636,25 @@ def card(m, g, wallet, chain):
             put(out, "  ", f"{emo} {label}")
     out.append("")
 
+    # ── the three numbers that change a decision and are not implied elsewhere ──
+    # Cadence first: 16/day and 725/day are the difference between something a person can
+    # do and something only a script can, and the copy window only implies it. Then the
+    # return as a percentage, because that is the figure people quote to each other, and
+    # the realized amount, because it is the only thing on the card that shows the SCALE
+    # this wallet operates at — the size cap tells the reader their own size, not its.
+    # Cadence is a fact about behaviour and survives a failed G1; the return and the amount
+    # are P&L claims and do not. Printing them under "its profit figures are not
+    # trustworthy" would contradict the line above them — the same defect the headline
+    # figure already had, two lines lower down.
+    facts = [T('{0:,.0f} trades a day', m["per_day"])]
+    if g["G1"][0] is not False:
+        if m["roi_7d"] is not None:
+            facts.append(T('{0} over 7 days', pct(m["roi_7d"])))
+        if m["realized_7d"]:
+            facts.append(T('made {0} in that week', usd(m["realized_7d"])))
+    put(out, "  ", " · ".join(facts), hang=2)
+    out.append("")
+
     # ── who, in one line, with no taxonomy ──
     ident = m["twitter_name"] or (f"@{m['twitter']}" if m["twitter"] else None)
     bits = []

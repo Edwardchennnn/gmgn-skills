@@ -99,7 +99,7 @@ number. Evidence-first served neither.
 
 | Layer | Contains | For |
 |-------|----------|-----|
-| **Card** | verdict · the 7d return told as money · who this is · what to do · four outcomes · one risk · what it bought in 24h | a newcomer, who stops here |
+| **Card** | verdict · the 7d return told as money · cadence, return and amount · who this is · what to do · four outcomes · one risk · what it bought in 24h · the live book in one line | a newcomer, who stops here |
 | **Evidence** | the four gates with the number that decided each, the numbers panel, the P&L distribution, the full live book | anyone verifying, and the dev diffing a change |
 
 `--brief` prints only the card. Default prints both.
@@ -118,11 +118,18 @@ Every rule below exists because the first cut broke it:
 | **The four marks read the gates** | They were hardcoded `✓`, so a `🔴 DO NOT COPY` card carried `✓ the record is real` — asserting the opposite of its own headline, on the very check that produced the verdict |
 | **No headline figure when G1 fails** | The card showed `$1,000 → $1,122` on a wash-trading wallet. G1 failing means the P&L *is* the thing in dispute, so quoting it presents a disputed number as an achieved one. The card now says the record is untrustworthy and shows no figure |
 | **No "how to follow" under a red verdict** | It printed a size cap and a copy window beneath `DO NOT COPY` — instructions for doing the thing the headline forbids. A red verdict gets the verdict's own action instead |
+| **No P&L figure of any kind when G1 fails** | Adding a key-numbers line reintroduced the same defect one line lower: the card said "its profit figures are not trustworthy" and then printed `7d 12.2% · made $101.1K`. Trade cadence is a fact about behaviour and survives a failed G1; the return and the amount are P&L claims and do not |
 | **No editorial that the flags contradict** | "Not a wallet that only churns" appeared on a card flagged for wash trading. Same facts, no defence of the record |
 | **No card at all when a gate is ⚪** | The card has nowhere to put "not measured". A card with one tick missing reads as a complete verdict with one fewer reason, and the reader cannot see that something went unmeasured. `card_blocked()` withholds it and the evidence layer — which *can* print ⚪ — carries the whole answer |
 
 The last one is the important one. `--brief` on a wallet with an unmeasured gate prints the
 reason there is no card and then the full report, rather than a card with a hole in it.
+
+Three numbers earn a place on the card that nothing else implies: **trades per day** (16/day
+and 725/day are the difference between something a person can do and something only a script
+can, and the copy window only hints at it), the **7d return as a percentage** (the figure
+people quote to each other), and the **realized amount** (the only thing on the card showing
+the scale *this wallet* operates at — the size cap describes the reader's size, not its).
 
 **The bridge line is not decoration.** Hiding the reasoning without saying it exists reads as
 hand-waving; naming where it lives makes the clean first screen a choice the reader can
