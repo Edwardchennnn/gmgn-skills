@@ -148,9 +148,86 @@ def med(xs):
     return statistics.median(xs) if xs else 0.0
 
 
+# Codepoints that occupy two terminal columns, and the ones that occupy none. The naive
+# `ord(c) > 0x2E7F` test this replaced was wrong in both directions: it counted a variation
+# selector (U+FE0F) as two columns, so `⚙️` measured 3 and every column it appeared in was
+# padded short, and it counted the U+2600-27BF emoji (`⚡ ⚪ ✅`) as one, so lines carrying
+# them could exceed COL in a real terminal while the width check called them safe.
+ZERO_WIDTH = frozenset({0x200B, 0x200C, 0x200D, 0xFE0E, 0xFE0F, 0x20E3})
+WIDE_RANGES = (
+    (0x1100, 0x115F),      # Hangul Jamo
+    (0x2E80, 0x303E),      # CJK radicals, Kangxi, CJK punctuation
+    (0x3041, 0x33FF),      # kana, Hangul compat, CJK compat
+    (0x3400, 0x4DBF),      # CJK ext A
+    (0x4E00, 0x9FFF),      # CJK unified
+    (0xA000, 0xA4CF),      # Yi
+    (0xAC00, 0xD7A3),      # Hangul syllables
+    (0xF900, 0xFAFF),      # CJK compat ideographs
+    (0xFE30, 0xFE6F),      # CJK compat forms
+    (0xFF00, 0xFF60),      # fullwidth forms
+    (0xFFE0, 0xFFE6),      # fullwidth signs
+    (0x1F300, 0x1FAFF),    # emoji: pictographs through symbols-and-pictographs-ext-A
+    (0x1F000, 0x1F0FF),    # mahjong, dominoes, cards
+    (0x1F100, 0x1F2FF),    # enclosed alphanumeric/ideographic supplement
+    (0x2B00, 0x2BFF),      # misc symbols and arrows
+)
+# Emoji-presentation glyphs below U+2E80 that render wide. Enumerated rather than taken as a
+# range because U+2600-27BF mixes wide emoji with narrow dingbats (`✓` is one column), and
+# U+2500-257F box drawing — the report's own rules and bars — must stay one column.
+WIDE_SYMBOLS = frozenset({
+    0x231A, 0x231B, 0x23E9, 0x23EA, 0x23EB, 0x23EC, 0x23F0, 0x23F3,
+    0x25FD, 0x25FE, 0x2614, 0x2615, 0x2648, 0x2649, 0x264A, 0x264B, 0x264C,
+    0x264D, 0x264E, 0x264F, 0x2650, 0x2651, 0x2652, 0x2653, 0x267F, 0x2693,
+    0x26A1, 0x26AA, 0x26AB, 0x26BD, 0x26BE, 0x26C4, 0x26C5, 0x26CE, 0x26D4,
+    0x26EA, 0x26F2, 0x26F3, 0x26F5, 0x26FA, 0x26FD, 0x2705, 0x270A, 0x270B,
+    0x2728, 0x274C, 0x274E, 0x2753, 0x2754, 0x2755, 0x2757, 0x2795, 0x2796,
+    0x2797, 0x27B0, 0x27BF, 0x2B1B, 0x2B1C, 0x2B50, 0x2B55,
+})
+
+
+def cwidth(cp):
+    """Terminal columns for one codepoint: 0, 1 or 2."""
+    if cp in ZERO_WIDTH or 0x0300 <= cp <= 0x036F:
+        return 0
+    if cp in WIDE_SYMBOLS:
+        return 2
+    for lo, hi in WIDE_RANGES:
+        if lo <= cp <= hi:
+            return 2
+    return 1
+
+
+def is_emoji_cp(cp):
+    """Part of an emoji glyph — used to keep a wrap from splitting a glyph from its label."""
+    return (cp in WIDE_SYMBOLS
+            or 0x1F000 <= cp <= 0x1FAFF
+            or 0x2600 <= cp <= 0x27BF
+            or 0x2B00 <= cp <= 0x2BFF)
+
+
 def dwidth(s):
-    """Display width: CJK glyphs occupy two terminal columns."""
-    return sum(2 if ord(c) > 0x2E7F else 1 for c in s)
+    """Display width in terminal columns.
+
+    A base character followed by U+FE0F is an emoji-presentation sequence and renders two
+    columns wide whatever the base would measure alone — that is what the selector means, so
+    handling it here removes the need to enumerate `⚙ ⚔ ✂ ✈ ...` one by one. U+FE0E is the
+    opposite request (text presentation) and stays narrow.
+    """
+    total, i, n = 0, 0, len(s)
+    while i < n:
+        cp = ord(s[i])
+        nxt = ord(s[i + 1]) if i + 1 < n else 0
+        if nxt == 0xFE0F:
+            total += 2
+            i += 2
+            continue
+        if nxt == 0xFE0E:
+            total += 1
+            i += 2
+            continue
+        total += cwidth(cp)
+        i += 1
+    return total
 
 
 def wpad(s, width):
@@ -169,8 +246,14 @@ def wrap(text, width):
     at 231 columns before this existed.
     """
     lines, cur, curw, brk = [], "", 0, -1
+    after_emoji = False
+    prev_w = 0
     for ch in text:
-        w = 2 if ord(ch) > 0x2E7F else 1
+        cp = ord(ch)
+        # Same emoji-presentation rule as dwidth(): U+FE0F promotes the glyph before it to a
+        # full two columns. Measuring it as zero here is what let a line reach 78 columns.
+        w = max(0, 2 - prev_w) if cp == 0xFE0F else cwidth(cp)
+        prev_w = w if cp != 0xFE0F else 2
         if curw + w > width and cur:
             if 0 <= brk < len(cur) - 1:
                 lines.append(cur[:brk + 1].rstrip())
@@ -183,7 +266,18 @@ def wrap(text, width):
         cur += ch
         curw += w
         if ch in BREAK_AFTER:
-            brk = len(cur) - 1
+            # A space directly after an emoji is NOT a break opportunity: the glyph labels
+            # the phrase that follows it, and breaking there left lines ending in a bare
+            # "✂️" with its name orphaned on the next line. Falling through leaves the
+            # previous "·" as the break point, which is the one a reader wants.
+            # Tracked as a flag rather than inspected from `cur`, because an emoji sequence
+            # can end in a zero-width selector and its base char may not be wide on its own.
+            if not (ch == " " and after_emoji):
+                brk = len(cur) - 1
+        if cp == 0xFE0F or is_emoji_cp(cp):
+            after_emoji = True
+        elif cp != 0x200D:
+            after_emoji = False
     if cur:
         lines.append(cur)
     return lines or [""]
@@ -1470,33 +1564,48 @@ def report(wallet, chain, m, g, gaps):
         return "\n".join(out)
 
     # ── speed read: finishes the decision without scrolling ──
+    # The label column is measured, not guessed. Hardcoding 10 left the widest label
+    # ("key numbers", 11 columns) unpadded, so that one row's value and every continuation
+    # line under it sat a column off from the rest of the block.
     out.append(T('⚡ SPEED READ'))
-    for lab, val in speed_read(m, g, why):
-        put(out, f"  {wpad(lab, 10)} ", val)
+    sr = speed_read(m, g, why)
+    labw = max(dwidth(lab) for lab, _v in sr)
+    for lab, val in sr:
+        put(out, f"  {wpad(lab, labw)}  ", val, hang=labw + 4)
     out.append("")
 
-    # ── identity ──
-    idl = []
+    # ── identity ────────────────────────────────────────────────────────────────
+    # Built as (label, value) rows, not a flat list of lines. The block used to mix three
+    # indents — style at 10, its gloss at 13, identity and every badge at 2 — which read as
+    # a wall rather than a table, and the badges took one line each.
+    rows_id = []
+    st, sp = style_title(m), style_speed(m)
+    if st:
+        head = f"{st[0]} {st[1]}"
+        if sp:
+            head += f" · {sp[0]} {sp[1]}" + T(" ({0})", sp[2])
+        rows_id.append((T('style'), head))
+        rows_id.append(("", T('{0} · cadence×P&L {1}', st[2], st[3])))
+
     if m["twitter_name"] or m["twitter"]:
-        who = m["twitter_name"] or ""
-        if m["twitter"]:
-            who += f" @{m['twitter']}"
-        bits = [who.strip()]
+        bits = [(f"{m['twitter_name'] or ''} @{m['twitter']}" if m["twitter"]
+                 else m["twitter_name"]).strip()]
         if m["blue"]:
             bits.append(T('blue-verified'))
         if m["followers"]:
             bits.append(T('{0:,} followers', m['followers']))
-        idl.append(" · ".join(bits))
+        rows_id.append((T('account'), " · ".join(bits)))
         # Spell the profile out. Someone who searched this address wants to know whose
         # account it is, and a bare @handle still leaves them to go and find it.
         if m["twitter"]:
-            idl.append(f"x.com/{m['twitter']}")
+            rows_id.append(("", f"x.com/{m['twitter']}"))
     elif not (m["tags"] or m["fund_from"] or m["fund_from_address"]):
-        idl.append(T('no X account bound and no traceable funding source — an anonymous address'))
+        rows_id.append((T('account'),
+                        T('no X account bound and no traceable funding source — an anonymous address')))
     else:
-        idl.append(T('no X account bound (no public identity on GMGN)'))
-    neutral = [f"{t['emoji']} {t['name']}" for t in m["tag_info"] if t["sev"] == "neutral"]
-    prov = list(neutral)
+        rows_id.append((T('account'), T('no X account bound (no public identity on GMGN)')))
+
+    prov = [f"{t['emoji']} {t['name']}" for t in m["tag_info"] if t["sev"] == "neutral"]
     if m["age_days"] is not None:
         prov.append(T('{0:.0f}-day-old wallet', m['age_days']))
     if m["fund_from"] or m["fund_from_address"]:
@@ -1511,35 +1620,30 @@ def report(wallet, chain, m, g, gaps):
     elif m["created_tokens_n"]:
         prov.append(T('launched {0} tokens', m['created_tokens_n']))
     if prov:
-        idl.append(" · ".join(prov))
-    idl.extend(archetype(m))
-    who_lines = idl
+        rows_id.append((T('provenance'), " · ".join(prov)))
+
+    marks = archetype(m)
+    if marks:
+        rows_id.append((T('marks'), " · ".join(marks)))
+
+    eng = profit_engine(m)
+    if eng:
+        chip, detail, meaning = eng
+        rows_id.append((T('engine'), chip))
+        rows_id.append(("", detail))
+        rows_id.append(("", "\u2192 " + meaning, 2))
 
     # ── who it is: straight after the speed read, ahead of the gates ──────────────
     # A reader who searched this address wants to know WHOSE wallet it is before any
     # judgement about it. Burying the bound X account below the gates and the risk flags
     # made a newcomer scroll past four verdicts to reach the one fact they came for.
-    if who_lines:
+    if rows_id:
         out.append(T('👤 WHO IT IS'))
-        # The style title is the one thing a reader can repeat out loud, so it leads the
-        # block. Its gloss goes on the same logical line; the grid cell is printed so the
-        # label is traceable back to the two axes that produced it.
-        st, sp = style_title(m), style_speed(m)
-        if st:
-            head = f"{st[0]} {st[1]}"
-            if sp:
-                head += f" · {sp[0]} {sp[1]}" + T(" ({0})", sp[2])
-            put(out, f"  {wpad(T('style'), 10)} ", head)
-            put(out, " " * 13, T('{0} · cadence×P&L {1}', st[2], st[3]),
-                hang=13)
-        for line in who_lines:
-            put(out, "  ", line)
-        eng = profit_engine(m)
-        if eng:
-            chip, detail, meaning = eng
-            put(out, f"  {wpad(T('engine'), 10)} ", chip)
-            put(out, " " * 13, detail, hang=13)
-            put(out, " " * 13 + "→ ", meaning, hang=15)
+        labw = max(dwidth(r[0]) for r in rows_id)
+        for row in rows_id:
+            lab, val = row[0], row[1]
+            extra = row[2] if len(row) > 2 else 0
+            put(out, f"  {wpad(lab, labw)}  ", val, hang=labw + 4 + extra)
         out.append("")
 
     # ── the four gates ──
@@ -1574,11 +1678,11 @@ def report(wallet, chain, m, g, gaps):
     if risk:
         out.append(T('🚩 RISK FLAGS ({0})', len(risk)))
         for r in risk:
-            put(out, "  ", r)
+            put(out, "  ", r, hang=4)
     else:
         out.append(T('✅ NO RISK FLAGS'))
     for gd in good:
-        put(out, "  ", gd)
+        put(out, "  ", gd, hang=4)
     if risk or good:
         out.append("")
 
