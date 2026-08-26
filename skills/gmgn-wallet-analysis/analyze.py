@@ -565,6 +565,19 @@ def compute(d, latency_s, my_size):
         "lt_n50": i(pnl.get("pnl_lt_nd5_num")),
     }
     m["lt50_share"] = safe_div(m["buckets"]["lt_n50"], max(1, m["token_num"]))
+    # The 0-200% bucket and the win rate disagree, and the report used to print both without
+    # saying so. A live wallet showed 188 of 209 tokens in that bucket next to a 23.9% win
+    # rate: 188 would imply 90%. Only one reading satisfies both numbers — the band absorbs
+    # every token with no realized result yet (bought, not yet sold => realized ROI 0, which
+    # sits on that band's lower edge), so its size is not a count of wins. `unsettled` is
+    # that difference, and it is stated rather than left for the reader to notice.
+    m["implied_winners"] = round(m["winrate"] * m["token_num"])
+    m["unsettled"] = max(0, m["buckets"]["x0_2"] - m["implied_winners"])
+    m["dist_gap"] = (
+        m["token_num"] >= 20
+        and m["buckets"]["x0_2"] > 0
+        and m["unsettled"] >= 0.25 * m["buckets"]["x0_2"]
+    )
     m["winners"] = m["buckets"]["gt5"] + m["buckets"]["x2_5"] + m["buckets"]["x0_2"]
 
     # identity
@@ -1942,8 +1955,15 @@ def report(wallet, chain, m, g, gaps, brief=False):
                  T('{0} per buy', usd(m['avg_buy_usd'])),
                  T('start at ≤ {0}', usd(m['size_cap']))
                  if m["size_cap"] else T('not computable')))
-    rows.append((T('win rate'),
-                 T('{0} over {1} tokens · {2} heavy losses', pct(m['winrate']), m['token_num'], pct(m['lt50_share'])),
+    # State the denominator. A bare "23.9% over 209 tokens" invites the reader to compare it
+    # against the 188 sitting in the 0-200% band and conclude one of them is wrong.
+    if m["dist_gap"]:
+        wr_txt = T('{0} — about {1} of {2} tokens have a realized win · {3} heavy losses',
+                   pct(m['winrate']), m['implied_winners'], m['token_num'], pct(m['lt50_share']))
+    else:
+        wr_txt = T('{0} over {1} tokens · {2} heavy losses',
+                   pct(m['winrate']), m['token_num'], pct(m['lt50_share']))
+    rows.append((T('win rate'), wr_txt,
                  T('cuts losses') if m["lt50_share"] < 0.35 else T('does not cut')))
     lab_w = max(dwidth(r[0]) for r in rows) + 2
     concl_w = max(dwidth(r[2]) for r in rows)
@@ -1974,6 +1994,13 @@ def report(wallet, chain, m, g, gaps, brief=False):
                    ("−50–0%", "n50_0"), ("<−50%", "lt_n50")):
         n = b[k]
         out.append(f"  {lab:<10} {n:>5}  " + ("█" * max(1, int(round(30 * n / peak))) if n else ""))
+    if m["dist_gap"]:
+        put(out, "  ⚠️ ",
+            T('The 0-200% band is not a win count. It holds {0} tokens while the win rate '
+              'implies about {1} winners — the other {2} were bought and have no realized '
+              'result yet, so they sit at 0% inside that band. Read the win rate for how '
+              'often it wins, and this chart only for the shape of the tail.',
+              m["buckets"]["x0_2"], m["implied_winners"], m["unsettled"]), hang=5)
     out.append("")
 
     # ── what it is doing now ──

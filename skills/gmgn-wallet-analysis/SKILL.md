@@ -329,6 +329,7 @@ breaks any of them is a regression.
 | **Gate names carry a plain-language gloss** | "CURRENCY" is precise but not instantly readable; "is it still earning now" is | `GATE_GLOSS`, rendered once per gate row |
 | **Money: no cents at or above \$10; thousands separators always** | `$213.46` and `1103 trades/day` are false precision and a reading speed-bump respectively | `usd()`, and `:,` on every count |
 | **A section heading must not contradict its contents** | "RISK FLAGS (0)" above a positive marker reads as a contradiction | The heading switches to "✅ NO RISK FLAGS" when the risk list is empty |
+| **The win rate and the outcome chart must be reconciled** | They disagree, and the report printed both without saying so. A live wallet showed **188 of 209 tokens in the 0–200% band beside a 23.9% win rate** — 188 would imply 90%. The only reading that satisfies both: that band absorbs every token with no realized result yet (bought, not yet sold ⇒ realized ROI 0, which sits on its lower edge), so its size is not a count of wins. A reader facing a full-width green bar and a 23.9% win rate concludes one of the two is broken | `dist_gap` / `implied_winners` / `unsettled`, stated under the chart and in the win-rate row |
 | **Never print the same fact twice** | "ordinary trading wallet, no distinguishing marks" appeared in both the speed read and WHO IT IS | Deduplicated at the renderer |
 
 The width rule is mechanically checkable. Reuse `analyze.py`'s own `dwidth()` rather than
