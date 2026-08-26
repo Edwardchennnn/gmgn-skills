@@ -18,7 +18,7 @@ Three skills take a wallet address. They answer different questions and must not
 
 | Skill | Question | Output |
 |-------|----------|--------|
-| `gmgn-wallet-style` | "what kind of trader is this?" | A label — one title, one speed subtitle, badges |
+| `gmgn-wallet-style` | "what kind of trader is this?" | A label alone, for when a decision is not wanted. **Its title grid and speed subtitle are now also computed inside this skill** — see **The style label** below |
 | `gmgn-wallet-score` | "how good is this trader, on a scale?" | Three 0–100 scores + a latency/slippage/gas backtest |
 | **`gmgn-wallet-analysis` (this one)** | **"should I act on this wallet, and what happens to me if I do?"** | **Four pass/fail gates → one verdict → concrete next actions** |
 
@@ -37,6 +37,34 @@ It also asks three questions the other two do not:
   edge is out-clicking everyone into a $9k launch or picking a token and laddering $50k into it.
   Those are copied in completely different ways, and a reader who cannot tell them apart copies
   the wrong half. See **The profit engine** below.
+
+## The style label
+
+The 4x5 title grid (frequency x P&L) and the speed subtitle were merged in from
+`gmgn-wallet-style`, because the dossier had numbers and verdicts but no name a reader could
+repeat out loud. Four changes were made on the way in, each because the original mis-labelled a
+wallet already verified against gmgn.ai's own leaderboard:
+
+| Change | Why |
+|--------|-----|
+| **No ⭐「官方认证」badge** | It fired on any non-empty `common.tags`, so it printed `wash_trader` under a commendation glyph — the exact thing this skill's tag rules forbid. Tags go through `TAGS`/severity and the corroboration check instead |
+| **Speed subtitle reads the MEDIAN copy window, not `avg_holding_period`** | The mean counts bags never sold, so it labelled a 2-minute scalper 「🧭 波段流 1–7 天」. Someone acting on that holds for days a position the wallet exits in minutes |
+| **P5 needs ROI > 50% plus ONE of {win rate ≥ 50%, heavy-loss share < 15%}** | Requiring all three pushed a wallet sitting at **#3 on GMGN's own BSC 7D leaderboard** down to P4. Memecoin P&L is low-hit-rate with a fat right tail; a 50% win-rate gate systematically demotes the profitable ones |
+| **The P5 gloss names the corroborator that carried it** | 「高频且高胜率低回撤」 above a 33.3% win rate is a heading contradicting its own contents. It now reads 「高频且强盈（7d 62.1% + 重亏占比仅 4.4%）」 |
+
+Two further rules, both from the same review:
+
+- **No label when `token_num < 5`.** The verdict already says ⚪ 看不出来; printing
+  「📈 稳步选手 · 常规频次、正收益，无明显短板」 next to it contradicts it.
+- **Activity-derived badges are gated on sample size.** `📦 集中押注` needs ≥5 distinct tokens
+  (top-3 of 3 is 100% by arithmetic) and `🌙 固定时段` needs ≥20 rows **and a span ≥ 12 hours**
+  (any 14-hour sample "clusters" inside a 6-hour window by arithmetic). The original fired both
+  on a 14.2-hour sample and emitted no warning.
+
+Badges merged in: `🎰 彩票型`, `✂️ 分批止盈`, `📦 集中押注`, `🌙 固定时段`. Badges **not**
+merged: `🧊 囤积中` / `📤 派发中` duplicate the existing 24h `posture` reading, and `🚀 抢跑党`
+needs a per-chain gas constant that would go stale silently — `gas_share` and `gas_drag` already
+carry that signal, self-normalised against the wallet's own trade size.
 
 ## The profit engine
 
@@ -415,7 +443,7 @@ Two thresholds exist only because the first cut got them wrong, and both should 
 
 | Skill | Use it for |
 |-------|-----------|
-| [gmgn-wallet-style](../gmgn-wallet-style/SKILL.md) | A one-line style label instead of a decision |
+| [gmgn-wallet-style](../gmgn-wallet-style/SKILL.md) | A style label with no verdict attached. Note this skill now prints the same title and subtitle itself |
 | [gmgn-wallet-score](../gmgn-wallet-score/SKILL.md) | 0–100 scores and an explicit latency/slippage/gas backtest |
 | [gmgn-portfolio](../gmgn-portfolio/SKILL.md) | The underlying commands and their full field reference |
 | [gmgn-holder-analysis](../gmgn-holder-analysis/SKILL.md) | Chip structure of the tokens this wallet just bought |

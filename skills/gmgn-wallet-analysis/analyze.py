@@ -532,6 +532,28 @@ def compute(d, latency_s, my_size):
     m["dump_share"] = safe_div(dump_shape, max(1, sum(1 for v in sells_per_tok if v)))
     m["distinct_tokens_sampled"] = len(by_tok)
 
+    # Concentration of buy spend across tokens, and clustering in the day. Both are
+    # activity-derived, so both are meaningless on a short sample: the top 3 of 3 tokens is
+    # 100% by arithmetic, and any sample spanning under 12 hours "clusters" inside a 6-hour
+    # window by arithmetic too. A live run fired both on a 14-hour sample with no warning.
+    buy_by_tok = {}
+    for a in trade_rows:
+        if ev_type(a) == "buy" and tok_addr(a):
+            buy_by_tok[tok_addr(a)] = buy_by_tok.get(tok_addr(a), 0.0) + f(a.get("cost_usd"))
+    tot_buy = sum(buy_by_tok.values())
+    m["top3_buy_share"] = (
+        safe_div(sum(sorted(buy_by_tok.values(), reverse=True)[:3]), tot_buy)
+        if tot_buy > 0 and len(buy_by_tok) >= 5 else None
+    )
+    hours = [0] * 24
+    for t in ts:
+        hours[int((t // 3600) % 24)] += 1
+    if len(ts) >= 20 and m["span_h"] >= 12:
+        best = max(sum(hours[(h + k) % 24] for k in range(6)) for h in range(24))
+        m["hour_peak_share"] = safe_div(best, len(ts))
+    else:
+        m["hour_peak_share"] = None
+
     # last 24h posture — what it is doing RIGHT NOW
     now = max(ts) if ts else time.time()
     b24 = s24 = 0.0
@@ -1204,6 +1226,130 @@ def mark(v):
     return {True: "✅", False: "❌", None: "⚪"}[v]
 
 
+# ─── style layer: main title + speed subtitle ────────────────────────────────
+# Merged in from the wallet-style testbench. Four deliberate changes were made on the
+# way in, each because the original mis-labelled a wallet we had already verified:
+#   1. No ⭐「官方认证」badge. It fired on any non-empty `common.tags`, so it printed
+#      `wash_trader` under a commendation glyph. Tags go through TAGS/severity instead.
+#   2. The speed subtitle reads the MEDIAN copy window, not `avg_holding_period`. The
+#      mean counts bags never sold, so it called a 2-minute scalper 「波段流 1–7 天」.
+#   3. P5 needs ROI > 50% plus ONE of {win rate ≥ 50%, heavy-loss share < 15%}, not all
+#      three. Memecoin P&L is low-hit-rate with a fat right tail; requiring 50% win rate
+#      pushed a wallet sitting at #3 on GMGN's own 7D leaderboard down to P4.
+#   4. Activity-derived badges are gated on sample size (see top3_buy_share / hour_peak).
+# The `token_num >= 5` floor on P5 is kept as-is: one lucky coin must not score 一击必杀.
+
+TITLES = {
+    ("L4", "P5"): ("🖨️", "印钞机", "机器级频次还能稳定强盈，跟不上，只能看",
+                   "money printer", "machine cadence and still strongly profitable"),
+    ("L4", "P4"): ("⚙️", "全自动P机", "薄利多销，单笔小、总量大",
+                   "full-auto grinder", "thin margins, huge volume"),
+    ("L4", "P3"): ("🪫", "磨损户", "交易赚的被手续费和滑点磨平",
+                   "worn down", "whatever it earns, fees and slippage take back"),
+    ("L4", "P2"): ("🔥", "烧Gas机", "高频高摩擦，净亏主要亏在成本",
+                   "gas burner", "high frequency, high friction; the loss is mostly cost"),
+    ("L4", "P1"): ("💥", "自毁装置", "机器级频次配大面积重亏，策略已失效",
+                   "self-destruct", "machine cadence plus broad heavy losses"),
+    ("L3", "P5"): ("🌾", "收割机", "高频且强盈，这一格最强",
+                   "harvester", "high frequency and strongly profitable — the strongest cell"),
+    ("L3", "P4"): ("⚔️", "P小将", "手勤、赚得住，典型的活跃盈利户",
+                   "active winner", "busy hands that keep the money"),
+    ("L3", "P3"): ("🌀", "陀螺", "转得快但原地踏步",
+                   "spinning top", "spinning fast, going nowhere"),
+    ("L3", "P2"): ("💸", "手续费贡献者", "交易量不小，钱流去了链上",
+                   "fee donor", "real volume, and the money went on-chain"),
+    ("L3", "P1"): ("🩸", "连败突击兵", "高频硬冲，重亏占比高",
+                   "bleeding out", "charging in fast with a heavy tail of big losses"),
+    ("L2", "P5"): ("🦅", "老猎手", "出手不多，收益强，节奏可复制",
+                   "old hunter", "swings rarely, earns well — the most copyable rhythm"),
+    ("L2", "P4"): ("📈", "稳步选手", "常规频次、正收益，无明显短板",
+                   "steady hand", "normal cadence, positive return, no glaring weakness"),
+    ("L2", "P3"): ("☕", "温吞户", "有在做，但没做出结果",
+                   "lukewarm", "active, but it has not turned into anything"),
+    ("L2", "P2"): ("🐑", "亏损散户", "最常见的一档",
+                   "retail loser", "the most common cell on the board"),
+    ("L2", "P1"): ("🕳️", "深套户", "半数以上币亏超 50%",
+                   "deep underwater", "most of its coins are down more than 50%"),
+    ("L1", "P5"): ("🗡️", "一击必杀", "极少出手，出手就中",
+                   "one-shot", "almost never trades, and lands it when it does"),
+    ("L1", "P4"): ("🧘", "佛系赢家", "赢在选得对，不是赢在操作",
+                   "zen winner", "the gain came from picks, not from working the trades"),
+    ("L1", "P3"): ("👀", "观望者", "样本太少，标签仅供参考",
+                   "bystander", "too small a sample to mean much"),
+    ("L1", "P2"): ("💧", "试水亏损", "试了几次，没成",
+                   "toe in the water", "tried a few times, none worked"),
+    ("L1", "P1"): ("⚰️", "一把归零", "单次或极少次数直接打光",
+                   "wiped out", "one or two swings, wiped out"),
+}
+
+
+def freq_level(per_day):
+    """Same boundaries as cadence_label — one concept, one set of thresholds."""
+    if per_day < 1:
+        return "L1"
+    if per_day < 10:
+        return "L2"
+    if per_day <= 50:
+        return "L3"
+    return "L4"
+
+
+def pnl_level(m):
+    """P5 requires ROI > 50% and ONE corroborating shape, not all three. See note above.
+
+    Returns (level, basis) — `basis` names the corroborator that carried P5, so the title's
+    「强盈」 is never a bare claim. A 33%-win-rate wallet reaching P5 on its heavy-loss share
+    must not be glossed as high-hit-rate.
+    """
+    roi = m["roi_7d"] if m["roi_7d"] is not None else 0.0
+    hits = []
+    if m["winrate"] >= 0.5:
+        hits.append(_(f"胜率 {pct(m['winrate'])}", f"{pct(m['winrate'])} hit rate"))
+    if m["lt50_share"] < 0.15:
+        hits.append(_(f"重亏占比仅 {pct(m['lt50_share'])}", f"only {pct(m['lt50_share'])} heavy losses"))
+    if roi > 0.5 and m["token_num"] >= 5 and hits:
+        return ("P5", _(f"7d {pct(roi)} + {hits[0]}", f"7d {pct(roi)} + {hits[0]}"))
+    if roi > 0.1:
+        return ("P4", None)
+    if m["lt50_share"] >= 0.40 and m["realized_7d"] < 0:
+        return ("P1", None)
+    if abs(roi) <= 0.10:
+        return ("P3", None)
+    if m["realized_7d"] < 0 or roi < 0:
+        return ("P2", None)
+    return ("P3", None)
+
+
+def style_title(m):
+    """(emoji, name, gloss, cell). None when there is nothing to label."""
+    # No label on a sample that cannot carry one. The verdict already says 看不出来 for a
+    # sub-5-token wallet; printing 「稳步选手 · 常规频次、正收益、无明显短板」 next to it
+    # would contradict it. Silence is the honest label here.
+    if m["trades"] == 0 or m["token_num"] < 5:
+        return None
+    plevel, basis = pnl_level(m)
+    cell = (freq_level(m["per_day"]), plevel)
+    e, zh, gz, en, ge = TITLES[cell]
+    gloss = _(gz, ge)
+    if basis:
+        gloss += _(f"（{basis}）", f" ({basis})")
+    return (e, _(zh, en), gloss, f"{cell[0]}×{cell[1]}")
+
+
+def style_speed(m):
+    """(emoji, name, range) from the MEDIAN copy window — never the mean hold."""
+    if m["copy_window_n"] < 3 or m["copy_window_s"] <= 0:
+        return None
+    s = m["copy_window_s"]
+    if s < 60:
+        return ("⚡", _("秒杀流", "flash flipper"), _("< 60 秒", "< 60s"))
+    if s < 86_400:
+        return ("🐇", _("日内流", "intraday"), _("< 24 小时", "< 24h"))
+    if s < 604_800:
+        return ("🧭", _("波段流", "swing"), _("1 – 7 天", "1–7 days"))
+    return ("💎", _("长持流", "long hold"), _("> 7 天", "> 7 days"))
+
+
 def profit_engine(m):
     """(chip, one line with the numbers, what it means for copying) or None.
 
@@ -1287,6 +1433,22 @@ def archetype(m):
                       f"🧱 ladders its size positions, median {m['med_buys_per_pos']:,} buys each"))
     elif m["avg_buys_per_token"] >= 3:
         tags.append(_(f"🧱 分批建仓 均 {m['avg_buys_per_token']:.1f} 笔/币", f"🧱 scales in, {m['avg_buys_per_token']:.1f} buys/token"))
+    # 🎰 low hit rate carried by one or two outsized wins — a different animal from a
+    # wallet with the same ROI and an even distribution.
+    if m["winrate"] < 0.35 and m["buckets"]["gt5"] >= 1 and m["token_num"] >= 5:
+        tags.append(_(f"🎰 彩票型 胜率 {pct(m['winrate'])} 但 {m['buckets']['gt5']} 个币翻过 5 倍",
+                      f"🎰 lottery profile, {pct(m['winrate'])} hit rate but {m['buckets']['gt5']} "
+                      "tokens above 5x"))
+    if m["avg_sells_per_token"] >= 3:
+        tags.append(_(f"✂️ 分批止盈 均 {m['avg_sells_per_token']:.1f} 笔卖出/币",
+                      f"✂️ scales out, {m['avg_sells_per_token']:.1f} sells/token"))
+    # Both of the next two are None unless the sample can carry them — see the metric.
+    if m["top3_buy_share"] is not None and m["top3_buy_share"] >= 0.7:
+        tags.append(_(f"📦 集中押注 前 3 个币占买入额 {pct(m['top3_buy_share'])}",
+                      f"📦 concentrated bets, top 3 tokens are {pct(m['top3_buy_share'])} of buy spend"))
+    if m["hour_peak_share"] is not None and m["hour_peak_share"] >= 0.7:
+        tags.append(_(f"🌙 固定时段 {pct(m['hour_peak_share'])} 的交易挤在某 6 小时内",
+                      f"🌙 fixed hours, {pct(m['hour_peak_share'])} of trades inside one 6-hour window"))
     if m["dump_share"] >= 0.7 and m["sampled"] >= 20:
         tags.append(_(f"💣 一把清 {pct(m['dump_share'])} 的仓位单笔出完", f"💣 dumps in one go on {pct(m['dump_share'])} of exits"))
     return tags or [_("普通交易钱包，无特征标记", "ordinary trading wallet, no distinguishing marks")]
@@ -1344,9 +1506,18 @@ def speed_read(m, g, why):
     """Three lines, each a finished thought. Nothing here requires the reader to compute."""
     rows = []
     marks = [t for t in archetype(m) if not t.startswith("普通") and not t.startswith("ordinary")]
-    rows.append((_("定性", "what it is"),
-                 " · ".join(marks[:2]) if marks else _("普通交易钱包，无特征标记",
-                                                       "ordinary trading wallet, no distinguishing marks")))
+    st, sp = style_title(m), style_speed(m)
+    if st:
+        head = f"{st[0]} {st[1]}"
+        if sp:
+            head += f" · {sp[0]} {sp[1]}"
+        if marks:
+            head += " · " + marks[0]
+        rows.append((_("定性", "what it is"), head))
+    else:
+        rows.append((_("定性", "what it is"),
+                     " · ".join(marks[:2]) if marks else _("普通交易钱包，无特征标记",
+                                                           "ordinary trading wallet, no distinguishing marks")))
     key = []
     if m["per_day"] > 10:
         key.append(_(f"{m['per_day']:,.0f} 笔/日", f"{m['per_day']:,.0f} trades/day"))
@@ -1491,6 +1662,17 @@ def report(wallet, chain, m, g, gaps):
     # made a newcomer scroll past four verdicts to reach the one fact they came for.
     if who_lines:
         out.append(_("👤 它是谁", "👤 WHO IT IS"))
+        # The style title is the one thing a reader can repeat out loud, so it leads the
+        # block. Its gloss goes on the same logical line; the grid cell is printed so the
+        # label is traceable back to the two axes that produced it.
+        st, sp = style_title(m), style_speed(m)
+        if st:
+            head = f"{st[0]} {st[1]}"
+            if sp:
+                head += f" · {sp[0]} {sp[1]}（{sp[2]}）" if ZH else f" · {sp[0]} {sp[1]} ({sp[2]})"
+            put(out, f"  {wpad(_('风格', 'style'), 10)} ", head)
+            put(out, " " * 13, _(f"{st[2]} · 频次×盈亏 {st[3]}", f"{st[2]} · cadence×P&L {st[3]}"),
+                hang=13)
         for line in who_lines:
             put(out, "  ", line)
         eng = profit_engine(m)
@@ -1736,8 +1918,8 @@ def actions(m, g):
         )
     a.append(
         _(
-            "想要跟单评分和延迟/滑点回测，接 gmgn-wallet-score；想要一句话风格标签，接 gmgn-wallet-style。",
-            "For a copy-trade score and a latency/slippage backtest use gmgn-wallet-score; for a one-line style tag use gmgn-wallet-style.",
+            "想要 0–100 评分和延迟/滑点回测，接 gmgn-wallet-score。",
+            "For 0-100 scores and a latency/slippage backtest, use gmgn-wallet-score.",
         )
     )
     return a
