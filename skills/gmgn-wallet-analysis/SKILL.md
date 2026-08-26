@@ -279,21 +279,29 @@ breaks any of them is a regression.
 | **A section heading must not contradict its contents** | "RISK FLAGS (0)" above a positive marker reads as a contradiction | The heading switches to "✅ NO RISK FLAGS" when the risk list is empty |
 | **Never print the same fact twice** | "ordinary trading wallet, no distinguishing marks" appeared in both the speed read and WHO IT IS | Deduplicated at the renderer |
 
-Verification is mechanical — this must stay at zero across all fixtures and both languages:
+The width rule is mechanically checkable. Reuse `analyze.py`'s own `dwidth()` rather than
+re-implementing it — the naive `sum(2 if ord(c) > 0x2E7F else 1 ...)` that used to be printed
+here is the bug it replaced: it counts a variation selector as two columns and the
+U+2600-27BF emoji as one, so it reports a 78-column line as safe.
 
 ```bash
-python3 gen_fixtures.py
-for f in fixtures/*.json; do for L in zh en; do
-  python3 analyze.py --fixture "$f" $L | python3 -c "
-import sys
-ws=[sum(2 if ord(c)>0x2E7F else 1 for c in l) for l in sys.stdin.read().splitlines()]
-print(max(ws), sum(1 for w in ws if w>78))"
-done; done
+python3 analyze.py <WALLET> <CHAIN> zh > /tmp/r.txt
+python3 - <<'PY'
+import importlib.util
+spec = importlib.util.spec_from_file_location("a", "analyze.py")
+a = importlib.util.module_from_spec(spec); spec.loader.exec_module(a)
+ws = [a.dwidth(l) for l in open("/tmp/r.txt", encoding="utf-8").read().splitlines()]
+over = [(i + 1, w) for i, w in enumerate(ws) if w > 76]
+print("max", max(ws), "| over 76:", over or "none")
+PY
 ```
+
+Run it for both `zh` and `en`: the same content is wider in one language than the other, so a
+line that fits in Chinese can overflow in English and the reverse.
 
 ## Language
 
-**This file, `analyze.py`, and `gen_fixtures.py` are English only.** English is the source of
+**This file and `analyze.py` are English only.** English is the source of
 truth: every user-facing string in `analyze.py` is written in English, and `lang/<code>.json`
 maps an English template to its translation.
 
@@ -444,33 +452,38 @@ Derived quantities the script defines:
 
 ## Verification
 
-`gen_fixtures.py` builds twelve synthetic wallets, each engineered to fail exactly one gate — a
-genuine grinder (all pass), a sniper bot (G3), a one-lucky-coin wallet (G1), a cooled-off ex-star
-(G2), a launcher (G1 + G3/G4 unevaluated), a bagholder that never cuts (G4), a wash-trading KOL
-(G1 corroborated, plus real honeypots with zero sells and gas drag), a **tag-false-positive
-wallet** (`tagged-not-washing`: a `wash_trader` tag and seven honeypot flags, all four gates pass
-because both labels are refuted by behaviour), and an empty address. The last two are a matched
-pair — the same two labels, opposite verdicts — and a change that collapses them into the same
-answer is a regression.
+There is no test suite in this directory. The twelve-fixture generator that covered all
+eleven verdict branches, the three-way `wash_trader` matched set, and the column-width rule
+was removed from the shipped skill; it is in git history at `gen_fixtures.py` on the
+`feat/wallet-analysis-skill` branch, and `analyze.py --fixture <file.json> <lang>` still
+reads a hand-written response bundle if you rebuild one.
 
-`fixtures/` is generated and **not** committed (see `.gitignore`): `gen_fixtures.py` is the
-single source of truth for what each fixture tests, and a checked-in copy can drift from it
-silently. Regenerate before running anything that reads them. `lang/zh.json` is the opposite —
-not generated, committed, and required at runtime.
+**What that means in practice: any change to `analyze.py` has to be verified against live
+wallets.** Two things make that harder than it sounds, and both are why the fixtures existed:
 
-Run them offline, with no API key:
+- Live data moves. You cannot diff two runs of the same wallet minutes apart and attribute
+  the difference to your change — the 1d window is rolling and `activity` is a sample.
+- The route budget is roughly weight 26-28 per wallet against a bucket of 20, so a handful
+  of verification runs will rate-limit the account, and requests during the cooldown extend
+  the ban by 5 seconds each.
 
-```bash
-python3 gen_fixtures.py && python3 analyze.py --fixture fixtures/grinder.json zh
-```
+Pick wallets that exercise opposite verdicts, run each once, and read the whole report rather
+than the headline. Two thresholds in particular should be left alone unless you have
+re-derived them, because the first cut got both wrong:
 
-Two thresholds exist only because the first cut got them wrong, and both should be left alone:
-
-- **Profit concentration requires ≥3 winners and ≥8 positions.** Without it the gate fired on every wallet whose `holdings` page happened to contain one winner — 100% concentration is arithmetic on a 1-winner sample, and it vetoed a wallet whose real problem was a different gate.
-- **The copy window needs 3× margin, not 1×.** A 4-second window against a 3-second latency technically "passes" and is not tradeable.
-- **`put(..., hang=N)` with `N` larger than the prefix used to overflow COL.** `put()` now
-  budgets for the wider of the two indents, so a mismatched `hang` cannot break the width rule.
-- **No third-party label may veto on its own.** `wash_trader` needs the conviction-share test; `is_honeypot` needs the sell-count test. Both false-positived on one real wallet in the same run, and both produced a 🔴 on a wallet with $459K of genuine realized profit.
+- **Profit concentration requires >=3 winners and >=8 positions.** Without it the gate fired
+  on every wallet whose `holdings` page happened to contain one winner — 100% concentration
+  is arithmetic on a 1-winner sample, and it vetoed a wallet whose real problem was a
+  different gate.
+- **The copy window needs 3x margin, not 1x.** A 4-second window against a 3-second latency
+  technically "passes" and is not tradeable.
+- **No third-party label may veto on its own.** `wash_trader` needs the conviction-share
+  test; `is_honeypot` needs the sell-count test. Both false-positived on one real wallet in
+  the same run, and both produced a 🔴 on a wallet with $459K of genuine realized profit.
+- **`put(..., hang=N)` with `N` larger than the prefix** used to overflow COL. `put()` now
+  budgets for the wider of the two indents.
+- **Emoji width.** `dwidth()` and `wrap()` must agree, and a base char plus U+FE0F is two
+  columns. A mismatch there put a line at 78 columns while every check called it safe.
 
 ## Notes
 
