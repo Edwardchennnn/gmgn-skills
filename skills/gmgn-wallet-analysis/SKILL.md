@@ -104,6 +104,17 @@ number. Evidence-first served neither.
 
 `--brief` prints only the card. Default prints both.
 
+**The evidence layer does not restate the card.** It used to: the verdict block, the speed
+read, the account row, the 24h buy list and two numbers-panel rows all appeared twice, which
+pushed the actual evidence below the fold and made the report look like it was padding. What
+stays below is what the card deliberately withheld — 86 evidence lines down to 72 with not
+one piece of evidence removed. Every one of those blocks comes back when `card_blocked()`
+withholds the card, because then nothing has said it yet.
+
+That distinction is the whole rule: **cut repetition, never cut evidence.** Trimming by
+"which numbers are most convincing" would turn the layer from something a reader can check
+into something they can only accept — which is the failure this skill exists to correct.
+
 **The headline is money, not a ratio.** `+62.1%` is a figure the reader has to convert;
 `$1,000 → $1,621` is the same fact needing no conversion. Nothing extra is fetched — it is
 `roi_7d` wearing clothes a newcomer already owns.

@@ -1752,9 +1752,11 @@ def report(wallet, chain, m, g, gaps, brief=False):
         # card with a hole in it, and hand back the full report instead of nothing.
         out += ["> **" + T('NO CARD  ').strip() + "** " + blocked, ""]
 
-    out += [("## " if not blocked else "# ") + f"{emoji} {headline}", "",
-            f"**{T('DO THIS  ').strip()}** {why}", "",
-            "`" + T('{0} · {1} · window 7d (all-time from profits --period all)', w, chain) + "`",
+    if blocked:
+        # No card was printed, so the verdict has not been stated yet — it leads here.
+        out += [f"# {emoji} {headline}", "",
+                f"**{T('DO THIS  ').strip()}** {why}", ""]
+    out += ["`" + T('{0} · {1} · window 7d (all-time from profits --period all)', w, chain) + "`",
             ""]
 
     if m["trades"] == 0:
@@ -1769,8 +1771,9 @@ def report(wallet, chain, m, g, gaps, brief=False):
             out += ["", "### " + T('DATA GAPS:'), ""] + [f"- ⚪ {gp}" for gp in gaps]
         return "\n".join(out)
 
-    out += ["## " + T('⚡ SPEED READ'), ""]
-    out += [f"- **{lab}** — {val}" for lab, val in speed_read(m, g, why)] + [""]
+    if blocked:
+        out += ["## " + T('⚡ SPEED READ'), ""]
+        out += [f"- **{lab}** — {val}" for lab, val in speed_read(m, g, why)] + [""]
 
     # ── identity ────────────────────────────────────────────────────────────────
     rows_id = []
@@ -1791,8 +1794,12 @@ def report(wallet, chain, m, g, gaps, brief=False):
         acct = " · ".join(bits)
         # Spell the profile out. Someone who searched this address wants to know whose
         # account it is, and a bare @handle still leaves them to go and find it.
-        rows_id.append((T('account'),
-                        [acct] + ([f"x.com/{m['twitter']}"] if m["twitter"] else [])))
+        # The card carries the handle and follower count; only the profile URL is new here.
+        if blocked:
+            rows_id.append((T('account'),
+                            [acct] + ([f"x.com/{m['twitter']}"] if m["twitter"] else [])))
+        elif m["twitter"]:
+            rows_id.append((T('account'), f"x.com/{m['twitter']}"))
     elif not (m["tags"] or m["fund_from"] or m["fund_from_address"]):
         rows_id.append((T('account'),
                         T('no X account bound and no traceable funding source — an anonymous address')))
@@ -1870,9 +1877,12 @@ def report(wallet, chain, m, g, gaps, brief=False):
     # ── numbers panel: every row carries its own conclusion ──
     out += ["## " + T('📊 NUMBERS (the conclusion is on the right)'), ""]
     rows = []
-    rows.append((T('P&L'),
-                 T('{0} on {1} cost = {2}', usd(m['realized_7d']), usd(m['cost_7d']), pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a'),
-                 roi_label(m["roi_7d"])))
+    # P&L and cadence are on the card as "7d 16.3% · 每天 277 笔"; repeating them here costs
+    # two rows and tells the reader nothing new. They come back when there is no card.
+    if blocked:
+        rows.append((T('P&L'),
+                     T('{0} on {1} cost = {2}', usd(m['realized_7d']), usd(m['cost_7d']), pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a'),
+                     roi_label(m["roi_7d"])))
     rows.append((T('form'),
                  T('1d {0} · 7d {1} · 30d {2} · all {3}', pct(m['roi_1d']) if m['roi_1d'] is not None else 'n/a', pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a', pct(m['roi_30d']) if m['roi_30d'] is not None else 'n/a', pct(m['roi_all']) if m['roi_all'] is not None else 'n/a'),
                  f"{m['form'][0]} {m['form'][1]}"))
@@ -1945,9 +1955,11 @@ def report(wallet, chain, m, g, gaps, brief=False):
                                  'has since gone quiet', dur(m["idle_s"]))) if m["stale"]
                     else T('last trade {0} ago', dur(m["idle_s"]))))
     out.append("")
-    if m["recent_buys"]:
-        out += ["**" + T('bought in 24h').strip() + "**", ""]
-        out += [f"- {s} **{usd(v)}**" for s, v in m["recent_buys"]] + [""]
+    extra = m["recent_buys"] if blocked else m["recent_buys"][3:]
+    if extra:
+        out += ["**" + (T('bought in 24h') if blocked
+                        else T('also bought in 24h')).strip() + "**", ""]
+        out += [f"- {sym} **{usd(v)}**" for sym, v in extra] + [""]
     if m["open_book"]:
         out += ["**" + T('{0} positions · {1} total', m['holdings_n'], usd(m['open_value'])) + "**", ""]
         hp_syms = {x["sym"] for x in m["honeypots"]}
