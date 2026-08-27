@@ -32,7 +32,6 @@ This is a **Claude Code plugin** — a collection of GMGN OpenAPI skills for on-
 | `gmgn-portfolio` | Wallet holdings, activity, trading stats, token balance | User asks about a wallet's holdings, P&L, transaction history, trading statistics, or token balance; user wants to analyze a wallet; user asks "what tokens does this wallet hold", "show me recent trades", "what's the win rate of this wallet" |
 | `gmgn-wallet-score` | Wallet scoring across three angles — profitability (track-record score), copy-tradeability (score + latency/slippage/gas backtest), and Dev reputation for token-creator wallets — plus trading-style tags | User asks about a wallet's profitability ("钱包盈利能力怎么样", "is this wallet profitable"), copy-trade worthiness ("is this wallet worth copying", "跟单评分", "钱包评分", "值不值得跟单", "if I copy this wallet what's my real return"), or launch/Dev reputation ("钱包发盘情况怎么样", "是不是发币方钱包", "dev 信誉怎么样"); user gives a wallet address and wants any of these judgments |
 | `gmgn-track` | Track trade activity of wallets I follow, KOL trades, Smart Money trades across chains | User asks about trades from wallets they follow; user wants to see what KOLs or Smart Money are buying/selling; user asks "show me what wallets I follow have traded recently", "what are KOLs buying", "show me smart money moves on BSC" |
-| `gmgn-x-narrative` | X (Twitter) narrative and chatter read for a token — tiered by which credential is present, additive-only scoring, no deductions, and a fan-in that intersects post authors against GMGN holder/KOL handles | User asks about a token's X/Twitter narrative, social chatter, KOL mentions, or 叙事 — "X 叙事分析", "推特上怎么说", "社区热度", "who's talking about this token" |
 | `gmgn-swap` | Token swap execution + order status query | User wants to swap tokens, execute a trade, or check an order status; user asks "swap SOL for USDC", "buy this token", "check my order"; **requires private key configured in `.env`** |
 | `gmgn-kline-pattern` | Names the chart pattern (uptrend channel / breakdown / bounce off the lows / distribution / basing / chop) and scores it 0-100 from six measurements computed off the kline response | User asks about 走势, 趋势, 形态, price action, chart pattern, "is it breaking down", "is it consolidating"; user wants a read of the chart rather than the raw candles |
 
@@ -44,7 +43,6 @@ Match the user's request to the right skill and workflow:
 |-----------|--------|
 | "is this token safe", "check this token", "research this token", token address provided | `gmgn-token` → full workflow: `docs/workflow-token-research.md` |
 | "CA 尽调", "评个分", "这个币能不能买", "score this contract", "due diligence", contract address + wants a verdict | `gmgn-contract-dd` — do NOT score inside `gmgn-token` |
-| "X 叙事分析", "推特上怎么说", "社区热度", "X narrative", "social chatter" | `gmgn-x-narrative` |
 | "deep report", "full analysis", "全面分析这个项目", "深度报告", "值不值得重仓" | `gmgn-token` + `gmgn-market` → `docs/workflow-project-deep-report.md` |
 | "what's trending", "hot tokens", "top tokens by volume" | `gmgn-market trending` |
 | "走势怎么样", "什么形态", "is it breaking down" | `gmgn-kline-pattern` |

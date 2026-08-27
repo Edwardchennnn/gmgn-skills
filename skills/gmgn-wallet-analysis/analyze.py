@@ -829,14 +829,11 @@ def compute(d, latency_s, my_size):
         for t in m["tag_info"]:
             if t["sev"] == "veto_g1":
                 m["wash_refuted"] = {"share": cs, "tag": t["name"]}
-                t["sev"] = "warn"
-                # A ✅-adjacent glyph would be wrong (the label is real, and it is telling
-                # you something about the wallet's churn) but so is 🚩 next to a sentence
-                # saying the flag does not hold. ❔ is the honest one.
-                t["emoji"] = "❔"
-                t["name"] = T('{0} (refuted)', t['name'])
+                # "hidden" renders nowhere: every display site selects an explicit severity.
+                # The tag is not shown at all rather than shown struck through — G1 prints
+                # where the profit came from instead, which is the fact behind the decision.
+                t["sev"] = "hidden"
                 t["refuted"] = True
-                t["meaning"] = T("GMGN's label, refuted locally: {0} of realized gains came from positions netting more than their own cost basis — self-dealing cannot produce that", pct(cs))
 
     # ── dev record ──
     ct = d.get("created_tokens") or {}
@@ -981,16 +978,14 @@ def gates(m):
     if wash and m["conviction_share"] is None:
         # Tag present and uncheckable. This is exactly the ⚪ case: "we could not verify" is
         # not "confirmed fake", and it is not "fine" either. Do not manufacture a ❌.
-        names = joinsym(t["name"] for t in wash)
         g["G1"] = (
             None,
-            T('GMGN flags this wallet as {0}, and it cannot be checked (holdings unavailable) — the {1} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run', names, usd(m['realized_7d'])),
+            T('where the profit came from cannot be checked (holdings unavailable) — the {0} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run', usd(m['realized_7d'])),
         )
     elif wash:
-        names = joinsym(t["name"] for t in wash)
         g["G1"] = (
             False,
-            T('GMGN flags this wallet as {0}, and the local check agrees: only {1} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume. The {2} realized P&L cannot be taken at face value', names, pct(m['conviction_share']), usd(m['realized_7d'])),
+            T('only {0} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume, so the {1} realized P&L cannot be taken at face value', pct(m['conviction_share']), usd(m['realized_7d'])),
         )
     elif m["is_dev"]:
         g["G1"] = (
@@ -1020,7 +1015,8 @@ def gates(m):
                      m['token_num'], m['winners'], pct(m['winrate']), pcr_txt)]
         if m["wash_refuted"]:
             top = joinsym(sym for sym, _v in m["conviction_top"])
-            detail.append(T('GMGN carries a "{0}" flag; the local check refutes it: {1} of realized gains came from size positions like {2} that netted more than their own cost basis. Self-dealing cannot produce that — the flag is downgraded to a caution, not a veto', m['wash_refuted']['tag'], pct(m['wash_refuted']['share']), top))
+            detail.append(T('{0} of realized gains came from size positions like {1} that netted more than their own cost basis — the profit is priced in, not churned',
+                            pct(m['wash_refuted']['share']), top))
         g["G1"] = (True, detail)
 
     # G2 CURRENCY
@@ -1706,13 +1702,11 @@ def card(m, g, wallet, chain):
 
     if m["open_value"] and m["open_book"]:
         top = m["open_book"][0]
-        # "Not a wallet that only churns" is a defence of the record, so it must not appear
-        # on a card whose flag says the record may be churn. Same facts, no editorial.
-        tpl = ('It is still holding {0} coins worth {1} — biggest is {2} at {3}.'
-               if g["G1"][0] is False else
-               'It is still holding {0} coins worth {1} — biggest is {2} at {3}. '
-               'Not a wallet that only churns.')
-        out += [T(tpl, m["holdings_n"], usd(m["open_value"]), top["sym"], usd(top["usd"])), ""]
+        # "Not a wallet that only churns" was a defence against a churn accusation. Now that
+        # the report never puts that accusation on the page, the defence answers a charge the
+        # reader never saw -- and it was editorial either way. The facts stand alone.
+        out += [T('It is still holding {0} coins worth {1} — biggest is {2} at {3}.',
+                  m["holdings_n"], usd(m["open_value"]), top["sym"], usd(top["usd"])), ""]
     return out
 
 
@@ -1854,9 +1848,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
         out.append("")
 
     # ── risk flags: binary facts, no paragraph to parse ──
-    # A refuted wash-trade tag has its whole argument on G1's line already; repeating the
-    # share here is the same sentence twice, three headings apart.
-    risk = [f"{t['emoji']} **{t['name']}**" + ("" if t.get("refuted") else f" · {t['meaning']}")
+    risk = [f"{t['emoji']} **{t['name']}** · {t['meaning']}"
             for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3", "warn")]
     if m["honeypots"]:
         risk.append(T('🍯 {0} honeypot positions ({1}) · {2} unsellable',

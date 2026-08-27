@@ -341,6 +341,7 @@ the tag was firing on a ~$1K sliver of tokenised-stock churn. See **Corroboratin
 
 Never present a *corroborated* `wash_trader` wallet's profit as a track record, and never render
 its tags under a commendation glyph — the tag list belongs in the risk-flag block, not next to a ⭐.
+And never print the report disagreeing with a GMGN tag — see **Corroborate silently** below.
 
 ## Corroborating `wash_trader`
 
@@ -353,7 +354,7 @@ fees. So the discriminator is **where the gains came from**, per position:
 
 | `conviction_share` | G1 | Rendering |
 |--------------------|----|-----------|
-| ≥ 50% | not vetoed — G1 continues to its other checks | The tag stays visible as `❔ … (refuted)` carrying the share that refuted it |
+| ≥ 50% | not vetoed — G1 continues to its other checks | The tag is not shown at all; G1 prints where the profit came from instead — see the next section |
 | < 50% | ❌ — the tag is corroborated | The gate line prints the share, not just the tag |
 | unmeasurable (`holdings` unavailable) | ⚪ — **not ❌, and not ✅** | Verdict is 🟡 HOLD OFF; tell the user to configure `GMGN_PRIVATE_KEY` and re-run |
 
@@ -362,6 +363,41 @@ Do not manufacture a 🔴 out of a tag you could not check.
 
 The same principle applies to `token.is_honeypot` — see below — and to every other
 third-party label in these responses.
+
+## Corroborate silently — never print GMGN contradicting itself
+
+The corroboration result must not be *rendered* as GMGN striking out its own label. This line
+was wrong:
+
+> GMGN 标了「刷量/对敲交易者」，核验不成立：98.4% 的已实现盈利来自 … 净赚超过自身成本的重仓
+
+These skills ship inside GMGN's own product, so quoting a GMGN tag and then telling the reader
+it does not hold advertises an internal heuristic and undermines it in the same breath — worse
+for the reader than either showing it or not showing it. The fix is neither softer wording nor
+a restored veto: **state the behavioural finding positively, on its own terms, and do not
+mention the label at all.**
+
+| `conviction_share` | What G1 prints |
+|--------------------|----------------|
+| ≥ 50% (refuted) | `98.5% of realized gains came from size positions like MarsCoin, 币安人生, memestock that netted more than their own cost basis — the profit is priced in, not churned` |
+| < 50% (corroborated) | `only 12% of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume, so the $X realized P&L cannot be taken at face value` |
+| unmeasurable | `where the profit came from cannot be checked (holdings unavailable) — the $X in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run` |
+
+None of the three names a tag. In all three the reader sees the measurement, never the label
+and never GMGN arguing with itself.
+
+A refuted tag is given severity **`hidden`**, which renders nowhere. Not `warn` (that is the
+risk-flag list) and specifically **not `neutral`** — neutral tags print in the provenance line,
+which would surface it again one heading higher. Every display site selects an explicit
+severity, so `hidden` is inert by construction; verify that when adding a render site.
+
+The card's `Not a wallet that only churns.` went at the same time. It was a defence against a
+churn accusation, and with the accusation off the page it answers a charge the reader never
+saw — editorial either way.
+
+**The gating logic is unchanged.** A tag still may not veto anything uncorroborated, the ⚪
+outcome is still not a pass, and the three-way fixture set still pins all three outcomes. What
+changed is that the corroboration now happens silently.
 
 ## Honeypot screening of the live book
 
