@@ -42,6 +42,11 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "wallet is {0:.0f} days old": "钱包开了 {0:.0f} 天",
+    "it does not cut losses": "它不砍仓",
+    "you cannot keep up": "你跟不上",
+    "not earning now": "现在不赚了",
+    "record may be faked": "战绩可能是刷的",
     "was good, not any more": "以前很强，现在不行了",
     "it lost {0} itself this week": "它自己这周亏了 {0}",
     "7-day backtest: {0} following it → {1} ({2} in one week)": "近 7 天回测：{0} 跟着它走 → {1}（一周 {2}）",
@@ -181,7 +186,7 @@ ZH = {
     "You would need to land inside {0} — not achievable by hand": "你要在 {0}内落单才可能吃到，人手做不到",
     "__clause_separator__": "，",
     "__list_separator__": "、",
-    "a caller — you are probably not the first one in": "喊单者，你大概不是第一个进的",
+    "a caller — you are probably not the first one in": "它在公开喊单，你大概不是第一个进的",
     "a public identity with {0:,} followers trading small caps — copy flow has already moved the price before your order": "公开身份 {0:,} 粉丝且主打小市值 —— 跟单盘在你之前就已经推过价",
     "account": "账号",
     "accumulating": "在建仓",
@@ -242,7 +247,7 @@ ZH = {
     "friction eats the bulk": "摩擦吃掉大头",
     "friction manageable": "摩擦可控",
     "full-auto grinder": "全自动P机",
-    "funded from {0}": "来自 {0}",
+    "funded from {0}": "启动资金来自 {0}",
     "gas burner": "烧Gas机",
     "gas is an estimated {0} of the profit ({1:,} trades × {2} ≈ {3} vs {4} realized), leaving {5} net per trade — no room for your slippage": "估算 gas 吃掉利润的 {0}（{1:,} 笔 × 均 {2} ≈ {3} vs 已实现 {4}），单笔净赚只有 {5} —— 你的滑点没有空间",
     "get your order in within": "下单要在它买入后",
@@ -298,8 +303,8 @@ ZH = {
     "mean {0} · median copy window {1} ({2} round trips)": "均 {0} · 窗口中位 {1}（{2} 回合）",
     "meaningful friction": "摩擦不小",
     "median copy window {0} against your {1} latency — under 3x margin, it is likely already selling when you land": "可跟窗口中位 {0}，你的延迟 {1} —— 余量不足 3 倍，你买进去的时候它大概已经在卖了",
-    "median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost": "入场市值中位 {0} —— 这是狙击/内盘位，你进场就是它的 5–10 倍成本",
-    "median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost. {1} of its entries are under $100k": "入场中位 {0} —— 内盘位，你进场就是它的 5–10 倍成本；{1} 的入场在 $100K 以下",
+    "median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost": "它一般在市值 {0} 就进了 —— 币还没上公开池，你能买到的时候价格已经是它成本的 5–10 倍",
+    "median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost. {1} of its entries are under $100k": "它一般在市值 {0} 就进了 —— 币还没上公开池，你能买到的时候价格已经是它成本的 5–10 倍；它 {1} 的买入都在 $100K 以下",
     "median entry {0}": "入场中位 {0}",
     "metric": "维度",
     "mid cap, copyable": "中市值，可跟",
@@ -337,7 +342,7 @@ ZH = {
     "ordinary trading wallet, no distinguishing marks": "普通交易钱包，无特征标记",
     "p25/p50/p75 {0}/{1}/{2} ({3} measurable)": "p25/50/75 {0}/{1}/{2}（{3} 笔）",
     "past that, let it go — its cost is lower than yours, and entering late means buying what it is selling": "超时就别追 —— 它的成本比你低，晚进场等于替它接盘",
-    "pre-graduation, you pay up": "内盘位，进场即高价",
+    "pre-graduation, you pay up": "它买在你买不到的价位",
     "profit comes from ordering power, not token selection": "收益来自排序权，不是选币",
     "profit concentration not measured (holdings unavailable)": "利润集中度未测（holdings 不可用）",
     "profit concentration {0}": "集中度 {0}",
@@ -422,7 +427,7 @@ ZH = {
     "{0:,.0f} trades/day — bot cadence, no hand can keep pace": "{0:,.0f} 笔/日 —— 机器节奏，人手跟不动",
     "{0:,.0f} trades/day, gains neither concentrated (top 3 = {1}) nor speed-driven, median {2} per winning exit": "{0:,.0f} 笔/日，利润既不集中（前 3 个 {1}）也不靠手速，单笔中位净赚 {2}",
     "{0:,.0f}/day": "{0:,.0f}/日",
-    "{0:,.1f} {1} on hand": "余 {0:,.1f} {1}",
+    "{0:,.1f} {1} on hand": "钱包里还有 {0:,.1f} {1}",
     "{0:,} followers": "{0:,} 粉丝",
     "{0:,} trades ({1:,} buy / {2:,} sell) = {3:,.0f}/day": "{0:,} 笔 · {1:,}买/{2:,}卖 · {3:,.0f}/日",
     "{0:.0f}-day-old wallet": "{0:.0f} 天",
@@ -1708,6 +1713,15 @@ GATE_PLAIN = {
     "G4": ("it cuts losses", "it does not ride positions to zero"),
 }
 
+# The failing form of each chip. An ❌ in front of "you can keep up" flips the icon but not
+# the sentence, so the row read as four contradictions instead of four statements.
+GATE_PLAIN_NEG = {
+    "G1": "record may be faked",
+    "G2": "not earning now",
+    "G3": "you cannot keep up",
+    "G4": "it does not cut losses",
+}
+
 
 def mark(v):
     return {True: "✅", False: "❌", None: "⚪"}[v]
@@ -2142,7 +2156,7 @@ def card(m, g, wallet, chain):
     # ── line 3: what kind of operator, so the record above has a shape.
     qual = [chain.upper()]
     if m["age_days"] is not None and m["age_days"] >= 180:
-        qual.append(T('{0:.0f}-day-old wallet', m["age_days"]))
+        qual.append(T('wallet is {0:.0f} days old', m["age_days"]))
     if m["followers"] >= 10_000:
         qual.append(T('{0:,} followers', m["followers"]))
     qual.append(T('{0:,.0f} trades a day', m["per_day"]))
@@ -2207,7 +2221,8 @@ def card(m, g, wallet, chain):
     # Read the gates. These were hardcoded to "✓" in the first cut, which put
     # "✓ the record is real" on a card whose verdict was DO NOT COPY *because* that check
     # failed — the card asserting the opposite of its own headline.
-    out += ["　".join(("✅ " if g[k][0] else "❌ ") + f"**{T(GATE_PLAIN[k][0])}**"
+    out += ["　".join(("✅ " + f"**{T(GATE_PLAIN[k][0])}**") if g[k][0]
+                      else ("❌ " + f"**{T(GATE_PLAIN_NEG[k])}**")
                       for k in ("G1", "G2", "G3", "G4")), ""]
 
     if flags:
