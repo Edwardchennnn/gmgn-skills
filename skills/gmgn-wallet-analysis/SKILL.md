@@ -1,7 +1,7 @@
 ---
 name: gmgn-wallet-analysis
 description: >-
-  The trader's decision dossier on a wallet — four pass/fail gates (is the record real, is the edge still working THIS week, can you actually get filled, does it cut losses) plus what the wallet is holding and buying right now, its entry market-cap band, its copy window in seconds, and a concrete size cap. Answers the question a memecoin trader actually has: "the numbers look good, but if I copy this wallet what happens to me?" Use when the user asks 「这个钱包能跟吗」, 「帮我分析一下这个钱包」, 「它现在在买什么」, 「这个钱包最近还行吗」, 「跟着他买我能吃到吗」, 「他是不是已经不行了」, 「这个钱包什么风格」, 「它是什么类型的」, 「打法」, "can I copy this wallet", "analyze this wallet", "what is this wallet buying now", "is this wallet still hot", "would I actually get filled following this", "what kind of trader is this", or pastes a bare wallet address. This is the default for a bare address: it prints the same style title and speed subtitle as gmgn-wallet-style AND the four gates, so reach for gmgn-wallet-style only when a label with no verdict is explicitly what is wanted.
+  The trader's decision dossier on a wallet — four pass/fail gates (is the record real, is the edge still working THIS week, can you actually get filled, does it cut losses) plus what the wallet is holding and buying right now, its entry market-cap band, its copy window in seconds, and a concrete size cap. Answers the question a memecoin trader actually has: "the numbers look good, but if I copy this wallet what happens to me?" Use when the user asks 「这个钱包能跟吗」, 「帮我分析一下这个钱包」, 「它现在在买什么」, 「这个钱包最近还行吗」, 「跟着他买我能吃到吗」, 「他是不是已经不行了」, 「这个钱包什么风格」, 「它是什么类型的」, 「打法」, "can I copy this wallet", "analyze this wallet", "what is this wallet buying now", "is this wallet still hot", "would I actually get filled following this", "what kind of trader is this", or pastes a bare wallet address. This is the default for a bare wallet address: it prints a style title and speed subtitle AND the four gates, so it answers "what kind of trader is this" and "should I act on it" in one pass.
 argument-hint: "--chain <sol|bsc|base|eth|robinhood|arc|stable> --wallet <wallet_address> [--latency <seconds>]"
 metadata:
   cliHelp: "gmgn-cli portfolio stats --help && gmgn-cli portfolio profits --help && gmgn-cli portfolio activity --help && gmgn-cli portfolio holdings --help"
@@ -15,11 +15,10 @@ metadata:
 
 ## What this skill is for, and what it is not
 
-Three skills take a wallet address. They answer different questions and must not be substituted for each other:
+Two skills take a wallet address. They answer different questions and must not be substituted for each other:
 
 | Skill | Question | Output |
 |-------|----------|--------|
-| `gmgn-wallet-style` | "what kind of trader is this?" | A label alone, for when a decision is not wanted. **Its title grid and speed subtitle are now also computed inside this skill** — see **The style label** below |
 | `gmgn-wallet-score` | "how good is this trader, on a scale?" | Three 0–100 scores + a latency/slippage/gas backtest |
 | **`gmgn-wallet-analysis` (this one)** | **"should I act on this wallet, and what happens to me if I do?"** | **Four pass/fail gates → one verdict → concrete next actions** |
 
@@ -30,209 +29,18 @@ address wants to know whose wallet it is — the bound X account, the follower c
 money came from — before they are asked to absorb four gate results. Burying that below the
 gates made a newcomer scroll past four judgements to reach the one fact they came for.
 
-It also asks three questions the other two do not:
+It also asks three questions a score does not:
 
-- **Is the edge still working *this week*?** A wallet with +2,400% all-time and −27% over the last 7 days looks superb on any leaderboard and will lose you money today. `portfolio profits --period all` versus `portfolio stats --period 7d` is the only cheap way to see that, and it is the single most common way a copy-trader gets hurt.
-- **What is it doing *right now*?** Closed-trade statistics describe a wallet's past. Its open positions and its last 24 hours are what you can still act on.
-- **Where did the profit come from — speed, or selection?** "+15.8%" does not say whether the
-  edge is out-clicking everyone into a $9k launch or picking a token and laddering $50k into it.
-  Those are copied in completely different ways, and a reader who cannot tell them apart copies
-  the wrong half. See **The profit engine** below.
-
-## The style label
-
-The 4x5 title grid (frequency x P&L) and the speed subtitle were merged in from
-`gmgn-wallet-style`, because the dossier had numbers and verdicts but no name a reader could
-repeat out loud. Four changes were made on the way in, each because the original mis-labelled a
-wallet already verified against gmgn.ai's own leaderboard:
-
-| Change | Why |
-|--------|-----|
-| **No "officially verified" badge** | It fired on any non-empty `common.tags`, so it printed `wash_trader` under a commendation glyph — the exact thing this skill's tag rules forbid. Tags go through `TAGS`/severity and the corroboration check instead |
-| **Speed subtitle reads the MEDIAN copy window, not `avg_holding_period`** | The mean counts bags never sold, so it labelled a 2-minute scalper 🧭 swing / 1-7 days. Someone acting on that holds for days a position the wallet exits in minutes |
-| **P5 needs ROI > 50% plus ONE of {win rate ≥ 50%, heavy-loss share < 15%}** | Requiring all three pushed a wallet sitting at **#3 on GMGN's own BSC 7D leaderboard** down to P4. Memecoin P&L is low-hit-rate with a fat right tail; a 50% win-rate gate systematically demotes the profitable ones |
-| **The P5 gloss names the corroborator that carried it** | "high frequency, high hit rate, shallow drawdowns" above a 33.3% win rate is a heading contradicting its own contents. It now reads "high frequency and strongly profitable (7d 62.1% + only 4.4% heavy losses)" |
-
-Two further rules, both from the same review:
-
-- **No label when `token_num < 5`.** The verdict already reads ⚪ NO READ; printing
-  "📈 steady hand · normal cadence, positive return, no glaring weakness" next to it
-  contradicts it.
-- **Activity-derived badges are gated on sample size.** `📦 concentrated bets` needs ≥5
-  distinct tokens (top-3 of 3 is 100% by arithmetic) and `🌙 fixed hours` needs ≥20 rows
-  **and a span ≥ 12 hours**
-  (any 14-hour sample "clusters" inside a 6-hour window by arithmetic). The original fired both
-  on a 14.2-hour sample and emitted no warning.
-
-Badges merged in: `🎰 lottery profile`, `✂️ scales out`, `📦 concentrated bets`,
-`🌙 fixed hours`. Badges **not** merged: `🧊 accumulating` / `📤 distributing` duplicate the
-existing 24h `posture` reading, and `🚀 priority-fee bidder`
-needs a per-chain gas constant that would go stale silently — `gas_share` and `gas_drag` already
-carry that signal, self-normalised against the wallet's own trade size.
-
-## The profit engine
-
-Two independent numbers separate three engines. Both come from `holdings`; when it is
-unavailable the block is omitted rather than guessed.
-
-- `per_day` — trade cadence, the speed axis.
-- `gain_top3_share` — the top 3 winning positions' share of all realized gains, the
-  concentration axis.
-- `conviction_share` — reused from the wash-trade check (gains from positions netting more than
-  their own cost basis).
-
-| Engine | Fires when | What it means for the reader |
-|--------|-----------|------------------------------|
-| 🕸️ spray-and-hit | ≥50 trades/day **and** top-3 ≥ 50% | Profit is attempts × a few hits. Not a picking edge — copying it is a latency race |
-| ⚙️ turnover grind | ≥50 trades/day **and** top-3 < 50% | Profit is volume; each exit is too thin to survive your slippage |
-| 🎯 pick-and-size | <50 trades/day, conviction ≥ 60%, top-3 ≥ 50% | Profit is picking then sizing up. **This is the one you can follow a step behind** |
-| 🧩 diffuse accumulation | none of the above | No single engine — following it means following the whole book |
-
-The engine chip and its number go in the speed read (`profit from`); the sentence about what
-it means for copying appears **once**, under WHO IT IS. Never print the implication twice.
-
-## Two layers: the card, then the evidence
-
-The report leads with a **decision card** and puts the reasoning **below** it. The split
-exists because two audiences were fighting over the same screen: someone who pasted an
-address needs to stop reading after a few lines, and whoever checks the work needs every
-number. Evidence-first served neither.
-
-| Layer | Contains | For |
-|-------|----------|-----|
-| **Card** | verdict · the 7d return told as money · cadence, return and amount · who this is · what to do · four outcomes · one risk · what it bought in 24h · the live book in one line | a newcomer, who stops here |
-| **Evidence** | who it is, the four gates each with the number that decided it, the risk flags, the live book, three follow-up questions | anyone verifying, and the dev diffing a change |
-
-`--brief` prints only the card. Default prints both.
-
-### The evidence layer holds deciding numbers only
-
-Two rules, applied in this order:
-
-**It does not restate the card.** The verdict block, the speed read, the account row, the 24h
-buy list and two numbers rows all used to appear twice, which pushed the actual evidence below
-the fold and made the report look padded. What stays below is what the card deliberately
-withheld. Every withheld block comes back when `card_blocked()` suppresses the card, because
-then nothing has said it yet.
-
-**A figure earns its place by deciding something.** If no gate reads it, it goes. That rule
-removed, in one pass:
-
-| Removed | Why it was not core |
-|---------|---------------------|
-| the whole `NUMBERS` panel (8 rows) | Its deciding figures — 7d vs all-time ROI, entry median, cadence, heavy-loss share — are each printed by the gate that used them. What was left was reference: all-time realized, fee share, entry quartiles, clip size, mean hold |
-| the outcome-distribution histogram (5 bands) | A shape, not a decision. G1 gives the win count and G4 the heavy-loss share, which is what the bands were being read for |
-| the mean-vs-median hold warning | Its subject was the panel's `mean 3.9 days`. With that gone there is no contradiction left to reconcile |
-| the standalone profit-concentration line | Word for word on G1's own line |
-| the `CLEARED` block's "honeypot checked, none hit" | Word for word on G4's own line. The *refuted*-flag variant stays: it carries the sell counts that killed the flags, which G4 does not print |
-| the `cadence×P&L L4×P4` cell | Internal bookkeeping. The title and its gloss say the same thing in words, and there is nowhere for a reader to look the code up |
-| `hunts on flap×45, fourmeme×3` | Context; no gate reads the launchpad mix |
-| the `🌙 fixed hours` and `💣 dumps in one go` chips | Behavioural colour that feeds no gate. `🤖 bot cadence` and `🎯 sniper entry` stay — G3 rests on both |
-| the live book's `cost` column | Derivable from market value and P&L. `sells` stays: it is the column that refutes a honeypot flag |
-| the 4th and 5th 24h buys | The card prints the top three |
-| the wash-trade flag's restated share | G1 prints the corroboration argument in full, three headings above |
-
-The win-rate percentage was the one figure the panel uniquely carried, so G1's line now names
-its own ratio: `1002 tokens · 792 profitable (69.2%) · concentration 21.9%`.
-
-Net effect on one live wallet: evidence layer 2,266 → 1,364 characters, with every gate still
-printing the number that decided it.
-
-### After the gates: three sections, nothing repeated
-
-Everything below the four gates was cut to what the card did not already print:
-
-| Removed | Why |
-|---------|-----|
-| the bridge's second paragraph | Its disclaimer was the footer, word for word, and its "check the chips yourself" was WHAT TO DO NEXT's first question |
-| the bridge's promise of "the raw figures" | A pointer to a section that no longer exists. It now names what is actually below: what each check tested and the number that decided it |
-| the card's own risk flag, at the head of the flag list | The card prints the highest-severity flag twice already — as the H1 chip and as its single warning line. `card_flag_name` records it so the list starts at the second flag. Everything the card withheld still appears |
-| the live book's `N positions · $X total` header | The card's closing line is exactly that sentence |
-| live-book rows 4 and 5 | Row 1 is the coin the card named; three rows carry the shape of the book without re-listing it |
-
-`--brief` keeps the full five rows and the header, because on that path the card is all there is
-and nothing above has said them. The same switch applies to the bridge: in brief mode the
-"below:" signpost would point at an empty page, so only the footer prints.
-
-What stays, and must: the posture line and the last-trade age (the only figures that say the
-report describes a wallet still trading), three live-book rows, the three questions, and the
-sample line that bounds every activity-derived claim.
-
-**What must never be cut is a number a gate stands on.** Trimming by "which figures are most
-convincing" rather than "which figures decide something" would turn the layer from checkable
-into acceptable-only, which is the failure this skill exists to correct. The distinction is
-mechanical: follow each gate line back to the metric it names, and keep exactly those.
-
-**The headline is money, not a ratio.** `+62.1%` is a figure the reader has to convert;
-`$1,000 → $1,621` is the same fact needing no conversion. Nothing extra is fetched — it is
-`roi_7d` wearing clothes a newcomer already owns.
-
-### What the card must never do
-
-Hiding the reasoning obliges the card to be *more* careful than the evidence layer, not less.
-Every rule below exists because the first cut broke it:
-
-| Rule | What went wrong without it |
-|------|---------------------------|
-| **The four marks read the gates** | They were hardcoded `✓`, so a `🔴 DO NOT COPY` card carried `✓ the record is real` — asserting the opposite of its own headline, on the very check that produced the verdict |
-| **No headline figure when G1 fails** | The card showed `$1,000 → $1,122` on a wash-trading wallet. G1 failing means the P&L *is* the thing in dispute, so quoting it presents a disputed number as an achieved one. The card now says the record is untrustworthy and shows no figure |
-| **No "how to follow" under a red verdict** | It printed a size cap and a copy window beneath `DO NOT COPY` — instructions for doing the thing the headline forbids. A red verdict gets the verdict's own action instead |
-| **No P&L figure of any kind when G1 fails** | Adding a key-numbers line reintroduced the same defect one line lower: the card said "its profit figures are not trustworthy" and then printed `7d 12.2% · made $101.1K`. Trade cadence is a fact about behaviour and survives a failed G1; the return and the amount are P&L claims and do not |
-| **No editorial that the flags contradict** | "Not a wallet that only churns" appeared on a card flagged for wash trading. Same facts, no defence of the record |
-| **No card at all when a gate is ⚪** | The card has nowhere to put "not measured". A card with one tick missing reads as a complete verdict with one fewer reason, and the reader cannot see that something went unmeasured. `card_blocked()` withholds it and the evidence layer — which *can* print ⚪ — carries the whole answer |
-
-The last one is the important one. `--brief` on a wallet with an unmeasured gate prints the
-reason there is no card and then the full report, rather than a card with a hole in it.
-
-Three numbers earn a place on the card that nothing else implies: **trades per day** (16/day
-and 725/day are the difference between something a person can do and something only a script
-can, and the copy window only hints at it), the **7d return as a percentage** (the figure
-people quote to each other), and the **realized amount** (the only thing on the card showing
-the scale *this wallet* operates at — the size cap describes the reader's size, not its).
-
-**The bridge line is not decoration.** Hiding the reasoning without saying it exists reads as
-hand-waving; naming where it lives makes the clean first screen a choice the reader can
-decline. Do not remove it when trimming.
-
-### The translation table lives in the script
-
-`ZH` is a dict literal at the top of `analyze.py`, keyed on the English string. It used to be a
-separate `lang/zh.json`, which cost the skill a third shipped file and produced a whole class of
-bug that only ever appeared in one language:
-
-- **A reworded string is a new key, and `T()` falls back silently.** A rewrite rephrased five
-  strings and every one came out in English in the Chinese report. Nothing crashed.
-- **Keys collide.** One slot per English string, so a shorter key (`cuts losses`) silently
-  overwrote a longer one's chip in eight fixtures.
-- **Pruning by AST scan deletes live entries.** The scan sees only literal `T("...")` calls, but
-  several strings reach `T()` through a variable — the `TAGS`, `TITLES`, `GATE_NAMES`,
-  `GATE_GLOSS` and `GATE_PLAIN` tables, and the holdings sentence built as
-  `tpl = (... if ... else ...)`. Pruning that way removed working translations here.
-
-Inlining does not make those impossible, but it puts the table in the same file as the calls, so
-a rename and its translation are one edit rather than two files that can drift. It also matches
-`gmgn-wallet-score` and `gmgn-kline-pattern`, which carry everything in one file.
-
-The rules that remain: **only add, never prune**, and check the slot is free before adding one.
-After touching any string, verify completeness:
-
-```bash
-python3 - <<'PYEOF'
-import ast
-src = open("analyze.py", encoding="utf-8").read()
-tree = ast.parse(src)
-zh = next(n for n in tree.body
-          if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "ZH")
-table = {k.value for k in zh.value.keys}
-calls = {n.args[0].value for n in ast.walk(tree)
-         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "T"
-         and n.args and isinstance(n.args[0], ast.Constant)}
-print("missing:", sorted(calls - table) or "none")
-PYEOF
-```
-
-That reports only literal call sites, so a clean result is necessary but not sufficient — run the
-report in `zh` and read it for stray English before shipping a string change.
+- **Is the edge still working *this week*?** A wallet with +2,400% all-time and −27% over the
+  last 7 days looks superb on any leaderboard and will lose you money today. `profits --period
+  all` versus `stats --period 7d` is the cheapest way to see that, and it is the most common way
+  a copy-trader gets hurt.
+- **What is it doing *right now*?** Closed-trade statistics describe the past. Its open positions
+  and its last 24 hours are what you can still act on.
+- **Where did the profit come from — speed, or selection?** `per_day` × the top-3 winners' share
+  of gains separates 🕸️ spray-and-hit (attempts × a few hits — copying it is a latency race) from
+  ⚙️ turnover grind (each exit too thin to survive your slippage) from 🎯 pick-and-size (the one
+  you can follow a step behind). Those are copied in completely different ways.
 
 ## The four gates
 
@@ -280,96 +88,6 @@ Three of these exist only because the first cut got them wrong, and none should 
   checkable, refuted. Their three fixtures pin all outcomes of `wash_trader`; a change that
   makes any two agree is a regression.
 
-## WHAT TO DO NEXT is exactly three questions
-
-The last section prints three follow-up questions and nothing else. Each is one intent, phrased
-the way the reader would ask it out loud.
-
-**Every candidate must be answerable by a skill that ships in `GMGNAI/gmgn-skills`, and must
-carry at least one literal trigger phrase from that skill's own `description`.** A question with
-no skill behind it is worse than no question at all: the reader asks it, nothing can answer, and
-the dossier has walked them into a wall. A question with the right skill but no shared wording is
-the same failure one step later — routing then rests on the model paraphrasing rather than on
-anything written down. The pool, its routing, and the phrase each line is pinned on:
-
-| Question | Routes to | Pinned on |
-|----------|-----------|-----------|
-| `{token} 的筹码分析 —— 谁在持有、成本多少？` | `gmgn-holder-analysis` | 筹码分析 · who is holding · entry cost |
-| `跟单评分：给它打个 0–100 分，把我自己的延迟和滑点算进去？` | `gmgn-wallet-score` (copy-tradeability) | 跟单评分 |
-| `它发盘情况怎么样 —— 发过 {n} 个币，现在还活着几个？` | `gmgn-wallet-score` (Dev reputation) | 发盘情况怎么样 |
-| `{token} 的走势和形态怎么样 —— 还在涨，还是已经开始崩？` | `gmgn-kline-pattern` | 走势 · 形态 |
-| `{token} 的合约安全吗 —— 有没有貔貅、流动性够不够…？` | `gmgn-token security` | 安全 |
-| `还有谁在买 {token} —— 里面有聪明钱或 KOL 吗？` | `gmgn-track` | 聪明钱 · KOL |
-| `它持有 {n} 个币，把完整持仓和成本列出来看看？` | `gmgn-portfolio holdings` | 持仓 |
-| `这个地址到底是钱包还是代币合约？` (zero-trade path) | `gmgn-token info` | 代币合约 |
-
-Three of those phrasings were retuned after a check found them routing on paraphrase alone —
-most notably `给它打个 0–100 分…` , which shared no wording at all with `gmgn-wallet-score`'s
-description. Re-run this whenever a question is edited or a target skill's description changes:
-
-```bash
-python3 - <<'PYEOF'
-import ast
-tree = ast.parse(open("analyze.py", encoding="utf-8").read())
-zh = next(n for n in tree.body
-          if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "ZH")
-t = {k.value: v.value for k, v in zip(zh.value.keys, zh.value.values)}
-TRIG = {"gmgn-holder-analysis": ["筹码分析", "持仓分析", "who is holding", "entry cost"],
-        "gmgn-wallet-score": ["跟单评分", "钱包评分", "值不值得跟单", "发盘情况怎么样"],
-        "gmgn-kline-pattern": ["走势", "趋势", "形态", "K线"],
-        "gmgn-token": ["安全", "safety", "due diligence", "代币合约"],
-        "gmgn-track": ["聪明钱", "KOL", "smart money"],
-        "gmgn-portfolio": ["持仓", "holdings"]}
-Q = [("What do the chips look like on {0} — who is holding, and at what cost?", "gmgn-holder-analysis"),
-     ("Score it 0-100 with my own latency and slippage modelled in?", "gmgn-wallet-score"),
-     ("It launched {0} tokens — how many of them are still alive?", "gmgn-wallet-score"),
-     ("What shape is {0} in right now — still climbing, or already breaking down?", "gmgn-kline-pattern"),
-     ("Are the contracts on {0} safe — honeypot, liquidity, mint authority?", "gmgn-token"),
-     ("Who else is buying {0} — any smart money or KOLs in there?", "gmgn-track"),
-     ("It holds {0} coins — list the whole book with costs?", "gmgn-portfolio"),
-     ("Is this address a wallet at all, or a token contract?", "gmgn-token")]
-bad = [(en, s) for en, s in Q if not any(w in t[en] for w in TRIG[s])]
-print("unrouted:", bad or "none")
-PYEOF
-```
-
-Two candidates were cut against the availability rule and must not come back:
-
-- **"这一周的钱到底是哪几个币赚的？"** — `portfolio profits` returns one aggregate row per
-  period. There is no per-token profit breakdown for a window anywhere in the API, so nothing
-  can answer it.
-- **"一周后再看一次，它还这么热吗？"** — a reminder, not a query.
-
-`gmgn-market` and `gmgn-cooking` are in the library but answer nothing about a wallet, and
-`gmgn-swap` is execution rather than analysis, so none of the three appears here.
-
-**One target per question.** A token-scoped question names the single largest of the last 24
-hours' buys, never a list. Three tokens in one line turns one question into three downstream
-skill calls — three times the rate-limit budget, in the turn right after a dossier that already
-nearly empties the bucket, so the fan-out does not just cost more, it makes the follow-up likely
-to 429. It also hands the reader three threads to hold at once when the section exists to offer
-one clear next step. Two questions about the *same* token (its chips, then its chart) are still
-single-threaded and fine.
-
-Two further rules produce the section's shape:
-
-**No skill names.** Never print `gmgn-token`, `gmgn-holder-analysis`, `gmgn-wallet-score`,
-`gmgn-swap`, or `gmgn-portfolio`. A skill name is an internal identifier: printing one asks the
-reader to know the skill exists, that it is installed, and how to invoke it — three things a
-newcomer does not know, so the line dead-ends. A question in plain language routes itself,
-because asking it is what triggers the skill that answers it. The mapping above lives here, in
-the agent-facing file, and nowhere in the output.
-
-**No advice, and one intent per line.** This section used to carry the size cap, the copy
-window, "treat it as a signal source" and "set your own stop" — all of which the card already
-states and the gates already justify. Repeating them stacked several intents into single
-bullets and grew the section to 35% of the evidence layer. Instructions belong on the card;
-what belongs at the end of a dossier is the next question.
-
-Candidates are ordered by how much this wallet's own data invites the question and the first
-three win, with the first three deliberately routing to three different skills. The zero-trade
-path prints one question instead of three.
-
 ## Verdict language
 
 This layer is the only part most readers finish, so it is written to be read once:
@@ -384,189 +102,93 @@ This layer is the only part most readers finish, so it is written to be read onc
 The action must never restate the gate reason printed below it — the reader would be reading
 the same sentence twice before reaching anything new.
 
-## GMGN wallet tags
+## Third-party labels are questions, never findings
 
-`common.tags` is the highest-information-per-byte field in the whole response, and the one most
-easily mis-read. A tag is third-party data: recognised tags get a meaning and a severity,
-anything unrecognised is printed verbatim, treated as neutral, and never allowed to change
-control flow.
-
-**A tag is a third-party heuristic label, never a finding.** No tag may change the verdict on
-its own — it opens a question that the wallet's own behaviour has to answer. This is not a
-style preference: obeying `wash_trader` unexamined rendered `🔴 DO NOT COPY` on a real BSC wallet
-(`0xa7d4…2b9f`) whose $459K of realized profit came from six-figure memecoin positions, while
-the tag was firing on a ~$1K sliver of tokenised-stock churn. See **Corroborating
-`wash_trader`** below.
+`common.tags` is the highest-information-per-byte field in the response and the one most easily
+mis-read. A tag is a heuristic label: it opens a question that the wallet's own behaviour has to
+answer, and **no tag may change the verdict on its own.** Obeying `wash_trader` unexamined once
+rendered 🔴 DO NOT COPY on a real BSC wallet whose $459K of realized profit came from six-figure
+memecoin positions, while the tag was firing on a ~$1K sliver of tokenised-stock churn.
 
 | Severity | Tags | Effect |
 |----------|------|--------|
-| **veto G1, only if corroborated** | `wash_trader` | The P&L *may* be self-dealt. Check the profit attribution first: if the gains come from positions with a real net edge, the tag is downgraded to a caution and G1 continues. Never veto on the tag alone |
+| **veto G1, only if corroborated** | `wash_trader` | Checked against `conviction_share` — realized gains from positions whose profit exceeds their own cost basis or clears $1k per exit. Self-dealing nets ~0 per round trip and cannot reach either bar |
 | **veto G3** | `sandwich_bot`, `mev_bot` | Its profit comes from ordering power over orders like yours. Not copyable by construction |
-| **warn** | `kol`, `top_followed`, `top_renamed`, `sniper`, `rat_trader`, `bundler`, `insider`, `dev`, `fresh_wallet` | Changes how the numbers read. `top_followed` and a large follower count are a *reachability* fact: copy flow moved the price before your order existed |
-| **good** | `smart_money`, `bluechip_owner` | A positive marker — never a reason to skip a gate |
-| **neutral** | `gmgn`, `photon`, `bullx`, `maestro`, `pepeboost`, `whale` | Order channel or scale. No risk meaning; printed for context only |
+| **warn** | `kol`, `top_followed`, `top_renamed`, `sniper`, `rat_trader`, `bundler`, `insider`, `dev`, `fresh_wallet` | Changes how the numbers read. A large follower count is a *reachability* fact: copy flow moved the price before your order existed |
+| **good** | `smart_money`, `bluechip_owner` | Never a reason to skip a gate |
+| **neutral** | `gmgn`, `photon`, `bullx`, `maestro`, `pepeboost`, `whale` | Order channel or scale. Printed as provenance only |
+| **hidden** | a refuted `wash_trader` | Renders nowhere — see below |
 
-Never present a *corroborated* `wash_trader` wallet's profit as a track record, and never render
-its tags under a commendation glyph — the tag list belongs in the risk-flag block, not next to a ⭐.
-And never print the report disagreeing with a GMGN tag — see **Corroborate silently** below.
+`token.is_honeypot` gets the same treatment. It ships inline on every `holdings` row, but a
+honeypot is a token you *cannot sell*, so `history_total_sells > 0` on the same row refutes the
+flag by construction. One live run failed G4 on seven such flags, one of which the wallet had
+sold 101 times — transfer-restricted tokenised stocks that trip naive sell simulators.
 
-## Corroborating `wash_trader`
+### Corroborate silently — never print the report disagreeing with a GMGN tag
 
-Wash trading manufactures volume, not profit: each self-dealt round trip nets ~zero minus
-fees. So the discriminator is **where the gains came from**, per position:
+This skill ships inside GMGN's own product. Citing a GMGN tag and then telling the reader it does
+not hold advertises an internal heuristic and undermines it in the same breath. So the report
+**states the measurement and never names the label**:
 
-- A position carries a **genuine edge** when its realized profit exceeds its own cost basis,
-  or clears **$1,000 net per exit**. Round-tripping against yourself cannot produce either.
-- `conviction_share` = the fraction of all realized gains that came from such positions.
+| `conviction_share` | G1 | What prints |
+|--------------------|----|-------------|
+| ≥ 50% | not vetoed | `98.4% of realized gains came from size positions like … that netted more than their own cost basis` — the tag is not shown at all |
+| < 50% | ❌ | `only 12% of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume` |
+| unmeasurable (`holdings` unavailable) | ⚪ — **not ❌, not ✅** | `where the profit came from cannot be checked` → verdict 🟡 HOLD OFF, and tell the user to configure `GMGN_PRIVATE_KEY` |
 
-| `conviction_share` | G1 | Rendering |
-|--------------------|----|-----------|
-| ≥ 50% | not vetoed — G1 continues to its other checks | The tag is not shown at all; G1 prints where the profit came from instead — see the next section |
-| < 50% | ❌ — the tag is corroborated | The gate line prints the share, not just the tag |
-| unmeasurable (`holdings` unavailable) | ⚪ — **not ❌, and not ✅** | Verdict is 🟡 HOLD OFF; tell the user to configure `GMGN_PRIVATE_KEY` and re-run |
+An unverifiable accusation is not a finding: never manufacture a 🔴 out of a tag you could not
+check. **This rule binds your own prose too** — do not reintroduce the label in your reply when
+the report deliberately left it out.
 
-Note what the third row protects against: an unverifiable accusation is not a finding either.
-Do not manufacture a 🔴 out of a tag you could not check.
+## WHAT TO DO NEXT is exactly three questions
 
-The same principle applies to `token.is_honeypot` — see below — and to every other
-third-party label in these responses.
+The report ends with three follow-up questions and nothing else — one intent each, phrased the
+way the reader would ask them. Three rules govern them:
 
-## Corroborate silently — never print GMGN contradicting itself
+- **No skill names.** A skill name asks the reader to know it exists, that it is installed, and
+  how to invoke it. A question in plain language routes itself, because asking it is what
+  triggers the skill that answers it.
+- **Answerable, and pinned on a real trigger phrase.** Every question routes to a skill that
+  ships in `GMGNAI/gmgn-skills` and carries a literal trigger phrase from that skill's own
+  `description`: 筹码分析 → `gmgn-holder-analysis`, 跟单评分 / 发盘情况怎么样 →
+  `gmgn-wallet-score`, 走势 · 形态 → `gmgn-kline-pattern`, 安全 → `gmgn-token`, 聪明钱 · KOL →
+  `gmgn-track`, 持仓 → `gmgn-portfolio`.
+- **One target per question.** A token-scoped question names the single largest of the last 24h
+  buys, never a list. Three tokens in one line become three downstream skill calls — three times
+  the rate-limit budget in the turn right after a dossier that already nearly empties the bucket.
 
-The corroboration result must not be *rendered* as GMGN striking out its own label. This line
-was wrong:
+Do not add follow-ups of your own beyond these, and do not name a skill when you offer one.
 
-> GMGN 标了「刷量/对敲交易者」，核验不成立：98.4% 的已实现盈利来自 … 净赚超过自身成本的重仓
+## Metrics the report names
 
-These skills ship inside GMGN's own product, so quoting a GMGN tag and then telling the reader
-it does not hold advertises an internal heuristic and undermines it in the same breath — worse
-for the reader than either showing it or not showing it. The fix is neither softer wording nor
-a restored veto: **state the behavioural finding positively, on its own terms, and do not
-mention the label at all.**
+The script computes these; know what they mean so you can answer a question about one.
 
-| `conviction_share` | What G1 prints |
-|--------------------|----------------|
-| ≥ 50% (refuted) | `98.5% of realized gains came from size positions like MarsCoin, 币安人生, memestock that netted more than their own cost basis — the profit is priced in, not churned` |
-| < 50% (corroborated) | `only 12% of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume, so the $X realized P&L cannot be taken at face value` |
-| unmeasurable | `where the profit came from cannot be checked (holdings unavailable) — the $X in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run` |
+| Metric | Definition | Why it matters |
+|--------|-----------|----------------|
+| **Copy window** | Median seconds from the wallet's first buy of a token to its first sell | The budget you have to land an order. Compared against `--latency` at a **3×** margin — a 4-second window against 3-second latency technically "passes" and is not tradeable |
+| **Entry mcap band** | p25/p50/p75 of `price_usd × total_supply` on buy rows | A median under $30k means it buys pre-graduation and you enter at 5–10× its cost |
+| **Profit concentration** | Largest winning position's share of all gains | Trusted only with **≥3 winners across ≥8 positions** — with one winner in the page it is 100% by arithmetic, not by evidence |
+| **Conviction share** | Gains from positions netting more than their own cost basis, or ≥$1k per exit | The corroboration test for `wash_trader` |
+| **Top position / ladder depth** | Largest live position; median `history_total_buys` across the 5 largest | `avg_buy_usd` measures the *clip*, not the *position*. A wallet laddering $54K out of $3.4K clips reads as a small trader on clip size alone |
+| **Gas drag** | Sample gas × window trades ÷ realized profit | An estimate, labelled as one. At ≥25% the wallet gave away most of its edge before your slippage |
+| **Net per exit** | Realized profit ÷ sell count | The yardstick gas and slippage are measured against |
+| **Hold-to-zero** | Positions down ≥90% with zero sells | Separates "cuts losses" from "cannot admit a loss" |
+| **Size cap** | Half the wallet's own average buy | Above its own size your slippage is worse than its, so its results stop applying to you |
 
-None of the three names a tag. In all three the reader sees the measurement, never the label
-and never GMGN arguing with itself.
+## Verifying a change
 
-A refuted tag is given severity **`hidden`**, which renders nowhere. Not `warn` (that is the
-risk-flag list) and specifically **not `neutral`** — neutral tags print in the provenance line,
-which would surface it again one heading higher. Every display site selects an explicit
-severity, so `hidden` is inert by construction; verify that when adding a render site.
+There is no test suite here; the twelve-fixture generator is in git history on
+`feat/wallet-analysis-skill`. Any change to `analyze.py` has to be checked against live wallets —
+pick wallets that exercise opposite verdicts, run each once, and read the whole report. Live data
+moves (the 1d window is rolling, `activity` is a sample), so two runs minutes apart differ for
+reasons unrelated to your change.
 
-The card's `Not a wallet that only churns.` went at the same time. It was a defence against a
-churn accusation, and with the accusation off the page it answers a charge the reader never
-saw — editorial either way.
-
-**The gating logic is unchanged.** A tag still may not veto anything uncorroborated, the ⚪
-outcome is still not a pass, and the three-way fixture set still pins all three outcomes. What
-changed is that the corroboration now happens silently.
-
-## Honeypot screening of the live book
-
-`token.is_honeypot` **ships inline on every `portfolio holdings` row** — no `token security` calls
-are needed, and an earlier version of this skill wasted five weight-1 requests re-fetching it.
-`token.launchpad_platform` is inline too, which is where "where does it hunt" comes from
-(e.g. `flap×44 · flap_stocks×4 · fourmeme×1`).
-
-A wallet holding tokens it cannot sell tells you two things its P&L does not: part of its
-unrealized value is unsellable, and its own risk screening failed. Two or more honeypots fails G4.
-
-**But the flag must first survive the wallet's own fill history, which is on the same row.**
-A honeypot is a token you *cannot sell*; `history_total_sells > 0` on that row is a completed
-sale, so the flag is refuted by construction. The usual cause is a transfer-restricted
-RWA / tokenised-stock contract (`SPYB`, `NVDAB`, `XAUt`, `AAPLB`…) that trips naive sell
-simulators. A live run failed G4 on seven such "honeypots" on one wallet — one of which it had
-sold **101 times**. Refuted flags are excluded from the G4 count and reported in the
-reassurance block with the sell count that killed them, never silently dropped.
-
-**When `holdings` is unavailable the honeypot half of G4 has not run, and G4's pass must say so**
-(`⚪ honeypot NOT checked (holdings unavailable) — this pass covers loss-cutting only`). A
-live run caught exactly this: G4
-rendered a bare ✅ while the check had silently never executed — the "⚪ must never read as ✅"
-rule violated by the skill that states it. `security_checked` counts the rows that actually
-carried the flag, so a missing field can never be read as clean.
-
-## Holdings response schema — confirmed against the live API
-
-These were verified against real gmgn-cli 1.5.8 responses. `gmgn-portfolio/SKILL.md` used to
-document the left-hand column, which is where this skill's first cut got its field names from and
-why it read zeros off a live wallet; that doc has since been corrected, and the old names are kept
-here only as fallbacks in `h_get()` in case some chain still returns them.
-
-| Documented | Actual | Notes |
-|-----------|--------|-------|
-| `holdings` array | **`list`** | plus a `next` cursor |
-| `cost` | **`accu_cost`** | `history_bought_cost` is the all-time figure |
-| `profit_change` | **`total_profit_pnl`** | ratio, not percentage |
-| `buy_tx_count` / `sell_tx_count` | **`history_total_buys` / `history_total_sells`** | |
-| `token.address` | **`token.token_address`** | `activity` rows do use `token.address` |
-| `--sell-out` flag | **does not exist** | gmgn-cli 1.5.8 rejects it with "unknown option" |
-| — | **`token.is_honeypot`**, **`token.launchpad_platform`**, `token.liquidity`, `token.max_supply` | inline, undocumented, and useful |
-
-`total_profit`, `realized_profit`, `unrealized_profit`, `usd_value` and `balance` are as documented.
-
-## Removing reasoning burden
-
-The output format is a hard requirement of this skill, not a preference. Every line carries its own
-conclusion so nothing has to be cross-referenced or recomputed by the reader:
-
-- **The verdict is the first thing on the page**, its cause is in the headline, and the speed
-  read (what it is / key numbers / profit from / top risk) finishes the decision before detail.
-- **Identity comes immediately after the speed read, before the gates.** The X account is printed
-  with its full `x.com/<handle>` so the reader does not have to go and find it, and its absence
-  is stated explicitly ("no X account bound") rather than left as a missing line.
-- **Never print a number without its consequence.** `1,103 trades/day` alone is a fact the reader
-  must interpret; `1,103 trades/day → bot cadence, no hand keeps pace` is a finished thought.
-- **Reconcile contradictory numbers rather than printing both.** `avg_holding_period` counts
-  positions never sold, so a seconds-scale scalper can report a 4-day "average hold". When the
-  mean exceeds 8× the median copy window, say which one to read and why — the reader should not
-  have to notice the contradiction, let alone resolve it.
-- **State friction as a share, not a level.** `$4 gas` is meaningless; `$26 net per exit against
-  $4 gas ≈ 31% of profit → no room left for your slippage` is the decision.
-- **No prose paragraphs, no conclusion at the bottom.** A dossier that ends in
-  "the above is for reference only, use your own judgement" has moved the entire analytical
-  burden back onto the reader.
-
-## Output format: native markdown
-
-`analyze.py` emits **markdown**, not column-aligned terminal text. It is read in chat, in an
-agent pipeline and in docs — none of which render in a monospace grid, and a hand-built
-column of spaces shears the moment they do not. Tables align themselves; nothing in the
-output depends on a fixed column width any more.
-
-The previous renderer built every column by padding with spaces to a 76-display-column
-budget, counting CJK as two columns and emoji by a hand-maintained width table. All of that
-machinery — `COL`, `BREAK_AFTER`, `wrap()`, `put()`, `wpad()`, `dwidth()`, `cwidth()` — is
-gone, along with the class of bug it kept producing (a variation selector measured as two
-columns, an emoji as one, `wrap()` and `dwidth()` disagreeing by two).
-
-| Rule | Why | How it is enforced |
-|------|-----|--------------------|
-| **Every table has a delimiter row and a constant column count** | A missing `\|---\|` renders the whole table as literal pipes | `md_table()` builds both; the check below fails on either |
-| **No table with an empty header row** | `\|  \|  \|` renders as a blank header band and reads as a broken table. A key/value block is not tabular data — it is a definition list, and `- **label** — value` says the same thing without the empty band | the check below rejects it |
-| **Heading levels never skip** | The card's sections sat at `###` under a `#`, so an outline view shows a missing level. The checker below walks the sequence |
-| **A gate is labelled once, in words** | `✅ G1 AUTHENTICITY (is the data trustworthy)` said the same thing three ways. The code is internal bookkeeping and the formal noun is not what a reader asks — the plain question is. Gates are `###` under their section, not bold paragraphs floating in it |
-| **The document starts at `#`** | When the card is withheld the report used to open at `##`, so the whole document had no top level | the verdict heading is `#` when there is no card above it |
-| **Cell values are escaped** | One `\|` in a token symbol splits a row into extra columns | `esc()` on every cell |
-| **No raw HTML at all** | `<br>` was used for multi-line table cells; once those blocks became definition lists it rendered as literal text. A continuation line indented two spaces stays inside its list item and needs no tag | the check below rejects every tag |
-| **Bold markers come in pairs, `#` is followed by a space** | Both render as literal characters when malformed, and only in the reader's client | the check below |
-| **A section heading must not contradict its contents** | `RISK FLAGS (2)` over three bullets. Reassurances now sit under their own `CLEARED` heading rather than padding the risk list | separate heading |
-| **Never print a zero as if it were a finding** | `0.0% of entries under $100k` is noise, not information | guarded at the call site |
-| **Money: no cents at or above $10; thousands separators always** | `$213.46` is false precision | `usd()`; `usd_exact()` for the two figures a reader acts on |
-| **One name per concept** | "copy window" / "median window" / "window" for one quantity makes the reader re-derive that they match. The analysis period is the "data range", never a "window" | fixed at the format-string level |
-| **A number's reasoning is not gated on an unrelated gate** | The size cap's derivation sat on the `G3 is True` branch, so the run that most needs it — G3 failed, the reader is told not to mirror, and the card still shows a cap — printed a bare `$132` with no reasoning anywhere. Sizing and reachability are different questions | the rationale prints whenever `size_cap` exists |
-| **Never print the same fact twice** | "ordinary trading wallet" appeared in both the speed read and WHO IT IS | deduplicated at the renderer |
-
-Verification is mechanical. This must stay clean across every fixture and both languages:
+Three mechanical checks, all of which must come back clean in both languages:
 
 ```bash
-python3 analyze.py <WALLET> <CHAIN> zh > /tmp/r.md
-python3 - <<'PY'
+# 1. markdown is well-formed: delimiter rows, constant column counts, no skipped heading
+#    level, an H1 present, balanced bold, no raw HTML, no empty header row.
+python3 analyze.py <WALLET> <CHAIN> zh > /tmp/r.md && python3 - <<'PYEOF'
 import re
 t = open("/tmp/r.md", encoding="utf-8").read().splitlines()
 e, i = [], 0
@@ -591,10 +213,44 @@ if h and not h[0].startswith("# "): e.append("document has no H1")
 lv = [len(re.match(r"^#+", l).group()) for l in h]
 e += [f"heading skips a level: {a} -> {b}" for a, b in zip(lv, lv[1:]) if b > a + 1]
 print("\n".join(e) if e else "markdown OK")
-PY
+PYEOF
+
+# 2. every T("...") literal has a ZH entry, and 3. every follow-up carries a trigger phrase.
+python3 - <<'PYEOF'
+import ast
+tree = ast.parse(open("analyze.py", encoding="utf-8").read())
+zh = next(n for n in tree.body
+          if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "ZH")
+t = {k.value: v.value for k, v in zip(zh.value.keys, zh.value.values)}
+calls = {n.args[0].value for n in ast.walk(tree)
+         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "T"
+         and n.args and isinstance(n.args[0], ast.Constant)}
+print("translations missing:", sorted(calls - set(t)) or "none")
+TRIG = {"gmgn-holder-analysis": ["筹码分析", "持仓分析"], "gmgn-kline-pattern": ["走势", "形态"],
+        "gmgn-wallet-score": ["跟单评分", "发盘情况怎么样"], "gmgn-token": ["安全", "代币合约"],
+        "gmgn-track": ["聪明钱", "KOL"], "gmgn-portfolio": ["持仓"]}
+Q = [("What do the chips look like on {0} — who is holding, and at what cost?", "gmgn-holder-analysis"),
+     ("Score it 0-100 with my own latency and slippage modelled in?", "gmgn-wallet-score"),
+     ("It launched {0} tokens — how many of them are still alive?", "gmgn-wallet-score"),
+     ("What shape is {0} in right now — still climbing, or already breaking down?", "gmgn-kline-pattern"),
+     ("Are the contracts on {0} safe — honeypot, liquidity, mint authority?", "gmgn-token"),
+     ("Who else is buying {0} — any smart money or KOLs in there?", "gmgn-track"),
+     ("It holds {0} coins — list the whole book with costs?", "gmgn-portfolio"),
+     ("Is this address a wallet at all, or a token contract?", "gmgn-token")]
+print("unrouted:", [(e, s) for e, s in Q if not any(w in t[e] for w in TRIG[s])] or "none")
+PYEOF
 ```
 
-Run it for both `zh` and `en`.
+`T()` falls back to English rather than failing, so a reworded string silently half-anglicises the
+Chinese report. **Only add entries to `ZH`, never prune** — check 1 sees only literal call sites,
+and several strings reach `T()` through a variable (`TAGS`, `TITLES`, `GATE_NAMES`, `GATE_GLOSS`,
+`GATE_PLAIN`, and the holdings sentence built as `tpl = (... if ... else ...)`).
+
+Two thresholds must not be loosened without re-deriving them, because the first cut got both
+wrong: the copy window's **3× margin**, and profit concentration's **≥3 winners / ≥8 positions**
+floor. And no third-party label may veto on its own — `wash_trader` needs the conviction-share
+test, `is_honeypot` needs the sell-count test. Both false-positived on one real wallet in the
+same run and together produced a 🔴 on a wallet with $459K of genuine realized profit.
 
 ## Step 1 — Confirm it is a wallet, not a token
 
@@ -641,160 +297,55 @@ Two things you *should* add after the report, when they apply:
 
 ## Data plan and rate limits
 
-All routes go through GMGN's leaky-bucket limiter (`rate=20`, `capacity=20`). A full run costs roughly **weight 26–28**, which is more than one full bucket — the script issues calls sequentially, and you should not batch several wallets back to back.
+All routes go through GMGN's leaky-bucket limiter (`rate=20`, `capacity=20`). A full run costs
+roughly **weight 26–28** — more than one full bucket, so do not batch several wallets back to back.
 
 | Tier | Call | Weight | Auth | Purpose | If it fails |
 |------|------|--------|------|---------|-------------|
 | 1 | `portfolio stats --period 7d` | 3 | exist | Buckets, win rate, hold time, identity | **Fatal** — no verdict without it |
-| 1 | `portfolio stats --period 30d` | 3 | exist | Mid-window ROI for the form curve | G2 degrades to 7d vs all-time |
-| 1 | `portfolio profits --period 1d` | 3 | exist | Today's ROI | Form curve loses its first point |
 | 1 | `portfolio profits --period all` | 3 | exist | All-time ROI — the leaderboard-trap detector | G2 becomes unevaluated |
-| 2 | `portfolio activity` ×1–3 pages | 3 each | exist | Copy window, entry band, scale-in/out, 24h posture | G3 → ⚪, ④ mostly blank |
-| 2 | `portfolio holdings` | 5 | **critical** | Live book, profit concentration, hold-to-zero, **honeypot flags**, launchpad mix | G1 falls back to bucket inference; G4 loses hold-to-zero AND says the honeypot half was not checked |
-| 3 | `portfolio created-tokens` | 2 | exist | Launch record — only when the wallet looks like a launcher | Dev record omitted |
+| 1 | `portfolio holdings` | 5 | **critical** | Live book, profit concentration, hold-to-zero, honeypot flags, launchpad mix | G1 cannot corroborate a tag; G4 loses hold-to-zero and says the honeypot half was not checked |
+| 2 | `portfolio activity` ×1–3 pages | 3 each | exist | Copy window, entry band, 24h posture | G3 → ⚪ |
+| 3 | `portfolio stats --period 30d` | 3 | exist | Mid-window ROI | G2 degrades to 7d vs all-time |
+| 3 | `portfolio profits --period 1d` | 3 | exist | Today's ROI | Form curve loses a point |
+| 3 | `portfolio created-tokens` | 2 | exist | Launch record — only if it looks like a launcher | Dev record omitted |
 
-**Cross-checked against the site.** `gmgn-cli` and gmgn.ai's public leaderboard read the same
-source:
-across three BSC wallets, seventeen fields (7D ROI, P&L USD, win rate, buy/sell counts, native
-balance, `bought_cost + sold_income` = the site's volume column, `remark_count`) matched to the
-last displayed digit. Two things this pinned down:
-
-- **The 1d window is rolling.** A `profits --period 1d` pull minutes after a screenshot reads
-  15–20% lower because profitable trades roll out of the window. 7d/30d are stable; this is why
-  the dossier's headline window is 7d and why every conclusion names its window.
-- **Wallet detail pages (`/<chain>/address/<addr>`) require login and redirect to the homepage
-  when signed out.** The public leaderboard is the only browser-side cross-check available, and
-  the CLI remains the only supported way to read wallet data — see the rule at the top of this
-  file.
-
-`portfolio holdings` needs **critical auth** (`GMGN_API_KEY` + `GMGN_PRIVATE_KEY`). A wallet dossier is worth running without it — the script degrades and records the gap — but say plainly that the live-positions section is missing rather than letting its absence read as "no positions".
-
-### Call order is not cosmetic
-
-A full dossier costs weight 26-28 against a bucket of 20, so on a cold-ish bucket something
-is refused — the only question is what. Issuing `holdings` last, at cumulative weight 26,
-made the single most decisive call the guaranteed casualty: without it G1 cannot corroborate
-a `wash_trader` tag (the verdict falls to HOLD OFF), G4's honeypot half never runs, and the
-profit engine is dropped. That was observed on five consecutive live runs of the same wallet.
-
-The gate-critical set therefore goes first and fits inside one bucket:
+**Call order is not cosmetic.** 26–28 against a bucket of 20 means something gets refused; the
+only question is what. With `holdings` issued last it was the guaranteed casualty — and without
+it the verdict falls to HOLD OFF, the honeypot check never runs and the profit engine is dropped.
+That was observed on five consecutive live runs. The gate-critical set therefore lands inside one
+bucket:
 
 ```
 stats_7d(3) → profits_all(3) → holdings(5) = 11   ← the verdict is decidable here
 activity(3 × 3 = 9)                        = 20   ← copy window, entry band
 stats_30d(3), profits_1d(3)                = 26   ← depth only, best-effort
-created-tokens(2), conditional
 ```
 
-Nothing about *what* is asked changed — same routes, same parameters, same page count — so no
-threshold, formula or verdict row is affected. Verified: all 24 fixture/language outputs are
-byte-identical across the reorder.
+`portfolio holdings` needs **critical auth** (`GMGN_API_KEY` + `GMGN_PRIVATE_KEY`). The dossier is
+worth running without it — the script degrades and records the gap — but say plainly that the
+live-positions section is missing rather than letting its absence read as "no positions".
 
-**On `429`:** stop. Read `X-RateLimit-Reset`, or `reset_at` from the body, convert to the user's local time and state it: *"Rate-limited — retry this wallet after 14:32:05 (~4 minutes)."* Report whatever tiers already succeeded rather than discarding the run, and re-issue only the missing calls afterwards. Repeated requests during a cooldown extend the ban by 5 seconds each, up to 5 minutes — never loop retries.
+**On `429`:** stop. Read `X-RateLimit-Reset` or `reset_at`, convert to the user's local time and
+state it: *"Rate-limited — retry this wallet after 14:32:05 (~4 minutes)."* Report whatever tiers
+succeeded rather than discarding the run. Repeated requests during a cooldown extend the ban by
+5 seconds each, up to 5 minutes — never loop retries.
+
+**The 1d window is rolling.** A `profits --period 1d` pull minutes after a screenshot reads 15–20%
+lower because profitable trades roll out of the window. 7d/30d are stable — which is why the
+headline window is 7d and why every conclusion names its window. (`gmgn-cli` and gmgn.ai's public
+leaderboard read the same source: across three BSC wallets seventeen fields matched to the last
+displayed digit. Wallet detail pages require login, so the leaderboard is the only browser-side
+cross-check — and the CLI remains the only supported way to read wallet data.)
 
 ## Supported Chains
 
 `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` — whatever `gmgn-cli portfolio` accepts. `portfolio stats --period` accepts only `7d` and `30d`; `portfolio profits --period` accepts `1d` / `7d` / `30d` / `all`. Every conclusion is a statement about its window — the report names the window, and so should you.
 
-## Field Reference
-
-Confirmed fields only. **Every numeric value arrives as a JSON string** — `"winrate": "0.46"`, `"buy": "95"`. `"0.46" > 0.5` is a string comparison and gives the wrong answer. The script converts before comparing; if you read raw output yourself, do the same.
-
-### Response envelopes — every route wraps differently
-
-**Read this before touching a field name.** The five routes do not share a response shape, and
-the field tables below describe what is *inside* the envelope, not the top level. Reading
-`realized_profit` off a `profits` response gives `undefined`, which converts to `0` and then to
-"this wallet made nothing" — a wrong answer that looks like a real one. All five were confirmed
-against gmgn-cli 1.5.8 live responses.
-
-| Route | Top-level shape | Where the data is |
-|-------|-----------------|-------------------|
-| `portfolio stats` | bare object | the object itself; buckets under `pnl_stat`, identity under `common` |
-| `portfolio profits` | **`{"list": [ {…} ]}`** | **`list[0]`** — a single row, still wrapped in an array |
-| `portfolio activity` | `{"activities": [...], "next": …}` | **`activities`** (not `list`) |
-| `portfolio holdings` | `{"list": [...], "next": …}` | **`list`** (not `holdings`); paginate with `--cursor <next>` |
-| `portfolio created-tokens` | bare object | counts at the top level, per-token rows under `tokens` |
-
-Some deployments additionally wrap the whole body in `{"data": …}`. `analyze.py` handles all of
-these in `unwrap()` / `first_row()`; a hand-written call must do the same.
-
-| Source | Field | Meaning |
-|--------|-------|---------|
-| `portfolio stats` | `buy` / `buy_count`, `sell` / `sell_count` | Trade counts (second name is the fallback on some chains) |
-| `portfolio stats` | `realized_profit_pnl` / `pnl` | **A ratio, not a percentage** — `0.35` is +35%. Never print raw |
-| `portfolio stats` | `realized_profit`, `bought_cost` / `total_cost` | Window P&L and cost basis |
-| `portfolio stats` | `pnl_stat.winrate`, `.token_num`, `.avg_holding_period` | Core outcome shape |
-| `portfolio stats` | `pnl_stat.pnl_gt_5x_num` / `_2x_5x_` / `_0x_2x_` / `_nd5_0x_` / `_lt_nd5_` | Buckets: >500% / 200–500% / 0–200% / −50–0% / <−50%. **Counts tokens, not dollars** |
-| `portfolio stats` | `common.created_token_count`, `.created_at`, `.tags`, `.fund_from`, `.fund_from_address`, `.follow_count` | Identity and provenance |
-| `portfolio stats` | `native_balance` | Dry powder, in the chain's native token. GMGN's own leaderboard puts it in column two |
-| `portfolio stats` | `last_timestamp` | Freshness. Every other figure is silent about whether the wallet is still trading; past 48h the report says so with a warning |
-| `portfolio stats` | `bought_fee`, `sold_fee` | The fees actually paid. **Prefer these over the activity-sample gas estimate** — see the friction rule above |
-| `portfolio profits` | `realized_profit`, `realized_profit_cost` | Selected-period ROI numerator/denominator |
-| `portfolio profits` | `total_realized_profit`, `total_realized_profit_cost`, `unrealized_profit` | All-time ROI and open paper P&L |
-| `portfolio activity` | `event_type` / `type`, `timestamp`, `price_usd`, `cost_usd`, `gas_usd`, `token.address`, `token.symbol`, `token.total_supply` | Behaviour reconstruction |
-| `portfolio holdings` | `usd_value`, `cost`, `total_profit`, `profit_change`, `sell_tx_count`, `token.symbol` | Live book, concentration, hold-to-zero |
-| `portfolio created-tokens` | `open_count`, `inner_count`, `open_ratio`, `creator_ath_info.ath_mc`, `last_create_timestamp`, `tokens[]` | Launch survival record. `open_ratio` is a ratio, not a percentage |
-
-Derived quantities the script defines:
-
-| Metric | Definition | Why it matters |
-|--------|-----------|----------------|
-| **Copy window** | Median seconds from the wallet's first buy of a token to its first sell of that token | The budget you have to land an order. Compared against `--latency` at a 3× margin — landing at the edge of the window means every slow block puts you on the wrong side of its exit |
-| **Entry mcap band** | p25/p50/p75 of `price_usd × token.total_supply` on buy rows | A median under $30k means it is buying pre-graduation and you enter at 5–10× its cost |
-| **Form curve** | ROI at 1d / 7d / 30d / all-time, side by side | Separates "still working" from "worked once" |
-| **Profit concentration** | Largest winning position's share of all gains, from `holdings` | Only trusted with ≥3 winners across ≥8 positions — with one winner in the page it is 100% by arithmetic, not by evidence |
-| **One-coin flag** | Net positive, ≤1 token above 2×, and a losing majority, over ≥8 tokens | The bucket-only fallback when `holdings` is unavailable. A *count* fact, never a synthesised percentage |
-| **Conviction share** | Realized gains from positions whose profit exceeds their own cost basis or clears $1k/exit, over all realized gains | The corroboration test for a `wash_trader` tag. Self-dealing nets ~0 per round trip and cannot reach either bar |
-| **Top position / ladder depth** | Largest live position by USD; median `history_total_buys` across the 5 largest positions | `avg_buy_usd` measures the *clip*, not the *position*. A wallet laddering a $54K position out of $3.4K clips reads as an ordinary small trader on clip size alone — and did, until these were added |
-| **Gas share** | Average `gas_usd` ÷ median buy size | Priority-fee bidding you also have to pay |
-| **Gas drag** | Average `gas_usd` × trade count ÷ realized profit | An estimate (sample gas × window trades), labelled as one. At ≥25% the wallet has already given away most of its edge before your slippage |
-| **Net per exit** | Realized profit ÷ sell count | The yardstick gas and slippage are measured against. $26 a trade cannot absorb $4 of gas plus your fill |
-| **Honeypot count** | `is_honeypot` on the 5 largest live positions | Unsellable holdings, and evidence its own screening failed |
-| **Hold-to-zero** | Positions down ≥90% with `sell_tx_count` = 0 | Distinguishes "cuts losses" from "cannot admit a loss" |
-| **Gain top-3 share** | Top 3 winning positions' realized profit over all realized gains | With `per_day`, this is what separates a speed edge from a selection edge — see **The profit engine** |
-| **Size cap** | Half the wallet's own average buy | Above the wallet's own size, your slippage is worse than its, so its results stop applying to you |
-
-## Verification
-
-There is no test suite in this directory. The twelve-fixture generator that covered all
-eleven verdict branches, the three-way `wash_trader` matched set, and the column-width rule
-was removed from the shipped skill; it is in git history at `gen_fixtures.py` on the
-`feat/wallet-analysis-skill` branch, and `analyze.py --fixture <file.json> <lang>` still
-reads a hand-written response bundle if you rebuild one.
-
-**What that means in practice: any change to `analyze.py` has to be verified against live
-wallets.** Two things make that harder than it sounds, and both are why the fixtures existed:
-
-- Live data moves. You cannot diff two runs of the same wallet minutes apart and attribute
-  the difference to your change — the 1d window is rolling and `activity` is a sample.
-- The route budget is roughly weight 26-28 per wallet against a bucket of 20, so a handful
-  of verification runs will rate-limit the account, and requests during the cooldown extend
-  the ban by 5 seconds each.
-
-Pick wallets that exercise opposite verdicts, run each once, and read the whole report rather
-than the headline. Two thresholds in particular should be left alone unless you have
-re-derived them, because the first cut got both wrong:
-
-- **Profit concentration requires >=3 winners and >=8 positions.** Without it the gate fired
-  on every wallet whose `holdings` page happened to contain one winner — 100% concentration
-  is arithmetic on a 1-winner sample, and it vetoed a wallet whose real problem was a
-  different gate.
-- **The copy window needs 3x margin, not 1x.** A 4-second window against a 3-second latency
-  technically "passes" and is not tradeable.
-- **No third-party label may veto on its own.** `wash_trader` needs the conviction-share
-  test; `is_honeypot` needs the sell-count test. Both false-positived on one real wallet in
-  the same run, and both produced a 🔴 on a wallet with $459K of genuine realized profit.
-- **Do not rebuild a column layout.** Two bugs in the old renderer came from measuring
-  display width by hand — a variation selector counted as two columns while its emoji
-  counted as one, and `wrap()` and `dwidth()` disagreeing by two put a line past the limit
-  while every check called it safe. Markdown tables removed the whole class; do not
-  reintroduce space-padded columns to make something "line up".
-
 ## Notes
 
 - **Read-only.** `portfolio stats` / `profits` / `activity` / `holdings` / `created-tokens` only. No signing, no private key use beyond the read signature `holdings` requires, no trade commands. To act on a 🟢, hand off to `gmgn-swap`.
-- All commands use `--raw` for single-line JSON. Inspect raw output yourself before trusting any field not in the Field Reference above.
+- All commands use `--raw` for single-line JSON. Inspect raw output yourself before trusting any field the script does not already read.
 - **The P&L buckets count tokens, not dollars.** A wallet can be net positive on one large winner while most of its coins lost money. G1's one-coin flag exists precisely because the headline ROI hides this.
 - The activity sample is capped at 3 pages (300 rows). For a very busy wallet that may cover only a few hours — the report says so, and the copy window and posture readings are about that slice, not about the week.
 - A gate verdict describes behaviour that already happened. It is not a prediction, and 🟢 is not advice to trade. The size cap is an upper bound on exposure, not a recommendation to take it.
@@ -804,10 +355,15 @@ re-derived them, because the first cut got both wrong:
 
 | Skill | Use it for |
 |-------|-----------|
-| [gmgn-wallet-style](../gmgn-wallet-style/SKILL.md) | A style label with no verdict attached. Note this skill now prints the same title and subtitle itself |
 | [gmgn-wallet-score](../gmgn-wallet-score/SKILL.md) | 0–100 scores and an explicit latency/slippage/gas backtest |
-| [gmgn-portfolio](../gmgn-portfolio/SKILL.md) | The underlying commands and their full field reference |
 | [gmgn-holder-analysis](../gmgn-holder-analysis/SKILL.md) | Chip structure of the tokens this wallet just bought |
 | [gmgn-token](../gmgn-token/SKILL.md) | Contract safety on those tokens |
+| [gmgn-kline-pattern](../gmgn-kline-pattern/SKILL.md) | The chart shape of a token it just bought |
+| [gmgn-portfolio](../gmgn-portfolio/SKILL.md) | The underlying commands and their full field reference |
 | [gmgn-track](../gmgn-track/SKILL.md) | Finding candidate wallets to run this on |
 | [gmgn-swap](../gmgn-swap/SKILL.md) | Executing on a 🟢 verdict |
+
+Design rationale — why the card withholds what it withholds, why each deleted figure was deleted,
+what each threshold cost to get wrong — lives in `analyze.py`'s comments at the point of the
+decision, and in the commit messages on `feat/wallet-analysis-skill`. It is deliberately not in
+this file: this file is loaded into context on every invocation.
