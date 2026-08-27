@@ -357,8 +357,10 @@ columns, an emoji as one, `wrap()` and `dwidth()` disagreeing by two).
 | Rule | Why | How it is enforced |
 |------|-----|--------------------|
 | **Every table has a delimiter row and a constant column count** | A missing `\|---\|` renders the whole table as literal pipes | `md_table()` builds both; the check below fails on either |
+| **No table with an empty header row** | `\|  \|  \|` renders as a blank header band and reads as a broken table. A key/value block is not tabular data — it is a definition list, and `- **label** — value` says the same thing without the empty band | the check below rejects it |
+| **The document starts at `#`** | When the card is withheld the report used to open at `##`, so the whole document had no top level | the verdict heading is `#` when there is no card above it |
 | **Cell values are escaped** | One `\|` in a token symbol splits a row into extra columns | `esc()` on every cell |
-| **The only raw HTML is `<br>` inside table cells** | A cell that needs two lines has no markdown way to do it. Anything else stops being portable | the check below rejects any other tag |
+| **No raw HTML at all** | `<br>` was used for multi-line table cells; once those blocks became definition lists it rendered as literal text. A continuation line indented two spaces stays inside its list item and needs no tag | the check below rejects every tag |
 | **Bold markers come in pairs, `#` is followed by a space** | Both render as literal characters when malformed, and only in the reader's client | the check below |
 | **A section heading must not contradict its contents** | `RISK FLAGS (2)` over three bullets. Reassurances now sit under their own `CLEARED` heading rather than padding the risk list | separate heading |
 | **Never print a zero as if it were a finding** | `0.0% of entries under $100k` is noise, not information | guarded at the call site |
@@ -373,24 +375,26 @@ python3 analyze.py <WALLET> <CHAIN> zh > /tmp/r.md
 python3 - <<'PY'
 import re
 t = open("/tmp/r.md", encoding="utf-8").read().splitlines()
-errs, i = [], 0
+e, i = [], 0
 while i < len(t):
     if t[i].startswith("|"):
+        if re.fullmatch(r'\|(\s*\|)+', t[i]): e.append(f"L{i+1} empty header row")
         if i+1 >= len(t) or not re.fullmatch(r'\|(\s*:?-+:?\s*\|)+', t[i+1].strip()):
-            errs.append(f"L{i+1} table has no delimiter row")
+            e.append(f"L{i+1} no delimiter row")
         cols, j = t[i].count("|"), i
         while j < len(t) and t[j].startswith("|"):
-            if t[j].count("|") != cols: errs.append(f"L{j+1} column count differs")
+            if t[j].count("|") != cols: e.append(f"L{j+1} column count differs")
             j += 1
         i = j
     else:
         i += 1
 for n, l in enumerate(t, 1):
-    if re.match(r'^#{1,6}[^ #]', l): errs.append(f"L{n} heading needs a space after #")
-    if l.count("**") % 2: errs.append(f"L{n} unbalanced bold")
-    for tag in re.findall(r'</?([a-zA-Z]+)[^>]*>', l):
-        if tag.lower() != "br": errs.append(f"L{n} unexpected HTML <{tag}>")
-print("\n".join(errs) if errs else "markdown OK")
+    if re.match(r'^#{1,6}[^ #]', l): e.append(f"L{n} heading needs a space after #")
+    if l.count("**") % 2: e.append(f"L{n} unbalanced bold")
+    for tag in re.findall(r'</?([a-zA-Z]+)[^>]*>', l): e.append(f"L{n} raw HTML <{tag}>")
+h = [l for l in t if l.startswith("#")]
+if h and not h[0].startswith("# "): e.append("document has no H1")
+print("\n".join(e) if e else "markdown OK")
 PY
 ```
 

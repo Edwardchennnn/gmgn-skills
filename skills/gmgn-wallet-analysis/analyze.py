@@ -1668,8 +1668,7 @@ def card(m, g, wallet, chain):
 
     if m["recent_buys"]:
         out += ["### " + T('  BOUGHT IN THE LAST 24H').strip(), ""]
-        out += md_table(["", ""], [[s, usd(v)] for s, v in m["recent_buys"][:3]],
-                        ["---", "---:"]) + [""]
+        out += [f"- {s} **{usd(v)}**" for s, v in m["recent_buys"][:3]] + [""]
 
     if m["open_value"] and m["open_book"]:
         top = m["open_book"][0]
@@ -1718,7 +1717,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
         # card with a hole in it, and hand back the full report instead of nothing.
         out += ["> **" + T('NO CARD  ').strip() + "** " + blocked, ""]
 
-    out += [f"## {emoji} {headline}", "",
+    out += [("## " if not blocked else "# ") + f"{emoji} {headline}", "",
             f"**{T('DO THIS  ').strip()}** {why}", "",
             "`" + T('{0} · {1} · window 7d (all-time from profits --period all)', w, chain) + "`",
             ""]
@@ -1736,7 +1735,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
         return "\n".join(out)
 
     out += ["## " + T('⚡ SPEED READ'), ""]
-    out += md_table(["", ""], [[f"**{lab}**", val] for lab, val in speed_read(m, g, why)]) + [""]
+    out += [f"- **{lab}** — {val}" for lab, val in speed_read(m, g, why)] + [""]
 
     # ── identity ────────────────────────────────────────────────────────────────
     rows_id = []
@@ -1745,7 +1744,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
         head = f"{st[0]} **{st[1]}**"
         if sp:
             head += f" · {sp[0]} {sp[1]}" + T(" ({0})", sp[2])
-        rows_id.append((T('style'), head + "<br>" + T('{0} · cadence×P&L {1}', st[2], st[3])))
+        rows_id.append((T('style'), [head, T('{0} · cadence×P&L {1}', st[2], st[3])]))
 
     if m["twitter_name"] or m["twitter"]:
         bits = [(f"{m['twitter_name'] or ''} @{m['twitter']}" if m["twitter"]
@@ -1757,9 +1756,8 @@ def report(wallet, chain, m, g, gaps, brief=False):
         acct = " · ".join(bits)
         # Spell the profile out. Someone who searched this address wants to know whose
         # account it is, and a bare @handle still leaves them to go and find it.
-        if m["twitter"]:
-            acct += f"<br>x.com/{m['twitter']}"
-        rows_id.append((T('account'), acct))
+        rows_id.append((T('account'),
+                        [acct] + ([f"x.com/{m['twitter']}"] if m["twitter"] else [])))
     elif not (m["tags"] or m["fund_from"] or m["fund_from_address"]):
         rows_id.append((T('account'),
                         T('no X account bound and no traceable funding source — an anonymous address')))
@@ -1791,11 +1789,17 @@ def report(wallet, chain, m, g, gaps, brief=False):
     eng = profit_engine(m)
     if eng:
         chip, detail, meaning = eng
-        rows_id.append((T('engine'), f"**{chip}**<br>{detail}<br>→ {meaning}"))
+        rows_id.append((T('engine'), [f"**{chip}**", detail, f"→ {meaning}"]))
 
     if rows_id:
         out += ["## " + T('👤 WHO IT IS'), ""]
-        out += md_table(["", ""], [[f"**{k}**", v] for k, v in rows_id]) + [""]
+        for k, v in rows_id:
+            vals = v if isinstance(v, list) else [v]
+            out.append(f"- **{k}** — {vals[0]}")
+            # Two-space indent keeps a continuation line inside its list item instead of
+            # starting a new paragraph, which is what `<br>` was standing in for.
+            out += [f"  {extra}" for extra in vals[1:]]
+        out.append("")
 
     # ── the four gates ──
     strip = "　".join(f"{mark(g[k][0])}{k}" for k in ("G1", "G2", "G3", "G4"))
@@ -1891,7 +1895,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
                    ("−50–0%", "n50_0"), ("<−50%", "lt_n50")):
         n = b[k]
         drows.append([lab, f"{n:,}", ("`" + "█" * max(1, int(round(30 * n / peak))) + "`") if n else ""])
-    out += md_table(["", "", ""], drows, ["---", "---:", "---"]) + [""]
+    out += md_table([T('band'), T('tokens'), ""], drows, ["---", "---:", "---"]) + [""]
     if m["dist_gap"]:
         out += ["> ⚠️ " + T('The 0-200% band is not a win count. It holds {0} tokens while the win rate '
                             'implies about {1} winners — the other {2} were bought and have no realized '
@@ -1910,8 +1914,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
     out.append("")
     if m["recent_buys"]:
         out += ["**" + T('bought in 24h').strip() + "**", ""]
-        out += md_table(["", ""], [[s, usd(v)] for s, v in m["recent_buys"]],
-                        ["---", "---:"]) + [""]
+        out += [f"- {s} **{usd(v)}**" for s, v in m["recent_buys"]] + [""]
     if m["open_book"]:
         out += ["**" + T('{0} positions · {1} total', m['holdings_n'], usd(m['open_value'])) + "**", ""]
         hp_syms = {x["sym"] for x in m["honeypots"]}
