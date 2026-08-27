@@ -257,7 +257,7 @@ ZH = {
     "has held assets that survived": "持有过存活下来的资产",
     "heating up": "升温",
     "heavily followed": "被大量跟单",
-    "heavy-loss share {0} ({1}/{2} down >50%)": "重亏 {0}（{1}/{2} 亏超 50%）",
+    "heavy-loss share {0} ({1:,}/{2:,} down >50%)": "重亏 {0}（{1:,}/{2:,} 亏超 50%）",
     "high freq, needs tooling": "高频，需脚本",
     "high frequency and strongly profitable — the strongest cell": "高频且强盈，这一格最强",
     "high frequency, high friction; the loss is mostly cost": "高频高摩擦，净亏主要亏在成本",
@@ -441,7 +441,7 @@ ZH = {
     "{0} net vs {1} gas": "单笔净赚 {0} vs gas {1}",
     "{0} not measured — the card has no way to show an unmeasured check": "{0} 未测出 —— 决策卡没有地方放「未评估」这个状态",
     "{0} of its buy": "{0}以内",
-    "{0} of its tokens are down >50% ({1}/{2}) — it does not cut": "{0} 的币亏超 50%（{1}/{2}）—— 不砍仓",
+    "{0} of its tokens are down >50% ({1:,}/{2:,}) — it does not cut": "{0} 的币亏超 50%（{1:,}/{2:,}）—— 不砍仓",
     "{0} of realized gains came from size positions like {1} that netted more than their own cost basis — the profit is priced in, not churned": "{0} 的已实现盈利来自 {1} 这类净赚超过自身成本的重仓 —— 利润来自持仓本身，不是来自换手",
     "{0} of tokens down >50% — it does not cut": "{0} 的币亏超 50% —— 它不砍仓",
     "{0} on {1} cost = {2}": "{0} / 成本 {1} = {2}",
@@ -1573,7 +1573,7 @@ def gates(m):
     elif m["lt50_share"] >= 0.35:
         g["G4"] = (
             False,
-            T('{0} of its tokens are down >50% ({1}/{2}) — it does not cut', pct(m['lt50_share']), m['buckets']['lt_n50'], m['token_num']),
+            T('{0} of its tokens are down >50% ({1:,}/{2:,}) — it does not cut', pct(m['lt50_share']), m['buckets']['lt_n50'], m['token_num']),
         )
     elif m["hold_to_zero"] is not None and m["hold_to_zero"] >= 3:
         g["G4"] = (
@@ -1582,7 +1582,7 @@ def gates(m):
         )
     else:
         reasons = [
-            T('heavy-loss share {0} ({1}/{2} down >50%)', pct(m['lt50_share']), m['buckets']['lt_n50'], m['token_num'])
+            T('heavy-loss share {0} ({1:,}/{2:,} down >50%)', pct(m['lt50_share']), m['buckets']['lt_n50'], m['token_num'])
         ]
         if m["hold_to_zero"] is not None:
             reasons.append(T('{0} ridden to zero (down 90%+ with zero sells)', m['hold_to_zero']))
