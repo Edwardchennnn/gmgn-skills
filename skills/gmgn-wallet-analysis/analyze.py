@@ -2004,24 +2004,43 @@ def actions(m, g, card_shown=False):
     What is missing at the end of a dossier is simply the next question, so this now prints
     exactly three of them and nothing else. Each is one intent, phrased the way the reader
     would ask it, so their own follow-up routes itself to whichever skill answers it.
+
+    Every candidate must be answerable by a skill that exists in GMGNAI/gmgn-skills. A
+    question with no skill behind it is worse than no question: the reader asks it, nothing
+    can answer, and the dossier has sent them into a wall. Two candidates were cut for
+    exactly that reason — "which coins made this week\'s money" (portfolio profits returns
+    one aggregate row per period, never a per-token breakdown) and "check back in a week"
+    (a reminder, not a query). The skill each surviving question routes to is named beside
+    it below; keep that mapping accurate when adding one.
     """
     if m["trades"] == 0:
+        # -> gmgn-token info: a contract address answers here, a wallet does not.
         return [T('Is this address a wallet at all, or a token contract?')]
 
     # Ordered by how much this particular wallet's data invites the question; first three win.
+    # The first three are deliberately three different skills.
     pool = []
-    if m["recent_buys"]:
-        syms = ", ".join(s for s, _v in m["recent_buys"][:3])
+    syms = ", ".join(s for s, _v in m["recent_buys"][:3]) if m["recent_buys"] else ""
+    if syms:
+        # -> gmgn-holder-analysis
         pool.append(T('What do the chips look like on {0} — who is holding, and at what cost?', syms))
+    # -> gmgn-wallet-score, copy-tradeability angle
     pool.append(T('Score it 0-100 with my own latency and slippage modelled in?'))
     if m["created_tokens_n"] > 0:
+        # -> gmgn-wallet-score, Dev-reputation angle
         pool.append(T('It launched {0} tokens — how many of them are still alive?',
                       f'{m["created_tokens_n"]:,}'))
-    if m["gain_top3_share"] > 0:
-        pool.append(T('Which coins actually made this week\'s money?'))
+    if syms:
+        # -> gmgn-kline-pattern
+        pool.append(T('What shape is {0} in right now — still climbing, or already breaking down?',
+                      m["recent_buys"][0][0]))
+        # -> gmgn-token security
+        pool.append(T('Are the contracts on {0} safe — honeypot, liquidity, mint authority?', syms))
+        # -> gmgn-token (smart-money / KOL positions) or gmgn-track
+        pool.append(T('Who else is buying {0} — any smart money or KOLs in there?', syms))
     if m["holdings_n"]:
-        pool.append(T('It is still holding {0} coins — which of those has it not sold yet?', f'{m["holdings_n"]:,}'))
-    pool.append(T('Check back in a week to see whether it is still running this hot?'))
+        # -> gmgn-portfolio holdings
+        pool.append(T('It holds {0} coins — list the whole book with costs?', f'{m["holdings_n"]:,}'))
     return pool[:3]
 
 

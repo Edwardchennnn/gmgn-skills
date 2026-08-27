@@ -1,6 +1,6 @@
 ---
 name: gmgn-token
-description: Research any crypto or meme token by address — real-time price, market cap, liquidity, holder list, trader list, top Smart Money and KOL positions, security audit (honeypot, rug pull risk, dev wallet, renounced status), social links (Twitter/X, website) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks about a token's price, safety, holders, traders, smart money exposure, or wants due diligence before buying.
+description: Research any crypto or meme token by address — real-time price, market cap, liquidity, holder list, trader list, top Smart Money and KOL positions, security audit (honeypot, rug pull risk, dev wallet, renounced status), social links (Twitter/X, website) via GMGN API on Solana, BSC, Base, or Ethereum. Use when user asks about a token's price, safety, holders, traders, smart money exposure, or wants the raw token fields. For a scored 0-100 due-diligence verdict on a contract, defer to the gmgn-contract-dd skill instead of scoring here.
 argument-hint: "<sub-command> --chain <sol|bsc|base|eth|robinhood|arc|stable> --address <token_address>"
 metadata:
   cliHelp: "gmgn-cli token --help"
@@ -622,31 +622,22 @@ gmgn-cli token traders --chain eth --address 0xC02aaA39b223FE8D0A0e5C4F27eAD9083
 
 ---
 
-## Token Quick Scoring Card
+## Scoring lives in `gmgn-contract-dd`, not here
 
-After fetching `token security` and `token info`, apply this scoring card to give a structured verdict. Do not skip this step when the user asks for a safety check or due diligence.
+**When the user asks for a safety verdict, a risk score, or due diligence on a contract, use the `gmgn-contract-dd` skill.** This skill fetches and presents the fields; that one turns them into an auditable 0-100 composite. Keeping them apart matters: two skills scoring the same fields with different thresholds give two different answers to the same question.
 
-| Field | ✅ Safe | ⚠️ Warning | 🚫 Danger (Hard Stop) |
-|-------|---------|-----------|----------------------|
-| `is_honeypot` | `"no"` | — | `"yes"` → **stop immediately** |
-| `open_source` | `"yes"` | `"unknown"` | `"no"` |
-| `owner_renounced` | `"yes"` | `"unknown"` | `"no"` |
-| `renounced_mint` (SOL) | `true` | — | `false` |
-| `renounced_freeze_account` (SOL) | `true` | — | `false` |
-| `rug_ratio` | `< 0.10` | `0.10–0.30` | `> 0.30` |
-| `top_10_holder_rate` | `< 0.20` | `0.20–0.50` | `> 0.50` |
-| `creator_token_status` | `creator_close` | — | `creator_hold` |
-| `buy_tax` / `sell_tax` | `0` | `0.01–0.05` | `> 0.10` |
-| `sniper_count` | `< 5` | `5–20` | `> 20` |
-| `smart_wallets` (from `wallet_tags_stat`) | `≥ 3` | `1–2` | `0` (bearish, not a hard stop) |
-| `renowned_wallets` (from `wallet_tags_stat`) | `≥ 1` | — | `0` (neutral, not a hard stop) |
+A scoring card previously lived here. It was removed because it read three fields in a way that condemns clean tokens:
 
-**Final scoring logic:**
-- If `is_honeypot = "yes"` → **hard stop immediately**, do not proceed regardless of other signals
-- If other 🚫 fields present → **skip** (strong warning — present to user)
-- `smart_wallets = 0` alone is NOT a hard stop — it means no smart money interest yet, which is bearish but not disqualifying for very new tokens
-- If 3+ ⚠️ with no 🚫 → **needs more research** — present findings and ask user how to proceed
-- If mostly ✅ with `smart_wallets ≥ 3` → **worth researching** — proceed to holders/traders analysis
+- **`open_source: "no"` as a hard stop.** On Solana `is_open_source` is `null` **by design** — the SPL token model has no equivalent — and the numeric mirror is `0`. Read as `"no"`, that hard-stops every Solana token including USDC.
+- **`renounced_mint: false` / `renounced_freeze_account: false` as a hard stop.** Both appear as struct defaults inside `security` blocks that GMGN never populated (measured: an empty block returns `address: ""` with all four risk booleans null, yet still carries `false` on this pair). Read as measurements, they condemn a token GMGN simply has no record for.
+- **`top_10_holder_rate: 0` as safe.** A zero there means the field was not populated, not that the top ten hold nothing.
+
+The single unambiguous triage you may still do from this skill:
+
+- `is_honeypot === true` → **stop immediately** and say the token is buyable but not sellable. This one needs no scoring card.
+- Everything else → hand off to `gmgn-contract-dd`, which applies the populated-block gate first and reports coverage alongside the score.
+
+**Never read an absent field as zero, and never read a struct default as a measurement.** Present what came back, mark what did not, and let `gmgn-contract-dd` do the arithmetic.
 
 ## Workflow: Full Token Due Diligence
 

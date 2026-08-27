@@ -1,6 +1,7 @@
 ---
 name: gmgn-wallet-analysis
-description: The trader's decision dossier on a wallet — four pass/fail gates (is the record real, is the edge still working THIS week, can you actually get filled, does it cut losses) plus what the wallet is holding and buying right now, its entry market-cap band, its copy window in seconds, and a concrete size cap. Answers the question a memecoin trader actually has: "the numbers look good, but if I copy this wallet what happens to me?" Use when the user asks 「这个钱包能跟吗」, 「帮我分析一下这个钱包」, 「它现在在买什么」, 「这个钱包最近还行吗」, 「跟着他买我能吃到吗」, 「他是不是已经不行了」, 「这个钱包什么风格」, 「它是什么类型的」, 「打法」, "can I copy this wallet", "analyze this wallet", "what is this wallet buying now", "is this wallet still hot", "would I actually get filled following this", "what kind of trader is this", or pastes a bare wallet address. This is the default for a bare address: it prints the same style title and speed subtitle as gmgn-wallet-style AND the four gates, so reach for gmgn-wallet-style only when a label with no verdict is explicitly what is wanted.
+description: >-
+  The trader's decision dossier on a wallet — four pass/fail gates (is the record real, is the edge still working THIS week, can you actually get filled, does it cut losses) plus what the wallet is holding and buying right now, its entry market-cap band, its copy window in seconds, and a concrete size cap. Answers the question a memecoin trader actually has: "the numbers look good, but if I copy this wallet what happens to me?" Use when the user asks 「这个钱包能跟吗」, 「帮我分析一下这个钱包」, 「它现在在买什么」, 「这个钱包最近还行吗」, 「跟着他买我能吃到吗」, 「他是不是已经不行了」, 「这个钱包什么风格」, 「它是什么类型的」, 「打法」, "can I copy this wallet", "analyze this wallet", "what is this wallet buying now", "is this wallet still hot", "would I actually get filled following this", "what kind of trader is this", or pastes a bare wallet address. This is the default for a bare address: it prints the same style title and speed subtitle as gmgn-wallet-style AND the four gates, so reach for gmgn-wallet-style only when a label with no verdict is explicitly what is wanted.
 argument-hint: "--chain <sol|bsc|base|eth|robinhood|arc|stable> --wallet <wallet_address> [--latency <seconds>]"
 metadata:
   cliHelp: "gmgn-cli portfolio stats --help && gmgn-cli portfolio profits --help && gmgn-cli portfolio activity --help && gmgn-cli portfolio holdings --help"
@@ -229,16 +230,41 @@ Three of these exist only because the first cut got them wrong, and none should 
 ## WHAT TO DO NEXT is exactly three questions
 
 The last section prints three follow-up questions and nothing else. Each is one intent, phrased
-the way the reader would ask it out loud — "富贵, Bimpsons, CAT 的筹码结构怎么样 —— 谁在持有、
-成本多少？", "给它打个 0–100 分，把我自己的延迟和滑点算进去？", "它发过 54 个币，现在还活着几个？"
+the way the reader would ask it out loud.
 
-Two rules produce that shape:
+**Every candidate must be answerable by a skill that ships in `GMGNAI/gmgn-skills`.** A question
+with no skill behind it is worse than no question at all: the reader asks it, nothing can answer,
+and the dossier has walked them into a wall. The pool and its routing:
 
-**No skill names.** Never `gmgn-token`, `gmgn-holder-analysis`, `gmgn-wallet-score`,
+| Question | Answered by |
+|----------|-------------|
+| `{tokens} 的筹码结构怎么样 —— 谁在持有、成本多少？` | `gmgn-holder-analysis` |
+| `给它打个 0–100 分，把我自己的延迟和滑点算进去？` | `gmgn-wallet-score` (copy-tradeability) |
+| `它发过 {n} 个币，现在还活着几个？` | `gmgn-wallet-score` (Dev reputation) |
+| `{token} 现在什么形态 —— 还在涨，还是已经开始崩？` | `gmgn-kline-pattern` |
+| `{tokens} 的合约安全吗 —— 有没有貔貅、流动性够不够…？` | `gmgn-token security` |
+| `还有谁在买 {tokens} —— 里面有聪明钱或 KOL 吗？` | `gmgn-token` / `gmgn-track` |
+| `它持有 {n} 个币，把完整持仓和成本列出来看看？` | `gmgn-portfolio holdings` |
+| `这个地址到底是钱包还是代币合约？` (zero-trade path) | `gmgn-token info` |
+
+Two candidates were cut against that rule and must not come back:
+
+- **"这一周的钱到底是哪几个币赚的？"** — `portfolio profits` returns one aggregate row per
+  period. There is no per-token profit breakdown for a window anywhere in the API, so nothing
+  can answer it.
+- **"一周后再看一次，它还这么热吗？"** — a reminder, not a query.
+
+`gmgn-market` and `gmgn-cooking` are in the library but answer nothing about a wallet, and
+`gmgn-swap` is execution rather than analysis, so none of the three appears here.
+
+Two further rules produce the section's shape:
+
+**No skill names.** Never print `gmgn-token`, `gmgn-holder-analysis`, `gmgn-wallet-score`,
 `gmgn-swap`, or `gmgn-portfolio`. A skill name is an internal identifier: printing one asks the
 reader to know the skill exists, that it is installed, and how to invoke it — three things a
 newcomer does not know, so the line dead-ends. A question in plain language routes itself,
-because asking it is what triggers the skill that answers it.
+because asking it is what triggers the skill that answers it. The mapping above lives here, in
+the agent-facing file, and nowhere in the output.
 
 **No advice, and one intent per line.** This section used to carry the size cap, the copy
 window, "treat it as a signal source" and "set your own stop" — all of which the card already
@@ -246,9 +272,9 @@ states and the gates already justify. Repeating them stacked several intents int
 bullets and grew the section to 35% of the evidence layer. Instructions belong on the card;
 what belongs at the end of a dossier is the next question.
 
-Candidates are ordered by how much this wallet's own data invites the question, and the first
-three win: recent buys → score it → its launch record → which coins made the money → what it
-still holds → check back in a week. The zero-trade path prints one question instead of three.
+Candidates are ordered by how much this wallet's own data invites the question and the first
+three win, with the first three deliberately routing to three different skills. The zero-trade
+path prints one question instead of three.
 
 ## Verdict language
 
