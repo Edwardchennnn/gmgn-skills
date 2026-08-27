@@ -1996,68 +1996,33 @@ def report(wallet, chain, m, g, gaps, brief=False):
 
 
 def actions(m, g, card_shown=False):
-    """Next steps. When a card was printed, only what the card did not already say.
+    """Three follow-up questions, in the reader's words.
 
-    This section grew to 962 characters — 35% of the evidence layer, more than all four
-    gates combined — mostly by repeating the card: the size cap, the copy window and "treat
-    it as a signal source" are on the card verbatim. Repetition at the end of a report reads
-    as padding, and it pushed the sample line and the data gaps off the screen.
+    This section used to be conditional advice — size caps, copy windows, "set your own
+    stop" — which duplicated the card and stacked several intents into one bullet. All of
+    that already has a home: the card gives the instructions, the gates give the reasoning.
+    What is missing at the end of a dossier is simply the next question, so this now prints
+    exactly three of them and nothing else. Each is one intent, phrased the way the reader
+    would ask it, so their own follow-up routes itself to whichever skill answers it.
     """
-    a = []
-    p = {k: v[0] for k, v in g.items()}
     if m["trades"] == 0:
-        return [
-            T('Confirm this is a wallet, not a token contract. If it is a wallet, wait for real trades.')
-        ]
+        return [T('Is this address a wallet at all, or a token contract?')]
+
+    # Ordered by how much this particular wallet's data invites the question; first three win.
+    pool = []
     if m["recent_buys"]:
         syms = ", ".join(s for s, _v in m["recent_buys"][:3])
-        a.append(
-            T('It bought {0} in the last 24h. Worth checking the holder structure on those '
-              'first — who is holding, at what cost, and whether the contract is safe. '
-              'Want me to analyse them?', syms)
-        )
-    if p["G3"] is False:
-        if not card_shown:
-            a.append(
-            T('Do not mirror it. Treat it as a signal source: note what and at what mcap, then enter on your own terms.')
-            )
-    # The size cap's derivation used to live on the `G3 is True` branch, so the one run that
-    # most needs it — G3 failed, the reader is told not to mirror, and the card still shows a
-    # cap — printed the number with no reasoning anywhere. Sizing and reachability are
-    # different questions; gating one on the other left a bare "$132" next to "do not copy".
-    if m["size_cap"]:
-        if not card_shown:
-            a.append(
-            T('Whatever size you use, keep it at or under {0} — half of the {1} this wallet '
-              'puts on a buy. Past its own size your fill is worse than the ones its record '
-              'was built on, so its numbers stop describing you.',
-              usd(m['size_cap']), usd(m['avg_buy_usd']))
-            )
-        if p["G3"] is True and not card_shown:
-            a.append(T('Get a live quote before sending — want me to price it?'))
-    if p["G4"] is False:
-        a.append(
-            T('Set your own stop — it does not cut, and riding it to the end means riding it to zero.')
-        )
-    if m["copy_window_s"] > 0 and not card_shown:
-        a.append(
-            T('If you copy it, your order must land within {0} of its buy — otherwise skip the trade.', dur(m['copy_window_s']))
-        )
-    if m["is_dev"]:
-        a.append(
-            T('This is a launcher, so its trading record is partly self-authored. What matters '
-              'is how many of its own tokens survived and how they behaved. Want me to look at '
-              'its launch record?')
-        )
-    if m["form"][1] in (T('cooling off'), T('broken down')):
-        a.append(
-            T('Its money is historical. Re-run this in 7 days to see whether form recovers or keeps sliding.')
-        )
-    a.append(
-        T('If you want this scored 0-100 with your own latency and slippage modelled in, '
-          'want me to run that backtest?')
-    )
-    return a
+        pool.append(T('What do the chips look like on {0} — who is holding, and at what cost?', syms))
+    pool.append(T('Score it 0-100 with my own latency and slippage modelled in?'))
+    if m["created_tokens_n"] > 0:
+        pool.append(T('It launched {0} tokens — how many of them are still alive?',
+                      f'{m["created_tokens_n"]:,}'))
+    if m["gain_top3_share"] > 0:
+        pool.append(T('Which coins actually made this week\'s money?'))
+    if m["holdings_n"]:
+        pool.append(T('It is still holding {0} coins — which of those has it not sold yet?', f'{m["holdings_n"]:,}'))
+    pool.append(T('Check back in a week to see whether it is still running this hot?'))
+    return pool[:3]
 
 
 # ─────────────────────────── entry ───────────────────────────

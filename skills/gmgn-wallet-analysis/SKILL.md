@@ -226,20 +226,29 @@ Three of these exist only because the first cut got them wrong, and none should 
   checkable, refuted. Their three fixtures pin all outcomes of `wash_trader`; a change that
   makes any two agree is a regression.
 
-## Never name a skill in the output
+## WHAT TO DO NEXT is exactly three questions
 
-Every follow-up line in WHAT TO DO NEXT describes the analysis in the words a user would use,
-and ends by offering to run it — "建议先看这几个币的筹码结构 —— 谁在持有、成本多少、合约是否安全。需要我帮你分析吗？"
-It never prints `gmgn-token`, `gmgn-holder-analysis`, `gmgn-wallet-score`, `gmgn-swap`, or
-`gmgn-portfolio`.
+The last section prints three follow-up questions and nothing else. Each is one intent, phrased
+the way the reader would ask it out loud — "富贵, Bimpsons, CAT 的筹码结构怎么样 —— 谁在持有、
+成本多少？", "给它打个 0–100 分，把我自己的延迟和滑点算进去？", "它发过 54 个币，现在还活着几个？"
 
-A skill name is an internal identifier. Printing one asks the reader to know that the skill
-exists, that it is installed, and how to invoke it — three things a newcomer does not know, so
-the line dead-ends. Describing the analysis instead means the reader's own follow-up question
-routes itself to the right skill, and the closing offer means they can simply answer yes.
+Two rules produce that shape:
 
-This applies to the on-screen report only. This file is read by the agent and names skills
-freely.
+**No skill names.** Never `gmgn-token`, `gmgn-holder-analysis`, `gmgn-wallet-score`,
+`gmgn-swap`, or `gmgn-portfolio`. A skill name is an internal identifier: printing one asks the
+reader to know the skill exists, that it is installed, and how to invoke it — three things a
+newcomer does not know, so the line dead-ends. A question in plain language routes itself,
+because asking it is what triggers the skill that answers it.
+
+**No advice, and one intent per line.** This section used to carry the size cap, the copy
+window, "treat it as a signal source" and "set your own stop" — all of which the card already
+states and the gates already justify. Repeating them stacked several intents into single
+bullets and grew the section to 35% of the evidence layer. Instructions belong on the card;
+what belongs at the end of a dossier is the next question.
+
+Candidates are ordered by how much this wallet's own data invites the question, and the first
+three win: recent buys → score it → its launch record → which coins made the money → what it
+still holds → check back in a week. The zero-trade path prints one question instead of three.
 
 ## Verdict language
 
