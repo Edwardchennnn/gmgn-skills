@@ -259,22 +259,52 @@ Three of these exist only because the first cut got them wrong, and none should 
 The last section prints three follow-up questions and nothing else. Each is one intent, phrased
 the way the reader would ask it out loud.
 
-**Every candidate must be answerable by a skill that ships in `GMGNAI/gmgn-skills`.** A question
-with no skill behind it is worse than no question at all: the reader asks it, nothing can answer,
-and the dossier has walked them into a wall. The pool and its routing:
+**Every candidate must be answerable by a skill that ships in `GMGNAI/gmgn-skills`, and must
+carry at least one literal trigger phrase from that skill's own `description`.** A question with
+no skill behind it is worse than no question at all: the reader asks it, nothing can answer, and
+the dossier has walked them into a wall. A question with the right skill but no shared wording is
+the same failure one step later — routing then rests on the model paraphrasing rather than on
+anything written down. The pool, its routing, and the phrase each line is pinned on:
 
-| Question | Answered by |
-|----------|-------------|
-| `{tokens} 的筹码结构怎么样 —— 谁在持有、成本多少？` | `gmgn-holder-analysis` |
-| `给它打个 0–100 分，把我自己的延迟和滑点算进去？` | `gmgn-wallet-score` (copy-tradeability) |
-| `它发过 {n} 个币，现在还活着几个？` | `gmgn-wallet-score` (Dev reputation) |
-| `{token} 现在什么形态 —— 还在涨，还是已经开始崩？` | `gmgn-kline-pattern` |
-| `{tokens} 的合约安全吗 —— 有没有貔貅、流动性够不够…？` | `gmgn-token security` |
-| `还有谁在买 {tokens} —— 里面有聪明钱或 KOL 吗？` | `gmgn-token` / `gmgn-track` |
-| `它持有 {n} 个币，把完整持仓和成本列出来看看？` | `gmgn-portfolio holdings` |
-| `这个地址到底是钱包还是代币合约？` (zero-trade path) | `gmgn-token info` |
+| Question | Routes to | Pinned on |
+|----------|-----------|-----------|
+| `{tokens} 的筹码分析 —— 谁在持有、成本多少？` | `gmgn-holder-analysis` | 筹码分析 · who is holding · entry cost |
+| `跟单评分：给它打个 0–100 分，把我自己的延迟和滑点算进去？` | `gmgn-wallet-score` (copy-tradeability) | 跟单评分 |
+| `它发盘情况怎么样 —— 发过 {n} 个币，现在还活着几个？` | `gmgn-wallet-score` (Dev reputation) | 发盘情况怎么样 |
+| `{token} 的走势和形态怎么样 —— 还在涨，还是已经开始崩？` | `gmgn-kline-pattern` | 走势 · 形态 |
+| `{tokens} 的合约安全吗 —— 有没有貔貅、流动性够不够…？` | `gmgn-token security` | 安全 |
+| `还有谁在买 {tokens} —— 里面有聪明钱或 KOL 吗？` | `gmgn-track` | 聪明钱 · KOL |
+| `它持有 {n} 个币，把完整持仓和成本列出来看看？` | `gmgn-portfolio holdings` | 持仓 |
+| `这个地址到底是钱包还是代币合约？` (zero-trade path) | `gmgn-token info` | 代币合约 |
 
-Two candidates were cut against that rule and must not come back:
+Three of those phrasings were retuned after a check found them routing on paraphrase alone —
+most notably `给它打个 0–100 分…` , which shared no wording at all with `gmgn-wallet-score`'s
+description. Re-run this whenever a question is edited or a target skill's description changes:
+
+```bash
+python3 - <<'PYEOF'
+import json
+t = json.load(open("lang/zh.json", encoding="utf-8"))
+TRIG = {"gmgn-holder-analysis": ["筹码分析", "持仓分析", "who is holding", "entry cost"],
+        "gmgn-wallet-score": ["跟单评分", "钱包评分", "值不值得跟单", "发盘情况怎么样"],
+        "gmgn-kline-pattern": ["走势", "趋势", "形态", "K线"],
+        "gmgn-token": ["安全", "safety", "due diligence", "代币合约"],
+        "gmgn-track": ["聪明钱", "KOL", "smart money"],
+        "gmgn-portfolio": ["持仓", "holdings"]}
+Q = [("What do the chips look like on {0} — who is holding, and at what cost?", "gmgn-holder-analysis"),
+     ("Score it 0-100 with my own latency and slippage modelled in?", "gmgn-wallet-score"),
+     ("It launched {0} tokens — how many of them are still alive?", "gmgn-wallet-score"),
+     ("What shape is {0} in right now — still climbing, or already breaking down?", "gmgn-kline-pattern"),
+     ("Are the contracts on {0} safe — honeypot, liquidity, mint authority?", "gmgn-token"),
+     ("Who else is buying {0} — any smart money or KOLs in there?", "gmgn-track"),
+     ("It holds {0} coins — list the whole book with costs?", "gmgn-portfolio"),
+     ("Is this address a wallet at all, or a token contract?", "gmgn-token")]
+bad = [(en, s) for en, s in Q if not any(w in t[en] for w in TRIG[s])]
+print("unrouted:", bad or "none")
+PYEOF
+```
+
+Two candidates were cut against the availability rule and must not come back:
 
 - **"这一周的钱到底是哪几个币赚的？"** — `portfolio profits` returns one aggregate row per
   period. There is no per-token profit breakdown for a window anywhere in the API, so nothing
