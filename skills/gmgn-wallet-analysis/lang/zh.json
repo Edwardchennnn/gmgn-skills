@@ -383,7 +383,7 @@
  "👤 WHO IT IS": "👤 它是谁",
  "💣 dumps in one go on {0} of exits": "💣 一把清 {0} 的仓位单笔出完",
  "📉 OUTCOME DISTRIBUTION ({0} tokens — counts tokens, not dollars)": "📉 盈亏分布（{0} 个币，计币不计钱）",
- "📊 NUMBERS (the conclusion is on the right)": "📊 数字面板（每行右侧是结论，不用自己算）",
+ "📊 NUMBERS (the conclusion is on the right)": "📊 原始数字",
  "📦 concentrated bets, top 3 tokens are {0} of buy spend": "📦 集中押注 前 3 个币占买入额 {0}",
  "🔄 WHAT IT IS DOING NOW": "🔄 它现在在干嘛",
  "🕸️ spray-and-hit": "🕸️ 撒网命中",

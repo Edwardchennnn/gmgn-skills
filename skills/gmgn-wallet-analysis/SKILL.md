@@ -358,6 +358,8 @@ columns, an emoji as one, `wrap()` and `dwidth()` disagreeing by two).
 |------|-----|--------------------|
 | **Every table has a delimiter row and a constant column count** | A missing `\|---\|` renders the whole table as literal pipes | `md_table()` builds both; the check below fails on either |
 | **No table with an empty header row** | `\|  \|  \|` renders as a blank header band and reads as a broken table. A key/value block is not tabular data — it is a definition list, and `- **label** — value` says the same thing without the empty band | the check below rejects it |
+| **Heading levels never skip** | The card's sections sat at `###` under a `#`, so an outline view shows a missing level. The checker below walks the sequence |
+| **A gate is labelled once, in words** | `✅ G1 AUTHENTICITY (is the data trustworthy)` said the same thing three ways. The code is internal bookkeeping and the formal noun is not what a reader asks — the plain question is. Gates are `###` under their section, not bold paragraphs floating in it |
 | **The document starts at `#`** | When the card is withheld the report used to open at `##`, so the whole document had no top level | the verdict heading is `#` when there is no card above it |
 | **Cell values are escaped** | One `\|` in a token symbol splits a row into extra columns | `esc()` on every cell |
 | **No raw HTML at all** | `<br>` was used for multi-line table cells; once those blocks became definition lists it rendered as literal text. A continuation line indented two spaces stays inside its list item and needs no tag | the check below rejects every tag |
@@ -392,8 +394,10 @@ for n, l in enumerate(t, 1):
     if re.match(r'^#{1,6}[^ #]', l): e.append(f"L{n} heading needs a space after #")
     if l.count("**") % 2: e.append(f"L{n} unbalanced bold")
     for tag in re.findall(r'</?([a-zA-Z]+)[^>]*>', l): e.append(f"L{n} raw HTML <{tag}>")
-h = [l for l in t if l.startswith("#")]
+h = [l for l in t if re.match(r"^#{1,6} ", l)]
 if h and not h[0].startswith("# "): e.append("document has no H1")
+lv = [len(re.match(r"^#+", l).group()) for l in h]
+e += [f"heading skips a level: {a} -> {b}" for a, b in zip(lv, lv[1:]) if b > a + 1]
 print("\n".join(e) if e else "markdown OK")
 PY
 ```

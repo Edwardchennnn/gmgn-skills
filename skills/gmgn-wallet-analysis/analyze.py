@@ -1635,9 +1635,9 @@ def card(m, g, wallet, chain):
     # those are directions for FOLLOWING, and printing them under DO NOT COPY is the card
     # telling the reader to do the thing its own headline just told them not to.
     if emoji == "🔴":
-        out += ["### " + T('  WHAT TO DO').strip(), "", why, ""]
+        out += ["## " + T('  WHAT TO DO').strip(), "", why, ""]
     else:
-        out += ["### " + T('  HOW TO FOLLOW').strip(), ""]
+        out += ["## " + T('  HOW TO FOLLOW').strip(), ""]
         cells, heads = [], []
         if m["size_cap"]:
             heads.append(T('start no larger than'))
@@ -1667,7 +1667,7 @@ def card(m, g, wallet, chain):
         out += ["> ⚠️ " + flags[0]["meaning"], ""]
 
     if m["recent_buys"]:
-        out += ["### " + T('  BOUGHT IN THE LAST 24H').strip(), ""]
+        out += ["## " + T('  BOUGHT IN THE LAST 24H').strip(), ""]
         out += [f"- {s} **{usd(v)}**" for s, v in m["recent_buys"][:3]] + [""]
 
     if m["open_value"] and m["open_book"]:
@@ -1802,11 +1802,9 @@ def report(wallet, chain, m, g, gaps, brief=False):
         out.append("")
 
     # ── the four gates ──
-    strip = "　".join(f"{mark(g[k][0])}{k}" for k in ("G1", "G2", "G3", "G4"))
-    out += [f"## 🚦 {T('THE FOUR GATES')} — {strip}", ""]
+    out += [f"## 🚦 {T('THE FOUR GATES')}", ""]
     for k in ("G1", "G2", "G3", "G4"):
-        gloss = T(" ({0})", T(GATE_GLOSS[k]))
-        out += [f"**{mark(g[k][0])} {k} {T(GATE_NAMES[k])}{gloss}**", ""]
+        out += [f"### {mark(g[k][0])} {T(GATE_GLOSS[k])}", ""]
         detail = g[k][1]
         for item in (detail if isinstance(detail, list) else [detail]):
             out.append(f"- {item}")
@@ -1889,7 +1887,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
     # ── P&L distribution ──
     b = m["buckets"]
     peak = max(b.values()) or 1
-    out += ["## " + T('📉 OUTCOME DISTRIBUTION ({0} tokens — counts tokens, not dollars)', m['token_num']), ""]
+    out += ["### " + T('📉 OUTCOME DISTRIBUTION ({0} tokens — counts tokens, not dollars)', m['token_num']), ""]
     drows = []
     for lab, k in ((">500%", "gt5"), ("200–500%", "x2_5"), ("0–200%", "x0_2"),
                    ("−50–0%", "n50_0"), ("<−50%", "lt_n50")):
