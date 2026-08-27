@@ -328,45 +328,44 @@ def first_row(resp):
 
 
 def collect(chain, wallet, gaps):
-    """Tiered pull. Tier 1 is mandatory; everything else degrades into `gaps`."""
+    """Tiered pull, ordered by how much each call decides.
+
+    One full dossier costs weight 26-28 against a rate-limit bucket of 20, so on a
+    cold-ish bucket SOMETHING is refused — the only question is what. The old order spent
+    its budget on the two curve-shape windows first and issued `holdings` last, at
+    cumulative weight 26, which made the single most decisive call the guaranteed
+    casualty: without it G1 cannot corroborate a `wash_trader` tag (the verdict falls to
+    HOLD OFF), G4's honeypot half never runs, and the profit engine is dropped. Observed
+    live five runs in a row. Meanwhile `stats_30d` and `profits_1d` only add depth to
+    readings that already exist.
+
+    So the gate-critical set goes first and fits inside one bucket:
+
+      stats_7d(3) -> profits_all(3) -> holdings(5) = 11   <- verdict decidable here
+      activity(3 x 3 = 9)                          = 20   <- copy window, entry band
+      stats_30d(3), profits_1d(3)                  = 26   <- depth only, best-effort
+      created-tokens(2), conditional
+
+    Nothing about WHAT is asked changed — same routes, parameters and page count. Only the
+    sequence moved, so no threshold, formula or verdict row is affected.
+    """
     d = {}
 
-    # Tier 1 — 4 calls, weight 12. The verdict cannot be issued without these.
+    # ── Tier 1: the verdict cannot be issued without these. Weight 11, inside one bucket.
     d["stats_7d"] = first_row(
         cli(["portfolio", "stats", "--chain", chain, "--wallet", wallet, "--period", "7d"])
     )
-    for key, args in (
-        ("stats_30d", ["portfolio", "stats", "--period", "30d"]),
-        ("profits_1d", ["portfolio", "profits", "--period", "1d"]),
-        ("profits_all", ["portfolio", "profits", "--period", "all"]),
-    ):
-        try:
-            d[key] = first_row(cli(args[:2] + ["--chain", chain, "--wallet", wallet] + args[2:]))
-        except Gap as e:
-            d[key] = {}
-            gaps.append(f"{key}: {e}")
 
-    # Tier 2 — behaviour. activity is the only source of copy-window and entry band.
-    acts, cursor = [], None
-    for _page in range(3):
-        args = ["portfolio", "activity", "--chain", chain, "--wallet", wallet, "--limit", "100"]
-        if cursor:
-            args += ["--cursor", str(cursor)]
-        try:
-            raw = unwrap(cli(args))
-        except Gap as e:
-            gaps.append(f"activity: {e}")
-            break
-        page = raw.get("activities") or []
-        acts += page
-        cursor = raw.get("next")
-        if not page or not cursor:
-            break
-    d["activity"] = acts
-    if not acts:
-        gaps.append(
-            T('activity empty — copy window, entry band and scale-in/out shape were not evaluated')
+    # profits_all is a G2 input: losing it makes G2 unevaluable, so it outranks the two
+    # windows that only add depth.
+    try:
+        d["profits_all"] = first_row(
+            cli(["portfolio", "profits", "--chain", chain, "--wallet", wallet, "--period", "all"])
         )
+    except Gap as e:
+        d["profits_all"] = {}
+        gaps.append(f"profits_all: {e}")
+
 
     # holdings is CRITICAL auth (needs GMGN_PRIVATE_KEY). Absent key is the normal case.
     # `--sell-out` is documented but rejected by gmgn-cli 1.5.8 ("unknown option"), so it
@@ -399,7 +398,43 @@ def collect(chain, wallet, gaps):
                 T('holdings failed: {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
             )
 
-    # Tier 3 — only when the wallet looks like a launcher.
+    # ── Tier 2: behaviour. activity is the only source of the copy window and the entry
+    # band, and the page count stays at 3 — trimming it would move G3's entry p50 and
+    # starve the sample gates, which changes what is measured, not how fast.
+    acts, cursor = [], None
+    for _page in range(3):
+        args = ["portfolio", "activity", "--chain", chain, "--wallet", wallet, "--limit", "100"]
+        if cursor:
+            args += ["--cursor", str(cursor)]
+        try:
+            raw = unwrap(cli(args))
+        except Gap as e:
+            gaps.append(f"activity: {e}")
+            break
+        page = raw.get("activities") or []
+        acts += page
+        cursor = raw.get("next")
+        if not page or not cursor:
+            break
+    d["activity"] = acts
+    if not acts:
+        gaps.append(
+            T('activity empty — copy window, entry band and scale-in/out shape were not evaluated')
+        )
+
+    # ── Tier 3: depth only. Both windows enrich readings that already exist above, so
+    # they are the correct things to lose when the bucket runs dry.
+    for key, args in (
+        ("stats_30d", ["portfolio", "stats", "--period", "30d"]),
+        ("profits_1d", ["portfolio", "profits", "--period", "1d"]),
+    ):
+        try:
+            d[key] = first_row(cli(args[:2] + ["--chain", chain, "--wallet", wallet] + args[2:]))
+        except Gap as e:
+            d[key] = {}
+            gaps.append(f"{key}: {e}")
+
+    # ── Tier 4 — only when the wallet looks like a launcher.
     common = d["stats_7d"].get("common") or {}
     pnl = d["stats_7d"].get("pnl_stat") or {}
     created = i(common.get("created_token_count"))

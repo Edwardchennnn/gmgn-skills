@@ -478,6 +478,27 @@ last displayed digit. Two things this pinned down:
 
 `portfolio holdings` needs **critical auth** (`GMGN_API_KEY` + `GMGN_PRIVATE_KEY`). A wallet dossier is worth running without it — the script degrades and records the gap — but say plainly that the live-positions section is missing rather than letting its absence read as "no positions".
 
+### Call order is not cosmetic
+
+A full dossier costs weight 26-28 against a bucket of 20, so on a cold-ish bucket something
+is refused — the only question is what. Issuing `holdings` last, at cumulative weight 26,
+made the single most decisive call the guaranteed casualty: without it G1 cannot corroborate
+a `wash_trader` tag (the verdict falls to HOLD OFF), G4's honeypot half never runs, and the
+profit engine is dropped. That was observed on five consecutive live runs of the same wallet.
+
+The gate-critical set therefore goes first and fits inside one bucket:
+
+```
+stats_7d(3) → profits_all(3) → holdings(5) = 11   ← the verdict is decidable here
+activity(3 × 3 = 9)                        = 20   ← copy window, entry band
+stats_30d(3), profits_1d(3)                = 26   ← depth only, best-effort
+created-tokens(2), conditional
+```
+
+Nothing about *what* is asked changed — same routes, same parameters, same page count — so no
+threshold, formula or verdict row is affected. Verified: all 24 fixture/language outputs are
+byte-identical across the reorder.
+
 **On `429`:** stop. Read `X-RateLimit-Reset`, or `reset_at` from the body, convert to the user's local time and state it: *"Rate-limited — retry this wallet after 14:32:05 (~4 minutes)."* Report whatever tiers already succeeded rather than discarding the run, and re-issue only the missing calls afterwards. Repeated requests during a cooldown extend the ban by 5 seconds each, up to 5 minutes — never loop retries.
 
 ## Supported Chains
