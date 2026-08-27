@@ -917,7 +917,20 @@ def compute(d, latency_s, my_size):
     # $26 a trade while paying $4 of gas has already given a third of its edge away, and
     # your slippage comes out of what is left.
     m["net_per_sell"] = safe_div(m["realized_7d"], m["sell"])
-    if m["avg_gas_usd"] > 0 and m["trades"] > 0 and m["realized_7d"] > 0:
+
+    # `portfolio stats` reports the fees actually paid in the window — `bought_fee` and
+    # `sold_fee` — and this used to ignore both, estimating friction instead from the gas
+    # median of a 300-row activity sample times the trade count. On a live wallet the
+    # estimate said gas ate 0.0% of the profit while the real fees were $4,408 against
+    # $167,237 realized, i.e. 2.6%. Two orders of magnitude, and the exact figure was in a
+    # response already in hand. The estimate stays as the fallback for chains or versions
+    # that omit the fee fields, and the report says which one it is showing.
+    m["fee_total"] = f(s7.get("bought_fee")) + f(s7.get("sold_fee"))
+    m["fee_exact"] = m["fee_total"] > 0
+    if m["fee_exact"] and m["realized_7d"] > 0:
+        m["gas_drag"] = m["fee_total"] / m["realized_7d"]
+        m["gas_total_est"] = m["fee_total"]
+    elif m["avg_gas_usd"] > 0 and m["trades"] > 0 and m["realized_7d"] > 0:
         m["gas_total_est"] = m["avg_gas_usd"] * m["trades"]
         m["gas_drag"] = m["gas_total_est"] / m["realized_7d"]
     else:
@@ -985,7 +998,11 @@ def compute(d, latency_s, my_size):
             m["pace_x"] = r
 
     # size guidance
+    # The size the reader intends, checked against the wallet's own clip. Above the wallet's
+    # own size your slippage is worse than its, so its results stop describing you — which
+    # is the whole reason size_cap exists. Stating the multiple makes that concrete.
     m["my_size"] = my_size
+    m["size_ratio"] = (my_size / m["avg_buy_usd"]) if (my_size and m["avg_buy_usd"] > 0) else None
     m["size_cap"] = m["avg_buy_usd"] * 0.5 if m["avg_buy_usd"] > 0 else None
     m["latency_s"] = latency_s
     return m
@@ -1109,6 +1126,8 @@ def gates(m):
     # Gas that eats a large share of the per-trade net leaves nothing for your slippage.
     if m["gas_drag"] is not None and m["gas_drag"] >= 0.25:
         reasons_fail.append(
+            T('fees took {0} of the profit ({1} paid vs {2} realized), leaving {3} net per trade — no room for your slippage', pct(m['gas_drag']), usd(m['gas_total_est']), usd(m['realized_7d']), usd(m['net_per_sell']))
+            if m["fee_exact"] else
             T('gas is an estimated {0} of the profit ({1:,} trades × {2} ≈ {3} vs {4} realized), leaving {5} net per trade — no room for your slippage', pct(m['gas_drag']), m['trades'], usd(m['avg_gas_usd']), usd(m['gas_total_est']), usd(m['realized_7d']), usd(m['net_per_sell']))
         )
     if m["avg_buy_usd"] > 0 and m["avg_buy_usd"] < 50:
@@ -1697,6 +1716,16 @@ def card(m, g, wallet, chain):
         out.append(T('  HOW TO FOLLOW'))
         if m["size_cap"]:
             put(out, "  ", T('start no larger than {0}', usd_exact(m["size_cap"])))
+        if m["size_ratio"]:
+            if m["my_size"] > m["size_cap"]:
+                put(out, "  ", T('the {0} you asked about is {1:.1f}x its own clip of {2} — '
+                                 'at that size your fills are worse than the ones this '
+                                 'record was built on',
+                                 usd_exact(m["my_size"]), m["size_ratio"],
+                                 usd_exact(m["avg_buy_usd"])), hang=2)
+            else:
+                put(out, "  ", T('the {0} you asked about is within that',
+                                 usd_exact(m["my_size"])), hang=2)
         if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
             put(out, "  ", T('get your order in within {0} of its buy', dur(m["copy_window_s"])))
             put(out, "  ", T('past that, let it go \u2014 its cost is lower than yours, and '
@@ -1942,7 +1971,8 @@ def report(wallet, chain, m, g, gaps, brief=False):
                  cadence_label(m["per_day"])))
     fr = T('{0} net per exit · {1} avg gas', usd(m['net_per_sell']), usd(m['avg_gas_usd']))
     if m["gas_drag"] is not None:
-        fr += T(' ≈ {0} of profit', pct(m['gas_drag']))
+        fr += (T(' · fees {0} = {1} of profit', usd(m['fee_total']), pct(m['gas_drag']))
+               if m["fee_exact"] else T(' ≈ {0} of profit (estimated)', pct(m['gas_drag'])))
     rows.append((T('friction'), fr, friction_label(m)))
     hold = T('mean {0} · median copy window {1} ({2} round trips)', dur(m['avg_hold_s']), dur(m['copy_window_s']), m['copy_window_n'])
     rows.append((T('holding'), hold,
@@ -1951,8 +1981,12 @@ def report(wallet, chain, m, g, gaps, brief=False):
     rows.append((T('entry'),
                  T('p25/p50/p75 {0}/{1}/{2} ({3} measurable)', mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']), m['entry_n']),
                  entry_label(m["entry_p50"])))
+    _sz_extra = ""
+    if m["size_ratio"]:
+        _sz_extra = T(' · your {0} = {1:.1f}x its clip',
+                      usd_exact(m["my_size"]), m["size_ratio"])
     rows.append((T('size'),
-                 T('{0} per buy', usd(m['avg_buy_usd'])),
+                 T('{0} per buy', usd(m['avg_buy_usd'])) + _sz_extra,
                  T('start at ≤ {0}', usd(m['size_cap']))
                  if m["size_cap"] else T('not computable')))
     # State the denominator. A bare "23.9% over 209 tokens" invites the reader to compare it
