@@ -42,6 +42,10 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "{0:,} tokens, {1} profitable ({2}), {3}": "{0:,} 币 · {1} 盈利（{2}）· {3}",
+    "{0} realized all-time — ": "累计落袋 {0} —— ",
+    "it has traded {0:,} coins, {1} of them profitably": "交易过 {0:,} 个币，{1} 是赚钱的",
+    "Data pull failed, no verdict possible: {0}\nCheck `gmgn-cli config --check` first; on 429 wait for the stated reset; on 401/403 with valid credentials check IPv6 (gmgn-cli is IPv4 only).": "取数失败，无法出结论：{0}\n先确认 gmgn-cli config --check 通过；429 请按提示的 reset 时间再试；401/403 且凭证正确时先排查 IPv6（gmgn-cli 只走 IPv4）。",
     "  BOUGHT IN THE LAST 24H": "  它 24 小时内刚买了",
     "  HOW TO FOLLOW": "  怎么跟",
     "  WHAT TO DO": "  怎么办",
@@ -56,11 +60,13 @@ ZH = {
     " · fees {0} = {1} of profit": " · 手续费 {0}（{1}）",
     " · your {0} = {1:.1f}x its clip": " · 你的 {0} = 它单笔的 {1:.1f} 倍",
     " · {0} on paper": " · 浮盈 {0}",
+    " — {0} realized all-time": " —— 累计落袋 {0}",
     " ≈ {0} of profit": " ≈ 吃掉利润 {0}",
     " ≈ {0} of profit (estimated)": " · 手续费约 {0}（估算）",
     ", ": "、",
     "1d {0} · 7d {1} · 30d {2} · all {3}": "1d {0} · 7d {1} · 30d {2} · 全期 {3}",
     "1–7 days": "1 – 7 天",
+    "7-day backtest: {0} following it → {1}": "近 7 天回测：{0} 跟着它走 → {1}",
     "7d {0}": "7d {0}",
     "7d {0} + {1}": "7d {0} + {1}",
     "< 24h": "< 24 小时",
@@ -88,7 +94,6 @@ ZH = {
     "DO NOT COPY · one token made all the money": "别跟 · 全靠一个币赚钱，复制不了",
     "DO NOT COPY · the profit is self-dealt": "别跟 · 它的盈利是自己刷出来的",
     "DO THIS  ": "怎么办  ",
-    "Data pull failed, no verdict possible: {0}\nCheck `gmgn-cli config --check` first; on 429 wait for the stated reset; on 401/403 with valid credentials check IPv6 (gmgn-cli is IPv4 only).": "取数失败，无法出结论：{0}\n先确认 gmgn-cli config --check 通过；429 请按提示的 reset 时间再试；401/403 且凭证正确时先排查 IPv6（gmgn-cli 只走 IPv4）。",
     "Do not mirror it. Treat it as a signal source: note what and at what mcap, then enter on your own terms.": "别抄单。把它当信号源：它买什么、在什么市值买，自己二次筛选后按自己的节奏进。",
     "Do not read its trading — what matters is how many of the tokens it launched survived. Want me to look at its launch record?": "别看它的交易能力 —— 关键是它发过的币活下来几个。需要我帮你查它的发盘记录吗？",
     "Do not read its trading. Check how many of its launches survived (gmgn-wallet-score).": "别看它的交易能力，去查它发的币活下来几个（gmgn-wallet-score）。",
@@ -99,7 +104,6 @@ ZH = {
     "Fill in the missing data first — usually by configuring GMGN_PRIVATE_KEY.": "先补数据（通常是配置 GMGN_PRIVATE_KEY），再决定。",
     "First confirm this is a wallet, not a token contract. Three checks below.": "先确认这是钱包地址，不是代币合约。下面有三步检查。",
     "For 0-100 scores and a latency/slippage backtest, use gmgn-wallet-score.": "要 0–100 评分和延迟/滑点回测，接 gmgn-wallet-score",
-    "GMGN carries a \"{0}\" flag; the local check refutes it: {1} of realized gains came from size positions like {2} that netted more than their own cost basis. Self-dealing cannot produce that — the flag is downgraded to a caution, not a veto": "GMGN 标了「{0}」，核验不成立：{1} 的已实现盈利来自 {2} 等净赚超过自身成本的重仓 —— 对敲刷不出这种结果",
     "GMGN flags it as {0} — {1}": "GMGN 标记「{0}」—— {1}",
     "GMGN flags this wallet as {0}, and it cannot be checked (holdings unavailable) — the {1} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run": "GMGN 标记「{0}」，但无法核验（holdings 不可用）—— 这 7 天 {1} 的盈亏既没被证伪也没被证实，配好 GMGN_PRIVATE_KEY 后重跑",
     "GMGN flags this wallet as {0}, and the local check agrees: only {1} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume. The {2} realized P&L cannot be taken at face value": "GMGN 标记「{0}」，且本地核验支持它：只有 {1} 的已实现盈利来自净赚超过自身成本的仓位，其余是来回对敲的量。这 7 天 {2} 的已实现盈亏不可采信",
@@ -161,6 +165,7 @@ ZH = {
     "Which coins actually made this week's money?": "这一周的钱到底是哪几个币赚的？",
     "Who else is buying {0} — any smart money or KOLs in there?": "还有谁在买 {0} —— 里面有聪明钱或 KOL 吗？",
     "You would need to land inside {0} — not achievable by hand": "你要在 {0}内落单才可能吃到，人手做不到",
+    "__clause_separator__": "，",
     "__list_separator__": "、",
     "a caller — you are probably not the first one in": "喊单者，你大概不是第一个进的",
     "a public identity with {0:,} followers trading small caps — copy flow has already moved the price before your order": "公开身份 {0:,} 粉丝且主打小市值 —— 跟单盘在你之前就已经推过价",
@@ -252,6 +257,8 @@ ZH = {
     "is the data trustworthy": "数据可信吗",
     "it cuts losses": "它会砍仓",
     "it does not ride positions to zero": "不会拿着亏损仓位到归零",
+    "it has traded {0} coins, {1} of them profitably": "它交易过 {0} 个币，{1} 是赚钱的",
+    "it made {0} itself this week": "它自己这周赚了 {0}",
     "its 3 best coins made {0} of the money": "最赚的 3 个币赚走了 {0} 的钱",
     "its fills are reachable at your speed": "它的价位你抢得到",
     "its profit comes from sandwiching orders like yours": "它的收益来自夹你这类订单",
@@ -307,6 +314,7 @@ ZH = {
     "old hunter": "老猎手",
     "one or two swings, wiped out": "单次或极少次数直接打光",
     "one-shot": "一击必杀",
+    "only {0} down more than half": "亏超一半的只有 {0}",
     "only {0} heavy losses": "重亏占比仅 {0}",
     "only {0} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume, so the {1} realized P&L cannot be taken at face value": "只有 {0} 的已实现盈利来自净赚超过自身成本的仓位，其余是来回对倒的量 —— 这 {1} 的已实现盈亏不能按面值看",
     "only {0} tokens — no ratio computed on this is meaningful": "样本只有 {0} 个币，任何比率都不成立",
@@ -427,6 +435,7 @@ ZH = {
     "{0} ridden to zero (down 90%+ with zero sells)": "抱到归零 {0} 个（亏 90%+ 零卖出）",
     "{0} tokens, {1} profitable ({2}), {3}": "{0} 币 · {1} 盈利（{2}）· {3}",
     "{0} tokens, {1} profitable, {2}": "{0} 币 · {1} 盈利 · {2}",
+    "{0} {1} — about {2:.0f}x its long-run pace": "{0} {1} —— 比长期均速快 {2:.0f} 倍",
     "{0} {1} — about {2:.0f}x its own long-run pace": "{0} {1} —— 比它一直以来的平均水平快 {2:.0f} 倍",
     "{0} {1}: 7d {2} vs all-time {3}": "{0} {1}：7d {2} vs 全期 {3}",
     "{0} · cadence×P&L {1}": "{0} · 频次×盈亏 {1}",
@@ -483,6 +492,13 @@ def load_lang(code):
     LANG_TABLE.clear()
     if code == "zh":
         LANG_TABLE.update(ZH)
+
+
+def joinclause(parts):
+    """Join clauses with the locale's clause separator — a full-width comma in Chinese,
+    a comma-space in English. Keyed explicitly rather than inferred, for the same reason
+    `joinsym` is: probing a translation to guess the locale reads as a coincidence."""
+    return LANG_TABLE.get("__clause_separator__", ", ").join(parts)
 
 
 def joinsym(items):
@@ -1436,7 +1452,7 @@ def gates(m):
             pcr_txt = T('profit concentration {0} (only {1} positions — too thin to rely on)', pct(m['pcr']), m['holdings_n'])
         else:
             pcr_txt = T('profit concentration not measured (holdings unavailable)')
-        detail = [T('{0} tokens, {1} profitable ({2}), {3}',
+        detail = [T('{0:,} tokens, {1} profitable ({2}), {3}',
                      m['token_num'], m['winners'], pct(m['winrate']), pcr_txt)]
         if m["wash_refuted"]:
             top = joinsym(sym for sym, _v in m["conviction_top"])
@@ -2031,12 +2047,27 @@ def md_table(head, rows, align=None):
 
 
 def card(m, g, wallet, chain):
-    """Layer one: the decision and the action, with every 'how do you know' deferred."""
+    """Layer one: the decision and the action, with every 'how do you know' deferred.
+
+    The opening is three lines and they carry the whole report. An earlier version led with
+    "If you had followed it with $1,000 seven days ago" above the verdict, and the first
+    reaction it drew was the right one: that sentence is a completed counterfactual, so it
+    reads as an opportunity already missed. It also put identity fourth, meaning the first
+    three lines never said why this trader was worth a reader's attention.
+
+    So the order is now: who this is -> what their record is, in the present tense -> the
+    7-day window as a *backtest that proves the trader*, not as a trade the reader failed to
+    place -> and only then the verdict, which lands as the twist rather than the premise.
+    """
     out = []
     emoji, headline, why = verdict(m, g)
     flags = [t for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3")] or \
             [t for t in m["tag_info"] if t["sev"] == "warn"]
-    head = f"# {emoji} {headline.split(' · ')[0]}"
+    ident = m["twitter_name"] or (f"@{m['twitter']}" if m["twitter"] else None)
+
+    # ── line 1: who. An anonymous address has no hook to lead with, so the verdict keeps
+    #    the H1 there and the whole opening collapses by one level.
+    head = f"# {ident}" if ident else f"# {emoji} {headline}"
     if flags:
         head += f"　`{flags[0]['emoji']} {flags[0]['name']}`"
         # Recorded so the evidence layer's flag list can skip the one the card already
@@ -2044,49 +2075,53 @@ def card(m, g, wallet, chain):
         m["card_flag_name"] = flags[0]["name"]
     out += [head, ""]
 
-    # ── the money, as money — but only while the record is worth quoting ──
+    # ── line 2: the record, present tense. This is the hook: what it has actually done,
+    #    stated as a standing fact rather than as a return the reader could have captured.
     if g["G1"][0] is False:
-        # When G1 fails the P&L is precisely what is in dispute, so quoting it as
-        # "$1,000 -> $1,122" would present the disputed figure as an achieved one.
         out += ["> " + T('Its profit figures are not trustworthy — treat the track record as unknown'), ""]
     else:
-        emo, label = m["form"]
-        pace = (T('{0} {1} — about {2:.0f}x its own long-run pace', emo, label, m["pace_x"])
-                if m["pace_x"] else f"{emo} {label}")
-        out += ["> **" + T('If you had followed it with {0} seven days ago',
-                           usd_exact(m["story_stake"])) + "**",
-                ">",
-                f"> ## {usd_exact(m['story_stake'])} → {usd_exact(m['story_out'])}",
-                ">", "> " + pace, ""]
+        rec = [T('it has traded {0:,} coins, {1} of them profitably', m["token_num"], pct(m["winrate"]))]
+        if m["lt50_share"] is not None:
+            rec.append(T('only {0} down more than half', pct(m["lt50_share"])))
+        line = joinclause(rec)
+        if m["realized_all"]:
+            line = T('{0} realized all-time — ', usd(m["realized_all"])) + line
+        out += [f"**{line}**"]
 
-    facts = [T('{0:,.0f} trades a day', m["per_day"])]
-    if g["G1"][0] is not False:
-        if m["roi_7d"] is not None:
-            facts.append(T('{0} over 7 days', pct(m["roi_7d"])))
-        if m["realized_7d"]:
-            facts.append(T('made {0} in that week', usd(m["realized_7d"])))
-    out += ["**" + " · ".join(facts) + "**", ""]
-
-    # ── who, in one line, with no taxonomy ──
-    ident = m["twitter_name"] or (f"@{m['twitter']}" if m["twitter"] else None)
-    bits = []
+    # ── line 3: what kind of operator, so the record above has a shape.
+    qual = [chain.upper()]
     if m["age_days"] is not None and m["age_days"] >= 180:
-        bits.append(T('{0:.0f}-day-old wallet', m["age_days"]))
+        qual.append(T('{0:.0f}-day-old wallet', m["age_days"]))
     if m["followers"] >= 10_000:
-        bits.append(T('{0:,} followers', m["followers"]))
+        qual.append(T('{0:,} followers', m["followers"]))
+    qual.append(T('{0:,.0f} trades a day', m["per_day"]))
+    out += [" · ".join(qual), ""]
+
+    # ── line 4: the 7-day window, framed as a backtest of the trader -- present tense,
+    #    and paired with what the wallet itself made so the figure reads as evidence of
+    #    skill rather than as a missed entry.
+    if g["G1"][0] is not False and m["roi_7d"] is not None:
+        emo, label = m["form"]
+        second = []
+        if m["realized_7d"]:
+            second.append(T('it made {0} itself this week', usd(m["realized_7d"])))
+        second.append(T('{0} {1} — about {2:.0f}x its long-run pace', emo, label, m["pace_x"])
+                      if m["pace_x"] else f"{emo} {label}")
+        out += ["> **" + T('7-day backtest: {0} following it → {1}',
+                           usd_exact(m["story_stake"]), usd_exact(m["story_out"])) + "**",
+                ">", "> " + joinclause(second),
+                ""]
+
+    # ── line 5: the verdict. It is the turn, not the opening.
     if ident:
-        line = f"**{ident}**"
-        if bits:
-            line += "　" + " · ".join(f"`{b}`" for b in bits)
-        out.append(line)
+        out += [f"## {emoji} {headline}", ""]
     persona = []
     if m["gain_top3_share"] is not None and g["G1"][0] is not False:
         persona.append(T('its 3 best coins made {0} of the money', pct(m["gain_top3_share"])))
     if m["entry_p50"] > 0:
         persona.append(T('usually enters around {0}', mc(m["entry_p50"])))
     if persona:
-        out.append(" · ".join(persona))
-    out.append("")
+        out += [" · ".join(persona), ""]
 
     # ── the action ──
     # A red verdict gets the verdict's own instruction, never a sizing and a copy window:

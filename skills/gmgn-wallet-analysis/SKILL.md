@@ -88,6 +88,38 @@ Three of these exist only because the first cut got them wrong, and none should 
   checkable, refuted. Their three fixtures pin all outcomes of `wash_trader`; a change that
   makes any two agree is a regression.
 
+### The opening three lines are the hook
+
+The card opens with identity, then standing, then the 7-day window as a **backtest**, and only
+then the verdict. An earlier version led with the money as a counterfactual:
+
+> **If you had followed it with $1,000 seven days ago**
+> ## $1,000 → $1,206
+
+A reader's first reaction to that was to stop: "if you had done X seven days ago" describes an
+opportunity that has already closed, so it reads as a missed trade rather than as a reason to
+look. It also put identity fourth, which meant the first three lines never said why this trader
+deserved attention.
+
+| Line | Carries | Why there |
+|------|---------|-----------|
+| `# Cowboy🔶BNB ｜版本之牛　\`📣 KOL\`` | who this is | An address the reader pasted is a stranger until it is named. A verdict on a stranger is not yet interesting |
+| `**累计落袋 $1.00M —— 交易过 1,023 个币，69.3% 是赚钱的，亏超一半的只有 1.2%**` | the standing, present tense, money first | This is the hook. It says why the subject merits attention, as something still true — not as a return that was available |
+| `BSC · 314 天 · 41,319 粉丝 · 每天 292 笔` | what kind of operator | Gives the record above a shape before any judgement |
+| `> **近 7 天回测：$1,000 跟着它走 → $1,207**` + what it made itself | the window as evidence | Identical figure to the old opening. "回测" makes it proof of skill; "如果你当时…" made it a regret |
+| `## 🟡 能看不能抄 · 你抢不到它的价` | the verdict | It is the turn in the piece, not the premise |
+
+**The rule that generalises:** when the report quotes a return over a past window, say what the
+window measured *about the wallet*, never what the reader *would have earned had they acted*.
+
+Two shapes to preserve when editing this:
+
+- **No identity, no hook.** An anonymous address has nothing to lead with, so the verdict keeps
+  the H1 and the whole opening collapses by one heading level.
+- **G1 ❌ prints no figure at all.** When the record is what is in dispute, the standing line and
+  the backtest block are both replaced by one sentence saying the profit figures are not
+  trustworthy. Quoting `$1,000 → $1,206` there would present a disputed number as an achieved one.
+
 ## Verdict language
 
 This layer is the only part most readers finish, so it is written to be read once:
