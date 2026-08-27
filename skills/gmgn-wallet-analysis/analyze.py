@@ -1951,24 +1951,24 @@ def actions(m, g, card_shown=False):
     # Ordered by how much this particular wallet's data invites the question; first three win.
     # The first three are deliberately three different skills.
     pool = []
-    syms = ", ".join(s for s, _v in m["recent_buys"][:3]) if m["recent_buys"] else ""
-    if syms:
+    top_buy = m["recent_buys"][0][0] if m["recent_buys"] else ""
+    if top_buy:
         # -> gmgn-holder-analysis
-        pool.append(T('What do the chips look like on {0} — who is holding, and at what cost?', syms))
+        pool.append(T('What do the chips look like on {0} — who is holding, and at what cost?', top_buy))
     # -> gmgn-wallet-score, copy-tradeability angle
     pool.append(T('Score it 0-100 with my own latency and slippage modelled in?'))
     if m["created_tokens_n"] > 0:
         # -> gmgn-wallet-score, Dev-reputation angle
         pool.append(T('It launched {0} tokens — how many of them are still alive?',
                       f'{m["created_tokens_n"]:,}'))
-    if syms:
+    if top_buy:
         # -> gmgn-kline-pattern
         pool.append(T('What shape is {0} in right now — still climbing, or already breaking down?',
-                      m["recent_buys"][0][0]))
+                      top_buy))
         # -> gmgn-token security
-        pool.append(T('Are the contracts on {0} safe — honeypot, liquidity, mint authority?', syms))
+        pool.append(T('Are the contracts on {0} safe — honeypot, liquidity, mint authority?', top_buy))
         # -> gmgn-token (smart-money / KOL positions) or gmgn-track
-        pool.append(T('Who else is buying {0} — any smart money or KOLs in there?', syms))
+        pool.append(T('Who else is buying {0} — any smart money or KOLs in there?', top_buy))
     if m["holdings_n"]:
         # -> gmgn-portfolio holdings
         pool.append(T('It holds {0} coins — list the whole book with costs?', f'{m["holdings_n"]:,}'))

@@ -268,12 +268,12 @@ anything written down. The pool, its routing, and the phrase each line is pinned
 
 | Question | Routes to | Pinned on |
 |----------|-----------|-----------|
-| `{tokens} 的筹码分析 —— 谁在持有、成本多少？` | `gmgn-holder-analysis` | 筹码分析 · who is holding · entry cost |
+| `{token} 的筹码分析 —— 谁在持有、成本多少？` | `gmgn-holder-analysis` | 筹码分析 · who is holding · entry cost |
 | `跟单评分：给它打个 0–100 分，把我自己的延迟和滑点算进去？` | `gmgn-wallet-score` (copy-tradeability) | 跟单评分 |
 | `它发盘情况怎么样 —— 发过 {n} 个币，现在还活着几个？` | `gmgn-wallet-score` (Dev reputation) | 发盘情况怎么样 |
 | `{token} 的走势和形态怎么样 —— 还在涨，还是已经开始崩？` | `gmgn-kline-pattern` | 走势 · 形态 |
-| `{tokens} 的合约安全吗 —— 有没有貔貅、流动性够不够…？` | `gmgn-token security` | 安全 |
-| `还有谁在买 {tokens} —— 里面有聪明钱或 KOL 吗？` | `gmgn-track` | 聪明钱 · KOL |
+| `{token} 的合约安全吗 —— 有没有貔貅、流动性够不够…？` | `gmgn-token security` | 安全 |
+| `还有谁在买 {token} —— 里面有聪明钱或 KOL 吗？` | `gmgn-track` | 聪明钱 · KOL |
 | `它持有 {n} 个币，把完整持仓和成本列出来看看？` | `gmgn-portfolio holdings` | 持仓 |
 | `这个地址到底是钱包还是代币合约？` (zero-trade path) | `gmgn-token info` | 代币合约 |
 
@@ -313,6 +313,14 @@ Two candidates were cut against the availability rule and must not come back:
 
 `gmgn-market` and `gmgn-cooking` are in the library but answer nothing about a wallet, and
 `gmgn-swap` is execution rather than analysis, so none of the three appears here.
+
+**One target per question.** A token-scoped question names the single largest of the last 24
+hours' buys, never a list. Three tokens in one line turns one question into three downstream
+skill calls — three times the rate-limit budget, in the turn right after a dossier that already
+nearly empties the bucket, so the fan-out does not just cost more, it makes the follow-up likely
+to 429. It also hands the reader three threads to hold at once when the section exists to offer
+one clear next step. Two questions about the *same* token (its chips, then its chart) are still
+single-threaded and fine.
 
 Two further rules produce the section's shape:
 
