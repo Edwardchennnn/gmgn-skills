@@ -1915,7 +1915,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
     if m["open_book"]:
         out += ["**" + T('{0} positions · {1} total', m['holdings_n'], usd(m['open_value'])) + "**", ""]
         hp_syms = {x["sym"] for x in m["honeypots"]}
-        out += md_table([T('token'), T('value'), T('P&L'), T('cost'), T('sells')],
+        out += md_table([T('token'), T('market value'), T('P&L'), T('cost'), T('sells')],
                         [[bk["sym"] + (" 🍯" if bk["sym"] in hp_syms else ""),
                           usd(bk["usd"]), pct(bk["chg"], 0), usd(bk["cost"]), f"{bk['sells']:,}"]
                          for bk in m["open_book"]],

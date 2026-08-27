@@ -135,6 +135,33 @@ the scale *this wallet* operates at — the size cap describes the reader's size
 hand-waving; naming where it lives makes the clean first screen a choice the reader can
 decline. Do not remove it when trimming.
 
+### Translation keys: check completeness, do not prune
+
+Two failure modes, both hit in practice:
+
+**A reworded string is a new key.** The markdown rewrite rephrased five strings and every one
+silently fell back to English in the Chinese output, because `T()` falls back rather than
+failing. Nothing crashed; the report just came out half in English. Check completeness after
+touching any string:
+
+```bash
+python3 - <<'PY'
+import ast, json
+src = open("analyze.py", encoding="utf-8").read()
+keys = {n.args[0].value for n in ast.walk(ast.parse(src))
+        if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "T"
+        and n.args and isinstance(n.args[0], ast.Constant)}
+missing = sorted(k for k in keys if k not in json.load(open("lang/zh.json", encoding="utf-8")))
+print("missing:", missing or "none")
+PY
+```
+
+**Do not use that scan to prune.** It sees only literal `T("...")` calls, and several strings
+reach `T()` through a variable — the `TAGS`, `TITLES`, `GATE_NAMES`, `GATE_GLOSS` and
+`GATE_PLAIN` tables, and the holdings sentence built as `tpl = (... if ... else ...)`.
+Pruning by that scan deleted live translations here. Unused entries are harmless bloat; a
+deleted live one is a bug that only shows up in one language.
+
 ### Translation keys collide
 
 `lang/<code>.json` is keyed on the English string, so there is exactly one slot per string.
