@@ -368,6 +368,7 @@ columns, an emoji as one, `wrap()` and `dwidth()` disagreeing by two).
 | **Never print a zero as if it were a finding** | `0.0% of entries under $100k` is noise, not information | guarded at the call site |
 | **Money: no cents at or above $10; thousands separators always** | `$213.46` is false precision | `usd()`; `usd_exact()` for the two figures a reader acts on |
 | **One name per concept** | "copy window" / "median window" / "window" for one quantity makes the reader re-derive that they match. The analysis period is the "data range", never a "window" | fixed at the format-string level |
+| **A number's reasoning is not gated on an unrelated gate** | The size cap's derivation sat on the `G3 is True` branch, so the run that most needs it — G3 failed, the reader is told not to mirror, and the card still shows a cap — printed a bare `$132` with no reasoning anywhere. Sizing and reachability are different questions | the rationale prints whenever `size_cap` exists |
 | **Never print the same fact twice** | "ordinary trading wallet" appeared in both the speed read and WHO IT IS | deduplicated at the renderer |
 
 Verification is mechanical. This must stay clean across every fixture and both languages:

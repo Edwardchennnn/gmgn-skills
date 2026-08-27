@@ -1956,10 +1956,19 @@ def actions(m, g):
         a.append(
             T('Do not mirror it. Treat it as a signal source: note what and at what mcap, then enter on your own terms.')
         )
-    elif p["G3"] is True and m["size_cap"]:
+    # The size cap's derivation used to live on the `G3 is True` branch, so the one run that
+    # most needs it — G3 failed, the reader is told not to mirror, and the card still shows a
+    # cap — printed the number with no reasoning anywhere. Sizing and reachability are
+    # different questions; gating one on the other left a bare "$132" next to "do not copy".
+    if m["size_cap"]:
         a.append(
-            T('Start at ≤ {0} (it averages {1} per buy; above its own size your slippage is worse than its). Quote through gmgn-swap before sending.', usd(m['size_cap']), usd(m['avg_buy_usd']))
+            T('Whatever size you use, keep it at or under {0} — half of the {1} this wallet '
+              'puts on a buy. Past its own size your fill is worse than the ones its record '
+              'was built on, so its numbers stop describing you.',
+              usd(m['size_cap']), usd(m['avg_buy_usd']))
         )
+        if p["G3"] is True:
+            a.append(T('Quote through gmgn-swap before sending.'))
     if p["G4"] is False:
         a.append(
             T('Set your own stop — it does not cut, and riding it to the end means riding it to zero.')
