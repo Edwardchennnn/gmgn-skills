@@ -1831,7 +1831,10 @@ def report(wallet, chain, m, g, gaps, brief=False):
     eng = profit_engine(m)
     if eng:
         chip, detail, meaning = eng
-        rows_id.append((T('engine'), [f"**{chip}**", detail, f"→ {meaning}"]))
+        # The card states the chip and what it means for copying. Only the numbers behind it
+        # are new down here, so that is all this row carries when a card was printed.
+        rows_id.append((T('engine'), [f"**{chip}**", detail] if not blocked
+                                     else [f"**{chip}**", detail, f"→ {meaning}"]))
 
     if rows_id:
         out += ["## " + T('👤 WHO IT IS'), ""]
@@ -1973,7 +1976,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
 
     # ── what to do next ──
     out += ["## " + T('✅ WHAT TO DO NEXT'), ""]
-    out += [f"- {a}" for a in actions(m, g)] + [""]
+    out += [f"- {a}" for a in actions(m, g, card_shown=not blocked)] + [""]
 
     out += ["---", ""]
     cap = T(' (hit page cap — busiest slice only)') if m["hit_limit"] else ""
@@ -1987,7 +1990,14 @@ def report(wallet, chain, m, g, gaps, brief=False):
 
 
 
-def actions(m, g):
+def actions(m, g, card_shown=False):
+    """Next steps. When a card was printed, only what the card did not already say.
+
+    This section grew to 962 characters — 35% of the evidence layer, more than all four
+    gates combined — mostly by repeating the card: the size cap, the copy window and "treat
+    it as a signal source" are on the card verbatim. Repetition at the end of a report reads
+    as padding, and it pushed the sample line and the data gaps off the screen.
+    """
     a = []
     p = {k: v[0] for k, v in g.items()}
     if m["trades"] == 0:
@@ -2000,27 +2010,29 @@ def actions(m, g):
             T('It bought {0} in the last 24h — run gmgn-token / gmgn-holder-analysis on those before following it in.', syms)
         )
     if p["G3"] is False:
-        a.append(
+        if not card_shown:
+            a.append(
             T('Do not mirror it. Treat it as a signal source: note what and at what mcap, then enter on your own terms.')
-        )
+            )
     # The size cap's derivation used to live on the `G3 is True` branch, so the one run that
     # most needs it — G3 failed, the reader is told not to mirror, and the card still shows a
     # cap — printed the number with no reasoning anywhere. Sizing and reachability are
     # different questions; gating one on the other left a bare "$132" next to "do not copy".
     if m["size_cap"]:
-        a.append(
+        if not card_shown:
+            a.append(
             T('Whatever size you use, keep it at or under {0} — half of the {1} this wallet '
               'puts on a buy. Past its own size your fill is worse than the ones its record '
               'was built on, so its numbers stop describing you.',
               usd(m['size_cap']), usd(m['avg_buy_usd']))
-        )
-        if p["G3"] is True:
+            )
+        if p["G3"] is True and not card_shown:
             a.append(T('Quote through gmgn-swap before sending.'))
     if p["G4"] is False:
         a.append(
             T('Set your own stop — it does not cut, and riding it to the end means riding it to zero.')
         )
-    if m["copy_window_s"] > 0:
+    if m["copy_window_s"] > 0 and not card_shown:
         a.append(
             T('If you copy it, your order must land within {0} of its buy — otherwise skip the trade.', dur(m['copy_window_s']))
         )
