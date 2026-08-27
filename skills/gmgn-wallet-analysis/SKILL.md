@@ -101,20 +101,47 @@ number. Evidence-first served neither.
 | Layer | Contains | For |
 |-------|----------|-----|
 | **Card** | verdict · the 7d return told as money · cadence, return and amount · who this is · what to do · four outcomes · one risk · what it bought in 24h · the live book in one line | a newcomer, who stops here |
-| **Evidence** | the four gates with the number that decided each, the numbers panel, the P&L distribution, the full live book | anyone verifying, and the dev diffing a change |
+| **Evidence** | who it is, the four gates each with the number that decided it, the risk flags, the live book, three follow-up questions | anyone verifying, and the dev diffing a change |
 
 `--brief` prints only the card. Default prints both.
 
-**The evidence layer does not restate the card.** It used to: the verdict block, the speed
-read, the account row, the 24h buy list and two numbers-panel rows all appeared twice, which
-pushed the actual evidence below the fold and made the report look like it was padding. What
-stays below is what the card deliberately withheld — 86 evidence lines down to 72 with not
-one piece of evidence removed. Every one of those blocks comes back when `card_blocked()`
-withholds the card, because then nothing has said it yet.
+### The evidence layer holds deciding numbers only
 
-That distinction is the whole rule: **cut repetition, never cut evidence.** Trimming by
-"which numbers are most convincing" would turn the layer from something a reader can check
-into something they can only accept — which is the failure this skill exists to correct.
+Two rules, applied in this order:
+
+**It does not restate the card.** The verdict block, the speed read, the account row, the 24h
+buy list and two numbers rows all used to appear twice, which pushed the actual evidence below
+the fold and made the report look padded. What stays below is what the card deliberately
+withheld. Every withheld block comes back when `card_blocked()` suppresses the card, because
+then nothing has said it yet.
+
+**A figure earns its place by deciding something.** If no gate reads it, it goes. That rule
+removed, in one pass:
+
+| Removed | Why it was not core |
+|---------|---------------------|
+| the whole `NUMBERS` panel (8 rows) | Its deciding figures — 7d vs all-time ROI, entry median, cadence, heavy-loss share — are each printed by the gate that used them. What was left was reference: all-time realized, fee share, entry quartiles, clip size, mean hold |
+| the outcome-distribution histogram (5 bands) | A shape, not a decision. G1 gives the win count and G4 the heavy-loss share, which is what the bands were being read for |
+| the mean-vs-median hold warning | Its subject was the panel's `mean 3.9 days`. With that gone there is no contradiction left to reconcile |
+| the standalone profit-concentration line | Word for word on G1's own line |
+| the `CLEARED` block's "honeypot checked, none hit" | Word for word on G4's own line. The *refuted*-flag variant stays: it carries the sell counts that killed the flags, which G4 does not print |
+| the `cadence×P&L L4×P4` cell | Internal bookkeeping. The title and its gloss say the same thing in words, and there is nowhere for a reader to look the code up |
+| `hunts on flap×45, fourmeme×3` | Context; no gate reads the launchpad mix |
+| the `🌙 fixed hours` and `💣 dumps in one go` chips | Behavioural colour that feeds no gate. `🤖 bot cadence` and `🎯 sniper entry` stay — G3 rests on both |
+| the live book's `cost` column | Derivable from market value and P&L. `sells` stays: it is the column that refutes a honeypot flag |
+| the 4th and 5th 24h buys | The card prints the top three |
+| the wash-trade flag's restated share | G1 prints the corroboration argument in full, three headings above |
+
+The win-rate percentage was the one figure the panel uniquely carried, so G1's line now names
+its own ratio: `1002 tokens · 792 profitable (69.2%) · concentration 21.9%`.
+
+Net effect on one live wallet: evidence layer 2,266 → 1,364 characters, with every gate still
+printing the number that decided it.
+
+**What must never be cut is a number a gate stands on.** Trimming by "which figures are most
+convincing" rather than "which figures decide something" would turn the layer from checkable
+into acceptable-only, which is the failure this skill exists to correct. The distinction is
+mechanical: follow each gate line back to the metric it names, and keep exactly those.
 
 **The headline is money, not a ratio.** `+62.1%` is a figure the reader has to convert;
 `$1,000 → $1,621` is the same fact needing no conversion. Nothing extra is fetched — it is

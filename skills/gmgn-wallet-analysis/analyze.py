@@ -835,6 +835,7 @@ def compute(d, latency_s, my_size):
                 # saying the flag does not hold. ❔ is the honest one.
                 t["emoji"] = "❔"
                 t["name"] = T('{0} (refuted)', t['name'])
+                t["refuted"] = True
                 t["meaning"] = T("GMGN's label, refuted locally: {0} of realized gains came from positions netting more than their own cost basis — self-dealing cannot produce that", pct(cs))
 
     # ── dev record ──
@@ -1015,7 +1016,8 @@ def gates(m):
             pcr_txt = T('profit concentration {0} (only {1} positions — too thin to rely on)', pct(m['pcr']), m['holdings_n'])
         else:
             pcr_txt = T('profit concentration not measured (holdings unavailable)')
-        detail = [T('{0} tokens, {1} profitable, {2}', m['token_num'], m['winners'], pcr_txt)]
+        detail = [T('{0} tokens, {1} profitable ({2}), {3}',
+                     m['token_num'], m['winners'], pct(m['winrate']), pcr_txt)]
         if m["wash_refuted"]:
             top = joinsym(sym for sym, _v in m["conviction_top"])
             detail.append(T('GMGN carries a "{0}" flag; the local check refutes it: {1} of realized gains came from size positions like {2} that netted more than their own cost basis. Self-dealing cannot produce that — the flag is downgraded to a caution, not a veto', m['wash_refuted']['tag'], pct(m['wash_refuted']['share']), top))
@@ -1463,10 +1465,6 @@ def archetype(m):
     # Both of the next two are None unless the sample can carry them — see the metric.
     if m["top3_buy_share"] is not None and m["top3_buy_share"] >= 0.7:
         tags.append(T('📦 concentrated bets, top 3 tokens are {0} of buy spend', pct(m['top3_buy_share'])))
-    if m["hour_peak_share"] is not None and m["hour_peak_share"] >= 0.7:
-        tags.append(T('🌙 fixed hours, {0} of trades inside one 6-hour window', pct(m['hour_peak_share'])))
-    if m["dump_share"] >= 0.7 and m["sampled"] >= 20:
-        tags.append(T('💣 dumps in one go on {0} of exits', pct(m['dump_share'])))
     return tags
 
 
@@ -1784,7 +1782,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
         head = f"{st[0]} **{st[1]}**"
         if sp:
             head += f" · {sp[0]} {sp[1]}" + T(" ({0})", sp[2])
-        rows_id.append((T('style'), [head, T('{0} · cadence×P&L {1}', st[2], st[3])]))
+        rows_id.append((T('style'), [head, st[2]]))
 
     if m["twitter_name"] or m["twitter"]:
         bits = [(f"{m['twitter_name'] or ''} @{m['twitter']}" if m["twitter"]
@@ -1817,8 +1815,6 @@ def report(wallet, chain, m, g, gaps, brief=False):
         src = m["fund_from"] or f"{m['fund_from_address'][:6]}…"
         prov.append(T('funded from {0}', src)
                     + (f" {usd(m['fund_amount'])}" if m["fund_amount"] else ""))
-    if m["launchpads"]:
-        prov.append(T('hunts on {0}', T(', ').join(f"{k}×{v}" for k, v in m["launchpads"])))
     if m["dev_total"]:
         prov.append(T('launched {0} tokens ({1} graduated · {2})', m['dev_total'], m['dev_open'], pct(m['dev_open_ratio'])))
     elif m["created_tokens_n"]:
@@ -1858,7 +1854,9 @@ def report(wallet, chain, m, g, gaps, brief=False):
         out.append("")
 
     # ── risk flags: binary facts, no paragraph to parse ──
-    risk = [f"{t['emoji']} **{t['name']}** · {t['meaning']}"
+    # A refuted wash-trade tag has its whole argument on G1's line already; repeating the
+    # share here is the same sentence twice, three headings apart.
+    risk = [f"{t['emoji']} **{t['name']}**" + ("" if t.get("refuted") else f" · {t['meaning']}")
             for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3", "warn")]
     if m["honeypots"]:
         risk.append(T('🍯 {0} honeypot positions ({1}) · {2} unsellable',
@@ -1871,88 +1869,29 @@ def report(wallet, chain, m, g, gaps, brief=False):
         good.append(T('✅ {0} honeypot flags ({1}) refuted by fill history — the busiest has {2:,} completed sells; transfer-restricted tokenised stocks, not honeypots',
                       len(m['hp_refuted']), joinsym(x["sym"] for x in m["hp_refuted"]),
                       max(x["sells"] for x in m["hp_refuted"])))
-    elif not m["honeypots"] and m["security_checked"]:
-        good.append(T('✅ honeypot flag checked on {0} positions, none hit', m['security_checked']))
+
     out += [("## " + T('🚩 RISK FLAGS ({0})', len(risk))) if risk
             else ("## " + T('✅ NO RISK FLAGS')), ""]
     out += [f"- {r}" for r in risk] + [""]
     if good:
         out += ["**" + T('CLEARED') + "**", ""] + [f"- {gd}" for gd in good] + [""]
 
-    # ── numbers panel: every row carries its own conclusion ──
-    out += ["## " + T('📊 NUMBERS (the conclusion is on the right)'), ""]
-    rows = []
-    # P&L and cadence are on the card as "7d 16.3% · 每天 277 笔"; repeating them here costs
-    # two rows and tells the reader nothing new. They come back when there is no card.
+    # ── core figures: only on the blocked path, where no card printed them ──
+    # The full numbers panel and the outcome-distribution chart were deleted. Every figure
+    # that decides something is printed by the gate that decided it; the panel restated those
+    # and added eight rows of reference (all-time realized, fee share, entry quartiles, clip
+    # size, mean hold, bucket histogram) that a reader consults but never acts on. The
+    # mean-vs-median warning went with it -- its subject, the API's mean hold, is no longer
+    # printed anywhere, so there is no contradiction left to reconcile.
     if blocked:
-        rows.append((T('P&L'),
-                     T('{0} on {1} cost = {2}', usd(m['realized_7d']), usd(m['cost_7d']), pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a'),
-                     roi_label(m["roi_7d"])))
-    rows.append((T('form'),
-                 T('1d {0} · 7d {1} · 30d {2} · all {3}', pct(m['roi_1d']) if m['roi_1d'] is not None else 'n/a', pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a', pct(m['roi_30d']) if m['roi_30d'] is not None else 'n/a', pct(m['roi_all']) if m['roi_all'] is not None else 'n/a'),
-                 f"{m['form'][0]} {m['form'][1]}"))
-    if m["realized_all"] is not None:
-        allt = T('{0} realized', usd(m['realized_all']))
-        if m["unrealized"]:
-            allt += T(' · {0} on paper', usd(m['unrealized']))
-        rows.append((T('all time'), allt,
-                     roi_label(m["roi_all"]) if m["roi_all"] is not None else T('unknown')))
-    rows.append((T('cadence'),
-                 T('{0:,} trades ({1:,} buy / {2:,} sell) = {3:,.0f}/day', m['trades'], m['buy'], m['sell'], m['per_day']),
-                 cadence_label(m["per_day"])))
-    fr = T('{0} net per exit · {1} avg gas', usd(m['net_per_sell']), usd(m['avg_gas_usd']))
-    if m["gas_drag"] is not None:
-        fr += (T(' · fees {0} = {1} of profit', usd(m['fee_total']), pct(m['gas_drag']))
-               if m["fee_exact"] else T(' ≈ {0} of profit (estimated)', pct(m['gas_drag'])))
-    rows.append((T('friction'), fr, friction_label(m)))
-    rows.append((T('holding'),
-                 T('mean {0} · median copy window {1} ({2} round trips)', dur(m['avg_hold_s']), dur(m['copy_window_s']), m['copy_window_n']),
-                 T('⚠️ read the median') if m["hold_conflict"] else T('mean is usable')))
-    rows.append((T('entry'),
-                 T('p25/p50/p75 {0}/{1}/{2} ({3} measurable)', mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']), m['entry_n']),
-                 entry_label(m["entry_p50"])))
-    sz = T('{0} per buy', usd(m['avg_buy_usd']))
-    if m["size_ratio"]:
-        sz += T(' · your {0} = {1:.1f}x its clip', usd_exact(m["my_size"]), m["size_ratio"])
-    rows.append((T('size'), sz,
-                 T('start at ≤ {0}', usd(m['size_cap'])) if m["size_cap"] else T('not computable')))
-    # State the denominator. A bare "23.9% over 209 tokens" invites the reader to compare it
-    # against the 188 sitting in the 0-200% band and conclude one of them is wrong.
-    rows.append((T('win rate'),
-                 T('{0} — about {1} of {2} tokens have a realized win · {3} heavy losses',
-                   pct(m['winrate']), m['implied_winners'], m['token_num'], pct(m['lt50_share']))
-                 if m["dist_gap"] else
-                 T('{0} over {1} tokens · {2} heavy losses',
-                   pct(m['winrate']), m['token_num'], pct(m['lt50_share'])),
-                 T('cuts losses') if m["lt50_share"] < 0.35 else T('does not cut')))
-    # Two columns, not three. The old third column repeated the gates' own conclusions
-    # (净盈 / 升温 / 机器级 / 会砍仓), which are two screens above — 107 characters saying
-    # nothing new, and it squeezed the figures into a narrow middle column.
-    out += md_table([T('metric'), T('value')],
-                    [[f"**{a}**", b] for a, b, _c in rows],
-                    ["---", "---"]) + [""]
-    for note_ in (m["hold_conflict"], m["one_coin_note"]):
-        if note_:
-            out += [f"> ⚠️ {note_}", ""]
-    if m["pcr"] is not None and m["pcr_trusted"]:
-        out += [T("profit concentration {0} (largest winner's share of all gains)", pct(m['pcr'])), ""]
-
-    # ── P&L distribution ──
-    b = m["buckets"]
-    peak = max(b.values()) or 1
-    out += ["### " + T('📉 OUTCOME DISTRIBUTION ({0} tokens — counts tokens, not dollars)', m['token_num']), ""]
-    drows = []
-    for lab, k in ((">500%", "gt5"), ("200–500%", "x2_5"), ("0–200%", "x0_2"),
-                   ("−50–0%", "n50_0"), ("<−50%", "lt_n50")):
-        n = b[k]
-        drows.append([lab, f"{n:,}", ("`" + "█" * max(1, int(round(30 * n / peak))) + "`") if n else ""])
-    out += md_table([T('band'), T('tokens'), ""], drows, ["---", "---:", "---"]) + [""]
-    if m["dist_gap"]:
-        out += ["> ⚠️ " + T('The 0-200% band is not a win count. It holds {0} tokens while the win rate '
-                            'implies about {1} winners — the other {2} were bought and have no realized '
-                            'result yet, so they sit at 0% inside that band. Read the win rate for how '
-                            'often it wins, and this chart only for the shape of the tail.',
-                            b["x0_2"], m["implied_winners"], m["unsettled"]), ""]
+        core = [T('7d {0}', pct(m['roi_7d'])) if m["roi_7d"] is not None else None,
+                T('all {0}', pct(m['roi_all'])) if m["roi_all"] is not None else None,
+                T('{0:,.0f}/day', m["per_day"]),
+                T('win {0}', pct(m['winrate'])),
+                T('entry {0}', mc(m['entry_p50'])) if m["entry_p50"] else None]
+        out += [" · ".join(c for c in core if c), ""]
+    if m["one_coin_note"]:
+        out += [f"> ⚠️ {m['one_coin_note']}", ""]
 
     # ── what it is doing now ──
     pe, pl = m["posture"]
@@ -1963,7 +1902,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
                                  'has since gone quiet', dur(m["idle_s"]))) if m["stale"]
                     else T('last trade {0} ago', dur(m["idle_s"]))))
     out.append("")
-    extra = m["recent_buys"] if blocked else m["recent_buys"][3:]
+    extra = m["recent_buys"] if blocked else []
     if extra:
         out += ["**" + (T('bought in 24h') if blocked
                         else T('also bought in 24h')).strip() + "**", ""]
@@ -1971,11 +1910,11 @@ def report(wallet, chain, m, g, gaps, brief=False):
     if m["open_book"]:
         out += ["**" + T('{0} positions · {1} total', m['holdings_n'], usd(m['open_value'])) + "**", ""]
         hp_syms = {x["sym"] for x in m["honeypots"]}
-        out += md_table([T('token'), T('market value'), T('P&L'), T('cost'), T('sells')],
+        out += md_table([T('token'), T('market value'), T('P&L'), T('sells')],
                         [[bk["sym"] + (" 🍯" if bk["sym"] in hp_syms else ""),
-                          usd(bk["usd"]), pct(bk["chg"], 0), usd(bk["cost"]), f"{bk['sells']:,}"]
+                          usd(bk["usd"]), pct(bk["chg"], 0), f"{bk['sells']:,}"]
                          for bk in m["open_book"]],
-                        ["---", "---:", "---:", "---:", "---:"]) + [""]
+                        ["---", "---:", "---:", "---:"]) + [""]
     else:
         out += [T('live book: unavailable (see data gaps)'), ""]
 
