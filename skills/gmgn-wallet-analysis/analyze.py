@@ -197,39 +197,6 @@ def cwidth(cp):
     return 1
 
 
-def is_emoji_cp(cp):
-    """Part of an emoji glyph — used to keep a wrap from splitting a glyph from its label."""
-    return (cp in WIDE_SYMBOLS
-            or 0x1F000 <= cp <= 0x1FAFF
-            or 0x2600 <= cp <= 0x27BF
-            or 0x2B00 <= cp <= 0x2BFF)
-
-
-def dwidth(s):
-    """Display width in terminal columns.
-
-    A base character followed by U+FE0F is an emoji-presentation sequence and renders two
-    columns wide whatever the base would measure alone — that is what the selector means, so
-    handling it here removes the need to enumerate `⚙ ⚔ ✂ ✈ ...` one by one. U+FE0E is the
-    opposite request (text presentation) and stays narrow.
-    """
-    total, i, n = 0, 0, len(s)
-    while i < n:
-        cp = ord(s[i])
-        nxt = ord(s[i + 1]) if i + 1 < n else 0
-        if nxt == 0xFE0F:
-            total += 2
-            i += 2
-            continue
-        if nxt == 0xFE0E:
-            total += 1
-            i += 2
-            continue
-        total += cwidth(cp)
-        i += 1
-    return total
-
-
 NATIVE = {"sol": "SOL", "bsc": "BNB", "eth": "ETH", "base": "ETH", "arc": "ARC"}
 
 
@@ -241,71 +208,6 @@ def usd_exact(v):
     thing being demonstrated and a return to the abstraction the card was built to avoid.
     """
     return f"${v:,.0f}"
-
-
-def wpad(s, width):
-    return s + " " * max(0, width - dwidth(s))
-
-
-COL = 76           # every emitted line stays inside this display width
-BREAK_AFTER = set(" ·，、；。）)]}")
-
-
-def wrap(text, width):
-    """Greedy wrap by display width, breaking after a separator where possible.
-
-    Written by hand rather than with textwrap because textwrap counts characters, and a
-    line of CJK is twice as wide as its length — the reason the G3 reason line rendered
-    at 231 columns before this existed.
-    """
-    lines, cur, curw, brk = [], "", 0, -1
-    after_emoji = False
-    prev_w = 0
-    for ch in text:
-        cp = ord(ch)
-        # Same emoji-presentation rule as dwidth(): U+FE0F promotes the glyph before it to a
-        # full two columns. Measuring it as zero here is what let a line reach 78 columns.
-        w = max(0, 2 - prev_w) if cp == 0xFE0F else cwidth(cp)
-        prev_w = w if cp != 0xFE0F else 2
-        if curw + w > width and cur:
-            if 0 <= brk < len(cur) - 1:
-                lines.append(cur[:brk + 1].rstrip())
-                cur = cur[brk + 1:]
-                curw = dwidth(cur)
-            else:
-                lines.append(cur)
-                cur, curw = "", 0
-            brk = -1
-        cur += ch
-        curw += w
-        if ch in BREAK_AFTER:
-            # A space directly after an emoji is NOT a break opportunity: the glyph labels
-            # the phrase that follows it, and breaking there left lines ending in a bare
-            # "✂️" with its name orphaned on the next line. Falling through leaves the
-            # previous "·" as the break point, which is the one a reader wants.
-            # Tracked as a flag rather than inspected from `cur`, because an emoji sequence
-            # can end in a zero-width selector and its base char may not be wide on its own.
-            if not (ch == " " and after_emoji):
-                brk = len(cur) - 1
-        if cp == 0xFE0F or is_emoji_cp(cp):
-            after_emoji = True
-        elif cp != 0x200D:
-            after_emoji = False
-    if cur:
-        lines.append(cur)
-    return lines or [""]
-
-
-def put(out, prefix, text, hang=None):
-    """Append `prefix + text`, wrapped, with continuation lines hanging under the text."""
-    ind = " " * (dwidth(prefix) if hang is None else hang)
-    # Budget for the WIDER of the two indents. A `hang` larger than the prefix would
-    # otherwise push every continuation line past COL — the one way a caller could break
-    # the width rule while still going through put().
-    body = wrap(str(text), COL - max(dwidth(prefix), len(ind)))
-    out.append(prefix + body[0])
-    for extra in body[1:]:
-        out.append(ind + extra)
 
 
 def quantile(xs, q):
@@ -1128,8 +1030,11 @@ def gates(m):
             )
         else:
             reasons_ok.append(
-                T('entry mcap p25/p50/p75 = {0}/{1}/{2} · {3} of entries under $100k',
-                  mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']), pct(m['entry_sub100k']))
+                (T('entry mcap p25/p50/p75 = {0}/{1}/{2} · {3} of entries under $100k',
+                   mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']), pct(m['entry_sub100k']))
+                 if m['entry_sub100k'] > 0 else
+                 T('entry mcap p25/p50/p75 = {0}/{1}/{2}',
+                   mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75'])))
             )
     for t in m["tag_info"]:
         if t["sev"] == "veto_g3":
@@ -1653,55 +1558,56 @@ def card_blocked(m, g):
     return None
 
 
+
+def esc(v):
+    """Escape a pipe so a value can never break out of a markdown table cell."""
+    return str(v).replace("|", "\\|")
+
+
+def md_table(head, rows, align=None):
+    """A markdown table. `head` may be a list of blanks for a two-column key/value block."""
+    n = len(rows[0]) if rows else len(head)
+    align = align or ["---"] * n
+    out = ["| " + " | ".join(esc(h) for h in head) + " |",
+           "|" + "|".join(align) + "|"]
+    for r in rows:
+        out.append("| " + " | ".join(esc(c) for c in r) + " |")
+    return out
+
+
 def card(m, g, wallet, chain):
     """Layer one: the decision and the action, with every 'how do you know' deferred."""
     out = []
     emoji, headline, why = verdict(m, g)
-    head = f"{emoji} {headline.split(' · ')[0]}"
     flags = [t for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3")] or \
             [t for t in m["tag_info"] if t["sev"] == "warn"]
+    head = f"# {emoji} {headline.split(' · ')[0]}"
     if flags:
-        head += f"    {flags[0]['emoji']} {flags[0]['name']}"
-    out.append(head)
-    out.append("")
+        head += f"　`{flags[0]['emoji']} {flags[0]['name']}`"
+    out += [head, ""]
 
     # ── the money, as money — but only while the record is worth quoting ──
     if g["G1"][0] is False:
         # When G1 fails the P&L is precisely what is in dispute, so quoting it as
-        # "$1,000 -> $1,122" would present the disputed figure as an achieved one. The
-        # reason there is no headline figure IS the headline in that case.
-        put(out, "  ",
-            T('Its profit figures are not trustworthy — treat the track record as unknown'))
+        # "$1,000 -> $1,122" would present the disputed figure as an achieved one.
+        out += ["> " + T('Its profit figures are not trustworthy — treat the track record as unknown'), ""]
     else:
-        put(out, "  ", T('If you had followed it with {0} seven days ago',
-                         usd_exact(m["story_stake"])))
-        out.append(f"  {usd_exact(m['story_stake'])}  →  {usd_exact(m['story_out'])}")
         emo, label = m["form"]
-        if m["pace_x"]:
-            put(out, "  ", T('{0} {1} — about {2:.0f}x its own long-run pace',
-                             emo, label, m["pace_x"]))
-        else:
-            put(out, "  ", f"{emo} {label}")
-    out.append("")
+        pace = (T('{0} {1} — about {2:.0f}x its own long-run pace', emo, label, m["pace_x"])
+                if m["pace_x"] else f"{emo} {label}")
+        out += ["> **" + T('If you had followed it with {0} seven days ago',
+                           usd_exact(m["story_stake"])) + "**",
+                ">",
+                f"> ## {usd_exact(m['story_stake'])} → {usd_exact(m['story_out'])}",
+                ">", "> " + pace, ""]
 
-    # ── the three numbers that change a decision and are not implied elsewhere ──
-    # Cadence first: 16/day and 725/day are the difference between something a person can
-    # do and something only a script can, and the copy window only implies it. Then the
-    # return as a percentage, because that is the figure people quote to each other, and
-    # the realized amount, because it is the only thing on the card that shows the SCALE
-    # this wallet operates at — the size cap tells the reader their own size, not its.
-    # Cadence is a fact about behaviour and survives a failed G1; the return and the amount
-    # are P&L claims and do not. Printing them under "its profit figures are not
-    # trustworthy" would contradict the line above them — the same defect the headline
-    # figure already had, two lines lower down.
     facts = [T('{0:,.0f} trades a day', m["per_day"])]
     if g["G1"][0] is not False:
         if m["roi_7d"] is not None:
             facts.append(T('{0} over 7 days', pct(m["roi_7d"])))
         if m["realized_7d"]:
             facts.append(T('made {0} in that week', usd(m["realized_7d"])))
-    put(out, "  ", " · ".join(facts), hang=2)
-    out.append("")
+    out += ["**" + " · ".join(facts) + "**", ""]
 
     # ── who, in one line, with no taxonomy ──
     ident = m["twitter_name"] or (f"@{m['twitter']}" if m["twitter"] else None)
@@ -1711,14 +1617,17 @@ def card(m, g, wallet, chain):
     if m["followers"] >= 10_000:
         bits.append(T('{0:,} followers', m["followers"]))
     if ident:
-        put(out, "  ", ident + (("  " + " · ".join(bits)) if bits else ""))
+        line = f"**{ident}**"
+        if bits:
+            line += "　" + " · ".join(f"`{b}`" for b in bits)
+        out.append(line)
     persona = []
     if m["gain_top3_share"] is not None and g["G1"][0] is not False:
         persona.append(T('its 3 best coins made {0} of the money', pct(m["gain_top3_share"])))
     if m["entry_p50"] > 0:
         persona.append(T('usually enters around {0}', mc(m["entry_p50"])))
     if persona:
-        put(out, "  ", " · ".join(persona), hang=2)
+        out.append(" · ".join(persona))
     out.append("")
 
     # ── the action ──
@@ -1726,45 +1635,41 @@ def card(m, g, wallet, chain):
     # those are directions for FOLLOWING, and printing them under DO NOT COPY is the card
     # telling the reader to do the thing its own headline just told them not to.
     if emoji == "🔴":
-        out.append(T('  WHAT TO DO'))
-        put(out, "  ", why, hang=2)
+        out += ["### " + T('  WHAT TO DO').strip(), "", why, ""]
     else:
-        out.append(T('  HOW TO FOLLOW'))
+        out += ["### " + T('  HOW TO FOLLOW').strip(), ""]
+        cells, heads = [], []
         if m["size_cap"]:
-            put(out, "  ", T('start no larger than {0}', usd_exact(m["size_cap"])))
-        if m["size_ratio"]:
-            if m["my_size"] > m["size_cap"]:
-                put(out, "  ", T('the {0} you asked about is {1:.1f}x its own clip of {2} — '
-                                 'at that size your fills are worse than the ones this '
-                                 'record was built on',
-                                 usd_exact(m["my_size"]), m["size_ratio"],
-                                 usd_exact(m["avg_buy_usd"])), hang=2)
-            else:
-                put(out, "  ", T('the {0} you asked about is within that',
-                                 usd_exact(m["my_size"])), hang=2)
+            heads.append(T('start no larger than'))
+            cells.append(f"**{usd_exact(m['size_cap'])}**")
         if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
-            put(out, "  ", T('get your order in within {0} of its buy', dur(m["copy_window_s"])))
-            put(out, "  ", T('past that, let it go \u2014 its cost is lower than yours, and '
-                             'entering late means buying what it is selling'), hang=2)
-    out.append("")
+            heads.append(T('get your order in within'))
+            cells.append("**" + T('{0} of its buy', dur(m["copy_window_s"])) + "**")
+        if cells:
+            out += md_table(heads, [cells]) + [""]
+        if m["size_ratio"]:
+            out += [(T('the {0} you asked about is {1:.1f}x its own clip of {2} — at that '
+                       'size your fills are worse than the ones this record was built on',
+                       usd_exact(m["my_size"]), m["size_ratio"], usd_exact(m["avg_buy_usd"]))
+                     if m["my_size"] > m["size_cap"] else
+                     T('the {0} you asked about is within that', usd_exact(m["my_size"]))), ""]
+        if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
+            out += [T('past that, let it go — its cost is lower than yours, and entering '
+                      'late means buying what it is selling'), ""]
 
-    # ── the four outcomes, without the tests that produced them ──
     # Read the gates. These were hardcoded to "✓" in the first cut, which put
     # "✓ the record is real" on a card whose verdict was DO NOT COPY *because* that check
     # failed — the card asserting the opposite of its own headline.
-    put(out, "  ", "  ".join(("✓ " if g[k][0] else "✗ ") + T(GATE_PLAIN[k][0])
-                             for k in ("G1", "G2", "G3", "G4")), hang=2)
-    out.append("")
+    out += ["　".join(("✅ " if g[k][0] else "❌ ") + f"**{T(GATE_PLAIN[k][0])}**"
+                      for k in ("G1", "G2", "G3", "G4")), ""]
 
     if flags:
-        put(out, "  ⚠️ ", flags[0]["meaning"], hang=5)
-        out.append("")
+        out += ["> ⚠️ " + flags[0]["meaning"], ""]
 
     if m["recent_buys"]:
-        out.append(T('  BOUGHT IN THE LAST 24H'))
-        for sym, usd_v in m["recent_buys"][:3]:
-            out.append(f"  {wpad(sym[:16], 18)}{usd(usd_v)}")
-        out.append("")
+        out += ["### " + T('  BOUGHT IN THE LAST 24H').strip(), ""]
+        out += md_table(["", ""], [[s, usd(v)] for s, v in m["recent_buys"][:3]],
+                        ["---", "---:"]) + [""]
 
     if m["open_value"] and m["open_book"]:
         top = m["open_book"][0]
@@ -1774,104 +1679,73 @@ def card(m, g, wallet, chain):
                if g["G1"][0] is False else
                'It is still holding {0} coins worth {1} — biggest is {2} at {3}. '
                'Not a wallet that only churns.')
-        put(out, "  ", T(tpl, m["holdings_n"], usd(m["open_value"]),
-                         top["sym"], usd(top["usd"])), hang=2)
-        out.append("")
+        out += [T(tpl, m["holdings_n"], usd(m["open_value"]), top["sym"], usd(top["usd"])), ""]
     return out
 
 
 def report(wallet, chain, m, g, gaps, brief=False):
-    """Two layers, in reading order.
+    """Two layers of native markdown, in reading order.
 
     Layer one is the decision: verdict, the return told as money, who this is, what to do.
-    Layer two is the evidence behind every one of those claims. The split exists because the
-    two audiences are different and were fighting over the same screen — a newcomer needs to
-    stop reading after the card, and whoever is checking the work needs every number. Putting
-    the evidence second serves both; putting it first served neither.
+    Layer two is the evidence behind every one of those claims. The split exists because
+    the two audiences are different and were fighting over the same screen — a newcomer
+    needs to stop reading after the card, and whoever is checking the work needs every
+    number.
 
-    The bridge line at the end of layer one is not decoration. Hiding the reasoning without
-    saying it exists reads as hand-waving; naming where it is makes the clean first screen a
-    choice the reader can decline.
+    The output is markdown rather than column-aligned terminal text, because the places it
+    is actually read — chat, an agent pipeline, a doc — do not render in a monospace grid,
+    and a hand-built column of spaces shears the moment they do not. Tables align
+    themselves; nothing here depends on a 76-column assumption.
     """
     out = []
     w = wallet if len(wallet) <= 14 else f"{wallet[:6]}…{wallet[-4:]}"
     emoji, headline, why = verdict(m, g)
-    BAR = "━" * 66
 
     blocked = card_blocked(m, g)
     if not blocked:
-        out.append(BAR)
         out += card(m, g, wallet, chain)
-        put(out, "  ", T('Every claim above is backed by a number. The evidence is below: '
-                         'what each of the four checks actually tested, and the raw figures.'),
-            hang=2)
-        out.append("")
-        put(out, "  ", T('Check the chips on these coins yourself before following. '
-                         'All of this measures behaviour that already happened — '
-                         'not a prediction, not advice.'), hang=2)
-        out.append("")
+        out += ["---", "",
+                T('Every claim above is backed by a number. The evidence is below: '
+                  'what each of the four checks actually tested, and the raw figures.'), "",
+                T('Check the chips on these coins yourself before following. '
+                  'All of this measures behaviour that already happened — '
+                  'not a prediction, not advice.'), ""]
         if brief:
             return "\n".join(out)
-        out.append(BAR)
-        out.append(T('EVIDENCE'))
-        out.append("")
+        out += ["---", "", "# " + T('EVIDENCE'), ""]
     elif brief:
         # Asked for the card, cannot honestly produce one. Say why rather than emitting a
         # card with a hole in it, and hand back the full report instead of nothing.
-        out.append(BAR)
-        put(out, T('NO CARD  '), blocked)
-        out.append(BAR)
-        out.append("")
+        out += ["> **" + T('NO CARD  ').strip() + "** " + blocked, ""]
 
-    # ── verdict: the only thing on the first screen ──
-    out.append(BAR)
-    out.append(f"{emoji} {headline}")
-    out.append(BAR)
-    put(out, T('DO THIS  '), why)
-    out.append("")
-    out.append(
-        T('{0} · {1} · window 7d (all-time from profits --period all)', w, chain)
-    )
-    out.append("")
+    out += [f"## {emoji} {headline}", "",
+            f"**{T('DO THIS  ').strip()}** {why}", "",
+            "`" + T('{0} · {1} · window 7d (all-time from profits --period all)', w, chain) + "`",
+            ""]
 
     if m["trades"] == 0:
-        out.append(T('NEXT'))
+        out += ["### " + T('NEXT'), ""]
         for step in (
             T('Confirm this is a wallet, not a token contract — a contract queries fine and returns zeros everywhere, which looks like an answer and is not one.'),
             T('Confirm the chain: base58 → sol, 0x → bsc/base/eth.'),
             T('If it is a wallet, use gmgn-portfolio holdings to see whether it only ever received transfers or airdrops.'),
         ):
-            put(out, "  • ", step)
+            out.append(f"- {step}")
         if gaps:
-            out.append("")
-            out.append(T('DATA GAPS:'))
-            for gp in gaps:
-                out.append(f"  ⚪ {gp}")
+            out += ["", "### " + T('DATA GAPS:'), ""] + [f"- ⚪ {gp}" for gp in gaps]
         return "\n".join(out)
 
-    # ── speed read: finishes the decision without scrolling ──
-    # The label column is measured, not guessed. Hardcoding 10 left the widest label
-    # ("key numbers", 11 columns) unpadded, so that one row's value and every continuation
-    # line under it sat a column off from the rest of the block.
-    out.append(T('⚡ SPEED READ'))
-    sr = speed_read(m, g, why)
-    labw = max(dwidth(lab) for lab, _v in sr)
-    for lab, val in sr:
-        put(out, f"  {wpad(lab, labw)}  ", val, hang=labw + 4)
-    out.append("")
+    out += ["## " + T('⚡ SPEED READ'), ""]
+    out += md_table(["", ""], [[f"**{lab}**", val] for lab, val in speed_read(m, g, why)]) + [""]
 
     # ── identity ────────────────────────────────────────────────────────────────
-    # Built as (label, value) rows, not a flat list of lines. The block used to mix three
-    # indents — style at 10, its gloss at 13, identity and every badge at 2 — which read as
-    # a wall rather than a table, and the badges took one line each.
     rows_id = []
     st, sp = style_title(m), style_speed(m)
     if st:
-        head = f"{st[0]} {st[1]}"
+        head = f"{st[0]} **{st[1]}**"
         if sp:
             head += f" · {sp[0]} {sp[1]}" + T(" ({0})", sp[2])
-        rows_id.append((T('style'), head))
-        rows_id.append(("", T('{0} · cadence×P&L {1}', st[2], st[3])))
+        rows_id.append((T('style'), head + "<br>" + T('{0} · cadence×P&L {1}', st[2], st[3])))
 
     if m["twitter_name"] or m["twitter"]:
         bits = [(f"{m['twitter_name'] or ''} @{m['twitter']}" if m["twitter"]
@@ -1880,11 +1754,12 @@ def report(wallet, chain, m, g, gaps, brief=False):
             bits.append(T('blue-verified'))
         if m["followers"]:
             bits.append(T('{0:,} followers', m['followers']))
-        rows_id.append((T('account'), " · ".join(bits)))
+        acct = " · ".join(bits)
         # Spell the profile out. Someone who searched this address wants to know whose
         # account it is, and a bare @handle still leaves them to go and find it.
         if m["twitter"]:
-            rows_id.append(("", f"x.com/{m['twitter']}"))
+            acct += f"<br>x.com/{m['twitter']}"
+        rows_id.append((T('account'), acct))
     elif not (m["tags"] or m["fund_from"] or m["fund_from_address"]):
         rows_id.append((T('account'),
                         T('no X account bound and no traceable funding source — an anonymous address')))
@@ -1901,8 +1776,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
         prov.append(T('funded from {0}', src)
                     + (f" {usd(m['fund_amount'])}" if m["fund_amount"] else ""))
     if m["launchpads"]:
-        mix = T(', ').join(f"{k}×{v}" for k, v in m["launchpads"])
-        prov.append(T('hunts on {0}', mix))
+        prov.append(T('hunts on {0}', T(', ').join(f"{k}×{v}" for k, v in m["launchpads"])))
     if m["dev_total"]:
         prov.append(T('launched {0} tokens ({1} graduated · {2})', m['dev_total'], m['dev_open'], pct(m['dev_open_ratio'])))
     elif m["created_tokens_n"]:
@@ -1917,66 +1791,47 @@ def report(wallet, chain, m, g, gaps, brief=False):
     eng = profit_engine(m)
     if eng:
         chip, detail, meaning = eng
-        rows_id.append((T('engine'), chip))
-        rows_id.append(("", detail))
-        rows_id.append(("", "\u2192 " + meaning, 2))
+        rows_id.append((T('engine'), f"**{chip}**<br>{detail}<br>→ {meaning}"))
 
-    # ── who it is: straight after the speed read, ahead of the gates ──────────────
-    # A reader who searched this address wants to know WHOSE wallet it is before any
-    # judgement about it. Burying the bound X account below the gates and the risk flags
-    # made a newcomer scroll past four verdicts to reach the one fact they came for.
     if rows_id:
-        out.append(T('👤 WHO IT IS'))
-        labw = max(dwidth(r[0]) for r in rows_id)
-        for row in rows_id:
-            lab, val = row[0], row[1]
-            extra = row[2] if len(row) > 2 else 0
-            put(out, f"  {wpad(lab, labw)}  ", val, hang=labw + 4 + extra)
-        out.append("")
+        out += ["## " + T('👤 WHO IT IS'), ""]
+        out += md_table(["", ""], [[f"**{k}**", v] for k, v in rows_id]) + [""]
 
     # ── the four gates ──
-    strip = "  ".join(f"{mark(g[k][0])}{k}" for k in ("G1", "G2", "G3", "G4"))
-    out.append(T('🚦 THE FOUR GATES    {0}', strip))
+    strip = "　".join(f"{mark(g[k][0])}{k}" for k in ("G1", "G2", "G3", "G4"))
+    out += [f"## 🚦 {T('THE FOUR GATES')} — {strip}", ""]
     for k in ("G1", "G2", "G3", "G4"):
-        name = GATE_NAMES[k]
-        gloss_en = GATE_GLOSS[k]
-        gloss = T(" ({0})", T(gloss_en))
-        out.append(f"  {mark(g[k][0])} {k} {T(name)}{gloss}")
+        gloss = T(" ({0})", T(GATE_GLOSS[k]))
+        out += [f"**{mark(g[k][0])} {k} {T(GATE_NAMES[k])}{gloss}**", ""]
         detail = g[k][1]
         for item in (detail if isinstance(detail, list) else [detail]):
-            put(out, "     • ", item, hang=7)
-    out.append("")
-
-    # ── risk flags: binary facts, no paragraph to parse ──
-    risk = []
-    for t in m["tag_info"]:
-        if t["sev"] in ("veto_g1", "veto_g3", "warn"):
-            risk.append(f"{t['emoji']} {t['name']} · {t['meaning']}")
-    if m["honeypots"]:
-        syms = joinsym(x["sym"] for x in m["honeypots"])
-        risk.append(T('🍯 {0} honeypot positions ({1}) · {2} unsellable', len(m['honeypots']), syms, usd(m['honeypot_usd'])))
-    good = [f"{t['emoji']} {t['name']} · {t['meaning']}" for t in m["tag_info"] if t["sev"] == "good"]
-    # A clean screen is reassurance, not a risk — it must not inflate the risk count.
-    if not m["honeypots"] and m["security_checked"] and m.get("hp_refuted"):
-        syms = joinsym(x["sym"] for x in m["hp_refuted"])
-        mx = max(x["sells"] for x in m["hp_refuted"])
-        good.append(T('✅ {0} honeypot flags ({1}) refuted by fill history — the busiest has {2:,} completed sells; transfer-restricted tokenised stocks, not honeypots', len(m['hp_refuted']), syms, mx))
-    elif not m["honeypots"] and m["security_checked"]:
-        good.append(T('✅ honeypot flag checked on {0} positions, none hit', m['security_checked']))
-    if risk:
-        out.append(T('🚩 RISK FLAGS ({0})', len(risk)))
-        for r in risk:
-            put(out, "  ", r, hang=4)
-    else:
-        out.append(T('✅ NO RISK FLAGS'))
-    for gd in good:
-        put(out, "  ", gd, hang=4)
-    if risk or good:
+            out.append(f"- {item}")
         out.append("")
 
+    # ── risk flags: binary facts, no paragraph to parse ──
+    risk = [f"{t['emoji']} **{t['name']}** · {t['meaning']}"
+            for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3", "warn")]
+    if m["honeypots"]:
+        risk.append(T('🍯 {0} honeypot positions ({1}) · {2} unsellable',
+                      len(m['honeypots']), joinsym(x["sym"] for x in m["honeypots"]),
+                      usd(m['honeypot_usd'])))
+    good = [f"{t['emoji']} **{t['name']}** · {t['meaning']}"
+            for t in m["tag_info"] if t["sev"] == "good"]
+    # A clean screen is reassurance, not a risk — it must not inflate the risk count.
+    if not m["honeypots"] and m["security_checked"] and m.get("hp_refuted"):
+        good.append(T('✅ {0} honeypot flags ({1}) refuted by fill history — the busiest has {2:,} completed sells; transfer-restricted tokenised stocks, not honeypots',
+                      len(m['hp_refuted']), joinsym(x["sym"] for x in m["hp_refuted"]),
+                      max(x["sells"] for x in m["hp_refuted"])))
+    elif not m["honeypots"] and m["security_checked"]:
+        good.append(T('✅ honeypot flag checked on {0} positions, none hit', m['security_checked']))
+    out += [("## " + T('🚩 RISK FLAGS ({0})', len(risk))) if risk
+            else ("## " + T('✅ NO RISK FLAGS')), ""]
+    out += [f"- {r}" for r in risk] + [""]
+    if good:
+        out += ["**" + T('CLEARED') + "**", ""] + [f"- {gd}" for gd in good] + [""]
 
     # ── numbers panel: every row carries its own conclusion ──
-    out.append(T('📊 NUMBERS (the conclusion is on the right)'))
+    out += ["## " + T('📊 NUMBERS (the conclusion is on the right)'), ""]
     rows = []
     rows.append((T('P&L'),
                  T('{0} on {1} cost = {2}', usd(m['realized_7d']), usd(m['cost_7d']), pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a'),
@@ -1998,106 +1853,90 @@ def report(wallet, chain, m, g, gaps, brief=False):
         fr += (T(' · fees {0} = {1} of profit', usd(m['fee_total']), pct(m['gas_drag']))
                if m["fee_exact"] else T(' ≈ {0} of profit (estimated)', pct(m['gas_drag'])))
     rows.append((T('friction'), fr, friction_label(m)))
-    hold = T('mean {0} · median copy window {1} ({2} round trips)', dur(m['avg_hold_s']), dur(m['copy_window_s']), m['copy_window_n'])
-    rows.append((T('holding'), hold,
-                 T('⚠️ read the median')
-                 if m["hold_conflict"] else T('mean is usable')))
+    rows.append((T('holding'),
+                 T('mean {0} · median copy window {1} ({2} round trips)', dur(m['avg_hold_s']), dur(m['copy_window_s']), m['copy_window_n']),
+                 T('⚠️ read the median') if m["hold_conflict"] else T('mean is usable')))
     rows.append((T('entry'),
                  T('p25/p50/p75 {0}/{1}/{2} ({3} measurable)', mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']), m['entry_n']),
                  entry_label(m["entry_p50"])))
-    _sz_extra = ""
+    sz = T('{0} per buy', usd(m['avg_buy_usd']))
     if m["size_ratio"]:
-        _sz_extra = T(' · your {0} = {1:.1f}x its clip',
-                      usd_exact(m["my_size"]), m["size_ratio"])
-    rows.append((T('size'),
-                 T('{0} per buy', usd(m['avg_buy_usd'])) + _sz_extra,
-                 T('start at ≤ {0}', usd(m['size_cap']))
-                 if m["size_cap"] else T('not computable')))
+        sz += T(' · your {0} = {1:.1f}x its clip', usd_exact(m["my_size"]), m["size_ratio"])
+    rows.append((T('size'), sz,
+                 T('start at ≤ {0}', usd(m['size_cap'])) if m["size_cap"] else T('not computable')))
     # State the denominator. A bare "23.9% over 209 tokens" invites the reader to compare it
     # against the 188 sitting in the 0-200% band and conclude one of them is wrong.
-    if m["dist_gap"]:
-        wr_txt = T('{0} — about {1} of {2} tokens have a realized win · {3} heavy losses',
+    rows.append((T('win rate'),
+                 T('{0} — about {1} of {2} tokens have a realized win · {3} heavy losses',
                    pct(m['winrate']), m['implied_winners'], m['token_num'], pct(m['lt50_share']))
-    else:
-        wr_txt = T('{0} over {1} tokens · {2} heavy losses',
-                   pct(m['winrate']), m['token_num'], pct(m['lt50_share']))
-    rows.append((T('win rate'), wr_txt,
+                 if m["dist_gap"] else
+                 T('{0} over {1} tokens · {2} heavy losses',
+                   pct(m['winrate']), m['token_num'], pct(m['lt50_share'])),
                  T('cuts losses') if m["lt50_share"] < 0.35 else T('does not cut')))
-    lab_w = max(dwidth(r[0]) for r in rows) + 2
-    concl_w = max(dwidth(r[2]) for r in rows)
-    # Reserve room for the conclusion column so the arrow stays alignable on every row.
-    mid_w = min(max(dwidth(r[1]) for r in rows) + 2, COL - 2 - lab_w - 2 - concl_w)
-    for lab, val, concl in rows:
-        head = f"  {wpad(lab, lab_w)}"
-        if dwidth(val) <= mid_w - 1:
-            out.append(f"{head}{wpad(val, mid_w)}→ {concl}")
-        else:
-            # Value too long to share the row: value first, conclusion on the next line,
-            # right-aligned under the same arrow column.
-            put(out, head, val, hang=2 + lab_w)
-            out.append(" " * (2 + lab_w + mid_w) + f"→ {concl}")
-    if m["hold_conflict"]:
-        put(out, "  ⚠️ ", m["hold_conflict"])
-    if m["one_coin_note"]:
-        put(out, "  ⚠️ ", m["one_coin_note"])
+    out += md_table([T('metric'), T('value'), T('conclusion')],
+                    [[f"**{a}**", b, c] for a, b, c in rows],
+                    ["---", "---", "---:"]) + [""]
+    for note_ in (m["hold_conflict"], m["one_coin_note"]):
+        if note_:
+            out += [f"> ⚠️ {note_}", ""]
     if m["pcr"] is not None and m["pcr_trusted"]:
-        out.append(T("  profit concentration {0} (largest winner's share of all gains)", pct(m['pcr'])))
-    out.append("")
+        out += [T("profit concentration {0} (largest winner's share of all gains)", pct(m['pcr'])), ""]
 
     # ── P&L distribution ──
     b = m["buckets"]
     peak = max(b.values()) or 1
-    out.append(T('📉 OUTCOME DISTRIBUTION ({0} tokens — counts tokens, not dollars)', m['token_num']))
+    out += ["## " + T('📉 OUTCOME DISTRIBUTION ({0} tokens — counts tokens, not dollars)', m['token_num']), ""]
+    drows = []
     for lab, k in ((">500%", "gt5"), ("200–500%", "x2_5"), ("0–200%", "x0_2"),
                    ("−50–0%", "n50_0"), ("<−50%", "lt_n50")):
         n = b[k]
-        out.append(f"  {lab:<10} {n:>5}  " + ("█" * max(1, int(round(30 * n / peak))) if n else ""))
+        drows.append([lab, f"{n:,}", ("`" + "█" * max(1, int(round(30 * n / peak))) + "`") if n else ""])
+    out += md_table(["", "", ""], drows, ["---", "---:", "---"]) + [""]
     if m["dist_gap"]:
-        put(out, "  ⚠️ ",
-            T('The 0-200% band is not a win count. It holds {0} tokens while the win rate '
-              'implies about {1} winners — the other {2} were bought and have no realized '
-              'result yet, so they sit at 0% inside that band. Read the win rate for how '
-              'often it wins, and this chart only for the shape of the tail.',
-              m["buckets"]["x0_2"], m["implied_winners"], m["unsettled"]), hang=5)
-    out.append("")
+        out += ["> ⚠️ " + T('The 0-200% band is not a win count. It holds {0} tokens while the win rate '
+                            'implies about {1} winners — the other {2} were bought and have no realized '
+                            'result yet, so they sit at 0% inside that band. Read the win rate for how '
+                            'often it wins, and this chart only for the shape of the tail.',
+                            b["x0_2"], m["implied_winners"], m["unsettled"]), ""]
 
     # ── what it is doing now ──
     pe, pl = m["posture"]
-    out.append(T('🔄 WHAT IT IS DOING NOW'))
-    out.append(T('  {0} {1} · 24h bought {2} / sold {3}', pe, pl, usd(m['buy_usd_24h']), usd(m['sell_usd_24h'])))
+    out += ["## " + T('🔄 WHAT IT IS DOING NOW'), "",
+            T('{0} **{1}** · 24h bought {2} / sold {3}', pe, pl, usd(m['buy_usd_24h']), usd(m['sell_usd_24h']))]
     if m["idle_s"] is not None:
-        put(out, "  ", (T('⚠️ last trade {0} ago — every figure here describes a wallet that '
-                          'has since gone quiet', dur(m["idle_s"])) if m["stale"]
-                        else T('last trade {0} ago', dur(m["idle_s"]))), hang=2)
-    if m["recent_buys"]:
-        put(out, T('  bought in 24h: '),
-            ", ".join(f"{sym} {usd(v)}" for sym, v in m["recent_buys"]))
-    if m["open_book"]:
-        out.append(T('  {0} positions · {1} total', m['holdings_n'], usd(m['open_value'])))
-        hp_syms = {x["sym"] for x in m["honeypots"]}
-        for bk in m["open_book"]:
-            tag = " 🍯" if bk["sym"] in hp_syms else ""
-            out.append(f"    {wpad(bk['sym'] + tag, 14)}{usd(bk['usd']):>10}  {pct(bk['chg'], 0):>8}  "
-                       + T('cost {0} · {1} sells', usd(bk['cost']), bk['sells']))
-    else:
-        out.append(T('  live book: unavailable (see data gaps)'))
+        out.append((("> ⚠️ " + T('last trade {0} ago — every figure here describes a wallet that '
+                                 'has since gone quiet', dur(m["idle_s"]))) if m["stale"]
+                    else T('last trade {0} ago', dur(m["idle_s"]))))
     out.append("")
+    if m["recent_buys"]:
+        out += ["**" + T('bought in 24h').strip() + "**", ""]
+        out += md_table(["", ""], [[s, usd(v)] for s, v in m["recent_buys"]],
+                        ["---", "---:"]) + [""]
+    if m["open_book"]:
+        out += ["**" + T('{0} positions · {1} total', m['holdings_n'], usd(m['open_value'])) + "**", ""]
+        hp_syms = {x["sym"] for x in m["honeypots"]}
+        out += md_table([T('token'), T('value'), T('P&L'), T('cost'), T('sells')],
+                        [[bk["sym"] + (" 🍯" if bk["sym"] in hp_syms else ""),
+                          usd(bk["usd"]), pct(bk["chg"], 0), usd(bk["cost"]), f"{bk['sells']:,}"]
+                         for bk in m["open_book"]],
+                        ["---", "---:", "---:", "---:", "---:"]) + [""]
+    else:
+        out += [T('live book: unavailable (see data gaps)'), ""]
 
     # ── what to do next ──
-    out.append(T('✅ WHAT TO DO NEXT'))
-    for a in actions(m, g):
-        put(out, "  • ", a)
-    out.append("")
+    out += ["## " + T('✅ WHAT TO DO NEXT'), ""]
+    out += [f"- {a}" for a in actions(m, g)] + [""]
 
+    out += ["---", ""]
     cap = T(' (hit page cap — busiest slice only)') if m["hit_limit"] else ""
-    put(out, "", T('sample  {0:,} activity rows / {1} tokens · spans {2:.1f}h{3}', m['sampled'], m['distinct_tokens_sampled'], m['span_h'], cap))
+    out.append("`" + T('sample  {0:,} activity rows / {1} tokens · spans {2:.1f}h{3}',
+                       m['sampled'], m['distinct_tokens_sampled'], m['span_h'], cap) + "`")
     if gaps:
-        out.append(T('DATA GAPS (unevaluated ≠ passed):'))
-        for gp in gaps:
-            put(out, "  ⚪ ", gp)
-    out.append("")
-    put(out, "", T('Everything above measures behaviour that already happened. Not a prediction, not advice.'))
+        out += ["", "**" + T('DATA GAPS (unevaluated ≠ passed):') + "**", ""]
+        out += [f"- ⚪ {gp}" for gp in gaps]
+    out += ["", T('Everything above measures behaviour that already happened. Not a prediction, not advice.')]
     return "\n".join(out)
+
 
 
 def actions(m, g):

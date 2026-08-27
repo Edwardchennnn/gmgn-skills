@@ -314,71 +314,60 @@ conclusion so nothing has to be cross-referenced or recomputed by the reader:
   "the above is for reference only, use your own judgement" has moved the entire analytical
   burden back onto the reader.
 
-## Language and legibility rules
+## Output format: native markdown
 
-These are checked mechanically, not by taste. `analyze.py` enforces each one; a change that
-breaks any of them is a regression.
+`analyze.py` emits **markdown**, not column-aligned terminal text. It is read in chat, in an
+agent pipeline and in docs — none of which render in a monospace grid, and a hand-built
+column of spaces shears the moment they do not. Tables align themselves; nothing in the
+output depends on a fixed column width any more.
+
+The previous renderer built every column by padding with spaces to a 76-display-column
+budget, counting CJK as two columns and emoji by a hand-maintained width table. All of that
+machinery — `COL`, `BREAK_AFTER`, `wrap()`, `put()`, `wpad()`, `dwidth()`, `cwidth()` — is
+gone, along with the class of bug it kept producing (a variation selector measured as two
+columns, an emoji as one, `wrap()` and `dwidth()` disagreeing by two).
 
 | Rule | Why | How it is enforced |
 |------|-----|--------------------|
-| **No line exceeds 76 display columns**, counting CJK glyphs as 2 | A 231-column reason line is unreadable in any terminal, and `textwrap` counts characters, not columns — a line of Chinese is twice as wide as its length | `dwidth()` / `wrap()` / `put()`. Every emitted line goes through `put()`; strings with embedded `\n` bypass it and must be split into separate `put()` calls |
-| **The verdict block states the ACTION, never a repeat of the gate reason** | Reading the same sentence twice before reaching anything new is pure latency | `verdict()` returns `(emoji, headline, what-to-do)`; the "why" lives only in the gate line |
-| **Multiple reasons render as separate bullets, never glued with semicolons** | Three glued clauses read as one unparseable sentence | Gate details may be a `list`; the renderer emits one bullet per item |
-| **One name per concept** | "copy window" / "median window" / "window" for the same quantity forces the reader to re-derive that they match. The analysis period is the "data range", never a "window" | Terminology fixed at the format-string level |
-| **Panel conclusions are terse chips (≤10 display columns), not sentences** | The right-hand column is meant to be scanned vertically; a sentence there breaks the scan and overflows the row | `roi_label` / `cadence_label` / `entry_label` / `friction_label` return chips; the reasoning lives in the gate bullets |
-| **Gate names carry a plain-language gloss** | "CURRENCY" is precise but not instantly readable; "is it still earning now" is | `GATE_GLOSS`, rendered once per gate row |
-| **Money: no cents at or above \$10; thousands separators always** | `$213.46` and `1103 trades/day` are false precision and a reading speed-bump respectively | `usd()`, and `:,` on every count |
-| **A section heading must not contradict its contents** | "RISK FLAGS (0)" above a positive marker reads as a contradiction | The heading switches to "✅ NO RISK FLAGS" when the risk list is empty |
-| **Friction is the fees actually paid, not a sample estimate** | `portfolio stats` reports `bought_fee` and `sold_fee` for the window. This ignored both and estimated instead from the gas median of a 300-row activity sample times the trade count: on a live wallet the estimate read **0.0% of profit** while the real fees were **$4,408 against $167,237 realized — 2.6%**. Two orders of magnitude, with the exact figure sitting in a response already in hand. The estimate remains the fallback where the fee fields are absent, and the report labels which one it is showing | `fee_total` / `fee_exact` |
-| **The win rate and the outcome chart must be reconciled** | They disagree, and the report printed both without saying so. A live wallet showed **188 of 209 tokens in the 0–200% band beside a 23.9% win rate** — 188 would imply 90%. The only reading that satisfies both: that band absorbs every token with no realized result yet (bought, not yet sold ⇒ realized ROI 0, which sits on its lower edge), so its size is not a count of wins. A reader facing a full-width green bar and a 23.9% win rate concludes one of the two is broken | `dist_gap` / `implied_winners` / `unsettled`, stated under the chart and in the win-rate row |
-| **Never print the same fact twice** | "ordinary trading wallet, no distinguishing marks" appeared in both the speed read and WHO IT IS | Deduplicated at the renderer |
+| **Every table has a delimiter row and a constant column count** | A missing `\|---\|` renders the whole table as literal pipes | `md_table()` builds both; the check below fails on either |
+| **Cell values are escaped** | One `\|` in a token symbol splits a row into extra columns | `esc()` on every cell |
+| **The only raw HTML is `<br>` inside table cells** | A cell that needs two lines has no markdown way to do it. Anything else stops being portable | the check below rejects any other tag |
+| **Bold markers come in pairs, `#` is followed by a space** | Both render as literal characters when malformed, and only in the reader's client | the check below |
+| **A section heading must not contradict its contents** | `RISK FLAGS (2)` over three bullets. Reassurances now sit under their own `CLEARED` heading rather than padding the risk list | separate heading |
+| **Never print a zero as if it were a finding** | `0.0% of entries under $100k` is noise, not information | guarded at the call site |
+| **Money: no cents at or above $10; thousands separators always** | `$213.46` is false precision | `usd()`; `usd_exact()` for the two figures a reader acts on |
+| **One name per concept** | "copy window" / "median window" / "window" for one quantity makes the reader re-derive that they match. The analysis period is the "data range", never a "window" | fixed at the format-string level |
+| **Never print the same fact twice** | "ordinary trading wallet" appeared in both the speed read and WHO IT IS | deduplicated at the renderer |
 
-The width rule is mechanically checkable. Reuse `analyze.py`'s own `dwidth()` rather than
-re-implementing it — the naive `sum(2 if ord(c) > 0x2E7F else 1 ...)` that used to be printed
-here is the bug it replaced: it counts a variation selector as two columns and the
-U+2600-27BF emoji as one, so it reports a 78-column line as safe.
+Verification is mechanical. This must stay clean across every fixture and both languages:
 
 ```bash
-python3 analyze.py <WALLET> <CHAIN> zh > /tmp/r.txt
+python3 analyze.py <WALLET> <CHAIN> zh > /tmp/r.md
 python3 - <<'PY'
-import importlib.util
-spec = importlib.util.spec_from_file_location("a", "analyze.py")
-a = importlib.util.module_from_spec(spec); spec.loader.exec_module(a)
-ws = [a.dwidth(l) for l in open("/tmp/r.txt", encoding="utf-8").read().splitlines()]
-over = [(i + 1, w) for i, w in enumerate(ws) if w > 76]
-print("max", max(ws), "| over 76:", over or "none")
+import re
+t = open("/tmp/r.md", encoding="utf-8").read().splitlines()
+errs, i = [], 0
+while i < len(t):
+    if t[i].startswith("|"):
+        if i+1 >= len(t) or not re.fullmatch(r'\|(\s*:?-+:?\s*\|)+', t[i+1].strip()):
+            errs.append(f"L{i+1} table has no delimiter row")
+        cols, j = t[i].count("|"), i
+        while j < len(t) and t[j].startswith("|"):
+            if t[j].count("|") != cols: errs.append(f"L{j+1} column count differs")
+            j += 1
+        i = j
+    else:
+        i += 1
+for n, l in enumerate(t, 1):
+    if re.match(r'^#{1,6}[^ #]', l): errs.append(f"L{n} heading needs a space after #")
+    if l.count("**") % 2: errs.append(f"L{n} unbalanced bold")
+    for tag in re.findall(r'</?([a-zA-Z]+)[^>]*>', l):
+        if tag.lower() != "br": errs.append(f"L{n} unexpected HTML <{tag}>")
+print("\n".join(errs) if errs else "markdown OK")
 PY
 ```
 
-Run it for both `zh` and `en`: the same content is wider in one language than the other, so a
-line that fits in Chinese can overflow in English and the reverse.
-
-## Language
-
-**This file and `analyze.py` are English only.** English is the source of
-truth: every user-facing string in `analyze.py` is written in English, and `lang/<code>.json`
-maps an English template to its translation.
-
-| Piece | Where |
-|-------|-------|
-| The English text | in `analyze.py`, as the first argument to `T()` |
-| A translation | `lang/zh.json`, keyed by that exact English string |
-| The list separator | `lang/<code>.json` under `__list_separator__` (`", "` in English) |
-
-`T("...")` looks the key up and falls back to English when it is missing, so a partial or
-absent translation degrades to English — never to a crash or a blank line. Templates use
-**positional** placeholders (`{0}`, `{1}`), not named ones, because the same value often reads
-in a different position in another language and a translator has to be able to move it.
-
-Adding a language is one file: copy `lang/zh.json`, translate the values, and pass the new code
-as the `<LANG>` argument. Adding a string is `T("the English sentence")` plus one entry per
-language file; leaving the entry out is safe.
-
-**Two Chinese fragments are deliberately kept in this file**, both in this section's sense
-*matching data rather than prose*: the phrases inside `description:`, and the 「CA」/「合约」/
-「代币」 list in Step 1. Those are literal things a user types, and translating them to English
-would stop the skill from triggering on Chinese input and stop Step 1 from catching a Chinese
-speaker who meant a token contract. Do not "clean them up".
+Run it for both `zh` and `en`.
 
 ## Step 1 — Confirm it is a wallet, not a token
 
@@ -412,7 +401,11 @@ The script does everything: pulls the data in tiers, computes the gates, and pri
 
 ## Step 3 — Output rule
 
-**Paste the script's complete stdout into your reply verbatim** — every line, every section, nothing summarized or reordered. Do not add a preamble or a closing summary. The report already leads with the verdict.
+**Paste the script's complete stdout into your reply verbatim** — every line, every section,
+nothing summarized or reordered, and **do not reformat it**. The output is already markdown;
+rewriting it into your own tables is how the two drift apart, and it means whatever the skill
+prints in an agent pipeline is not what a reader was shown in chat. Do not add a preamble or
+a closing summary — the report already leads with the verdict.
 
 Two things you *should* add after the report, when they apply:
 
@@ -544,10 +537,11 @@ re-derived them, because the first cut got both wrong:
 - **No third-party label may veto on its own.** `wash_trader` needs the conviction-share
   test; `is_honeypot` needs the sell-count test. Both false-positived on one real wallet in
   the same run, and both produced a 🔴 on a wallet with $459K of genuine realized profit.
-- **`put(..., hang=N)` with `N` larger than the prefix** used to overflow COL. `put()` now
-  budgets for the wider of the two indents.
-- **Emoji width.** `dwidth()` and `wrap()` must agree, and a base char plus U+FE0F is two
-  columns. A mismatch there put a line at 78 columns while every check called it safe.
+- **Do not rebuild a column layout.** Two bugs in the old renderer came from measuring
+  display width by hand — a variation selector counted as two columns while its emoji
+  counted as one, and `wrap()` and `dwidth()` disagreeing by two put a line past the limit
+  while every check called it safe. Markdown tables removed the whole class; do not
+  reintroduce space-padded columns to make something "line up".
 
 ## Notes
 
