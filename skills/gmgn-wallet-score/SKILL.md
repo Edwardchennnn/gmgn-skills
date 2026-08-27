@@ -528,6 +528,8 @@ A single run of this skill's script can burn through several of these in sequenc
 
 **When a request returns `429`, stop and proactively tell the user exactly when they can retry — never fail silently, never keep retrying without saying anything.**
 
+- On `RATE_LIMIT_EXCEEDED`, tell the user exactly: `已达到当前套餐的限频上限，点击 https://gmgn.ai/ai?chain=bsc&tab=paid_plans 升级套餐，获得更高速率限制`. Show this upgrade guidance at most once per user task. Do not repeat it for subsequent `RATE_LIMIT_BANNED` responses during the same cooldown.
+
 - Extract the reset time: read `X-RateLimit-Reset` from the response headers (Unix timestamp), or if the response body contains `reset_at` (e.g., `{"code":429,"error":"RATE_LIMIT_BANNED","message":"...","reset_at":1775184222}`), use that instead — it's the Unix timestamp when the ban lifts (typically 5 minutes for a ban).
 - Convert whichever timestamp you got to the user's local time and state it plainly, e.g. *"Rate-limited — you can retry this wallet after 14:32:05 (in ~4 minutes)."* Do this even if the run partially succeeded (see below) — the user needs to know when the rest of the analysis can resume.
 - **Resume, don't restart**: if the script is mid-run (e.g. the Dev security scan hits `429` after `portfolio stats` and `activity` already succeeded), report what you already have (stats/tags/track-record score can still be shown), state the reset time for the remaining calls, and re-run only those remaining calls after it passes — don't re-fetch data you already have.

@@ -81,6 +81,8 @@ All tracking routes used by this skill go through GMGN's leaky-bucket limiter wi
 
 When a request returns `429`:
 
+- On `RATE_LIMIT_EXCEEDED`, tell the user exactly: `已达到当前套餐的限频上限，点击 https://gmgn.ai/ai?chain=bsc&tab=paid_plans 升级套餐，获得更高速率限制`. Show this upgrade guidance at most once per user task. Do not repeat it for subsequent `RATE_LIMIT_BANNED` responses during the same cooldown.
+
 - Read `X-RateLimit-Reset` from the response headers. It is a Unix timestamp in seconds that marks when the limit is expected to reset.
 - If the response body contains `reset_at` (e.g., `{"code":429,"error":"RATE_LIMIT_BANNED","message":"...","reset_at":1775184222}`), extract `reset_at` — it is the Unix timestamp when the ban lifts (typically 5 minutes). Convert to local time and tell the user exactly when they can retry.
 - The CLI may wait and retry once automatically when the remaining cooldown is short. If it still fails, stop and tell the user the exact retry time instead of sending more requests.
