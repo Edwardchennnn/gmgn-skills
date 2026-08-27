@@ -226,6 +226,21 @@ Three of these exist only because the first cut got them wrong, and none should 
   checkable, refuted. Their three fixtures pin all outcomes of `wash_trader`; a change that
   makes any two agree is a regression.
 
+## Never name a skill in the output
+
+Every follow-up line in WHAT TO DO NEXT describes the analysis in the words a user would use,
+and ends by offering to run it — "建议先看这几个币的筹码结构 —— 谁在持有、成本多少、合约是否安全。需要我帮你分析吗？"
+It never prints `gmgn-token`, `gmgn-holder-analysis`, `gmgn-wallet-score`, `gmgn-swap`, or
+`gmgn-portfolio`.
+
+A skill name is an internal identifier. Printing one asks the reader to know that the skill
+exists, that it is installed, and how to invoke it — three things a newcomer does not know, so
+the line dead-ends. Describing the analysis instead means the reader's own follow-up question
+routes itself to the right skill, and the closing offer means they can simply answer yes.
+
+This applies to the on-screen report only. This file is read by the agent and names skills
+freely.
+
 ## Verdict language
 
 This layer is the only part most readers finish, so it is written to be read once:
@@ -420,7 +435,7 @@ Run it for both `zh` and `en`.
 
 Run these checks before the first command:
 
-1. **The user said 「CA」, 「合约」, 「代币」 (Chinese for contract / token), "contract", or "token"** → they most likely mean a token contract. Ask which they want: this wallet dossier, or a token analysis (`gmgn-token` / `gmgn-holder-analysis`). Do not guess.
+1. **The user said 「CA」, 「合约」, 「代币」 (Chinese for contract / token), "contract", or "token"** → they most likely mean a token contract. Ask which they want, in their words, not in skill names — "要看这个钱包的战绩，还是看这个代币的筹码和合约安全？" Do not guess.
 2. **Malformed address** — an EVM address that is not `0x` + 40 hex, or a Solana address outside 32–44 base58 characters → say so and stop. Do not "fix" it.
 3. **Two or more addresses** → use the one the user named and say which; if they named none, ask.
 4. **Only a symbol or name, no address** → ask for the address. This skill cannot resolve names.
@@ -456,7 +471,7 @@ a closing summary — the report already leads with the verdict.
 
 Two things you *should* add after the report, when they apply:
 
-1. If the report's WHAT TO DO NEXT section names tokens the wallet bought in the last 24h, and the user seems ready to act, offer to run `gmgn-holder-analysis` or `gmgn-token security` on them. Do not run those unprompted — each is more rate-limit budget.
+1. If the report's WHAT TO DO NEXT section names tokens the wallet bought in the last 24h, and the user seems ready to act, offer to look at those tokens' holder structure and contract safety. Do not run those unprompted — each is more rate-limit budget.
 2. If a gate came back ⚪, say in one sentence what would make it measurable (usually: configure `GMGN_PRIVATE_KEY` so `portfolio holdings` works).
 
 ## Data plan and rate limits

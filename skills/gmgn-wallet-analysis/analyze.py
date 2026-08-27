@@ -1174,7 +1174,8 @@ def verdict(m, g):
         if m["is_dev"]:
             return ("🔴",
                     T('DO NOT COPY · it is a launcher trading its own tokens'),
-                    T('Do not read its trading. Check how many of its launches survived (gmgn-wallet-score).'))
+                    T('Do not read its trading — what matters is how many of the tokens it '
+                      'launched survived. Want me to look at its launch record?'))
         if m["one_coin_note"]:
             return ("🔴",
                     T('DO NOT COPY · one token made all the money'),
@@ -1764,7 +1765,8 @@ def report(wallet, chain, m, g, gaps, brief=False):
         for step in (
             T('Confirm this is a wallet, not a token contract — a contract queries fine and returns zeros everywhere, which looks like an answer and is not one.'),
             T('Confirm the chain: base58 → sol, 0x → bsc/base/eth.'),
-            T('If it is a wallet, use gmgn-portfolio holdings to see whether it only ever received transfers or airdrops.'),
+            T('If it is a wallet, check whether it only ever received transfers or airdrops '
+              'rather than trading. Want me to look at what it holds?'),
         ):
             out.append(f"- {step}")
         if gaps:
@@ -2010,7 +2012,9 @@ def actions(m, g, card_shown=False):
     if m["recent_buys"]:
         syms = ", ".join(s for s, _v in m["recent_buys"][:3])
         a.append(
-            T('It bought {0} in the last 24h — run gmgn-token / gmgn-holder-analysis on those before following it in.', syms)
+            T('It bought {0} in the last 24h. Worth checking the holder structure on those '
+              'first — who is holding, at what cost, and whether the contract is safe. '
+              'Want me to analyse them?', syms)
         )
     if p["G3"] is False:
         if not card_shown:
@@ -2030,7 +2034,7 @@ def actions(m, g, card_shown=False):
               usd(m['size_cap']), usd(m['avg_buy_usd']))
             )
         if p["G3"] is True and not card_shown:
-            a.append(T('Quote through gmgn-swap before sending.'))
+            a.append(T('Get a live quote before sending — want me to price it?'))
     if p["G4"] is False:
         a.append(
             T('Set your own stop — it does not cut, and riding it to the end means riding it to zero.')
@@ -2041,14 +2045,17 @@ def actions(m, g, card_shown=False):
         )
     if m["is_dev"]:
         a.append(
-            T('This is a launcher. Do not score its trading — check its launch survival and security record (gmgn-wallet-score, Dev angle).')
+            T('This is a launcher, so its trading record is partly self-authored. What matters '
+              'is how many of its own tokens survived and how they behaved. Want me to look at '
+              'its launch record?')
         )
     if m["form"][1] in (T('cooling off'), T('broken down')):
         a.append(
             T('Its money is historical. Re-run this in 7 days to see whether form recovers or keeps sliding.')
         )
     a.append(
-        T('For 0-100 scores and a latency/slippage backtest, use gmgn-wallet-score.')
+        T('If you want this scored 0-100 with your own latency and slippage modelled in, '
+          'want me to run that backtest?')
     )
     return a
 
