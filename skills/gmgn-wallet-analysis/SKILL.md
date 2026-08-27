@@ -309,8 +309,11 @@ description. Re-run this whenever a question is edited or a target skill's descr
 
 ```bash
 python3 - <<'PYEOF'
-import json
-t = json.load(open("lang/zh.json", encoding="utf-8"))
+import ast
+tree = ast.parse(open("analyze.py", encoding="utf-8").read())
+zh = next(n for n in tree.body
+          if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "ZH")
+t = {k.value: v.value for k, v in zip(zh.value.keys, zh.value.values)}
 TRIG = {"gmgn-holder-analysis": ["筹码分析", "持仓分析", "who is holding", "entry cost"],
         "gmgn-wallet-score": ["跟单评分", "钱包评分", "值不值得跟单", "发盘情况怎么样"],
         "gmgn-kline-pattern": ["走势", "趋势", "形态", "K线"],
