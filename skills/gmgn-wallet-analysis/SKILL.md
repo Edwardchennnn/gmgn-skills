@@ -90,35 +90,50 @@ Three of these exist only because the first cut got them wrong, and none should 
 
 ### The opening three lines are the hook
 
-The card opens with identity, then standing, then the 7-day window as a **backtest**, and only
-then the verdict. An earlier version led with the money as a counterfactual:
+A reader who pastes an address should be able to rank the trader from the heading alone —
+smart money reading as smart money, a losing wallet reading as one — before any judgement
+about copyability. The card opens with a **caliber grade**, then the record as a sentence,
+then the 7-day window as a **backtest**, and only then the copy verdict.
 
-> **If you had followed it with $1,000 seven days ago**
-> ## $1,000 → $1,206
+| Line | Carries |
+|------|---------|
+| `# 🏆 顶级战绩　Cowboy🔶BNB ｜版本之牛　\`📣 KOL\`` | the grade, then who this is |
+| `**它打过的 1,023 个币里，810 个赚钱，只有 12 个亏超一半 —— 累计落袋 $1.00M**` | the record, as one sentence in counts |
+| `BSC · 314 天 · 41,319 粉丝 · 每天 292 笔` | what kind of operator |
+| `> **近 7 天回测：$1,000 跟着它走 → $1,207（一周 20.7%）**` + what it made itself | the window as evidence |
+| `## 🟡 能看不能抄 · 你抢不到它的价` | the copy verdict — the turn, not the premise |
 
-A reader's first reaction to that was to stop: "if you had done X seven days ago" describes an
-opportunity that has already closed, so it reads as a missed trade rather than as a reason to
-look. It also put identity fourth, which meant the first three lines never said why this trader
-deserved attention.
+Three separate mistakes produced this shape, and each fix must survive an edit:
 
-| Line | Carries | Why there |
-|------|---------|-----------|
-| `# Cowboy🔶BNB ｜版本之牛　\`📣 KOL\`` | who this is | An address the reader pasted is a stranger until it is named. A verdict on a stranger is not yet interesting |
-| `**累计落袋 $1.00M —— 交易过 1,023 个币，69.3% 是赚钱的，亏超一半的只有 1.2%**` | the standing, present tense, money first | This is the hook. It says why the subject merits attention, as something still true — not as a return that was available |
-| `BSC · 314 天 · 41,319 粉丝 · 每天 292 笔` | what kind of operator | Gives the record above a shape before any judgement |
-| `> **近 7 天回测：$1,000 跟着它走 → $1,207**` + what it made itself | the window as evidence | Identical figure to the old opening. "回测" makes it proof of skill; "如果你当时…" made it a regret |
-| `## 🟡 能看不能抄 · 你抢不到它的价` | the verdict | It is the turn in the piece, not the premise |
+**1. Never frame a past window as a return the reader could have captured.** The first version
+opened `如果 7 天前跟了它 $1,000` → `$1,000 → $1,206`. That is a completed counterfactual: it
+describes a closed opportunity, and the reaction it drew was "then I've already missed it".
+Same figure, reframed as `近 7 天回测` — what the window measured *about the wallet* — reads as
+proof of skill. Say what the window measured, never what the reader would have earned.
 
-**The rule that generalises:** when the report quotes a return over a past window, say what the
-window measured *about the wallet*, never what the reader *would have earned had they acted*.
+**2. Ratios are not rankable; counts and a grade are.** `69.3% profitable, 1.2% heavy losses`
+is a spec sheet — a newcomer cannot tell whether those are excellent or ordinary. `810 of 1,023
+made money, only 12 lost more than half` reads on sight, and the grade in the heading supplies
+the ranking outright.
 
-Two shapes to preserve when editing this:
+**3. The grade is *current* standing, not lifetime.** `caliber()` reads realized money, win
+rate, heavy-loss share and sample size — but **`G2` failing overrides all of it** with
+`📉 was good, not any more`. Without that override a wallet with $298K lifetime and a −37.6%
+week printed `💪 seriously good` directly above `🔴 DO NOT COPY · it has stopped making money`,
+which is the heading endorsing what the body forbids.
 
-- **No identity, no hook.** An anonymous address has nothing to lead with, so the verdict keeps
-  the H1 and the whole opening collapses by one heading level.
-- **G1 ❌ prints no figure at all.** When the record is what is in dispute, the standing line and
-  the backtest block are both replaced by one sentence saying the profit figures are not
-  trustworthy. Quoting `$1,000 → $1,206` there would present a disputed number as an achieved one.
+Caliber deliberately excludes reachability and loss-cutting: an unreachable wallet can still be
+an excellent trader, and merging those is exactly what a single blended score gets wrong. It is
+the other half of the answer, not a duplicate of the verdict.
+
+Two shapes to preserve:
+
+- **G1 ❌ prints no figure at all.** The grade becomes ⚪, and the record sentence and backtest
+  block are both replaced by one line saying the profit figures are not trustworthy. Quoting
+  `$1,000 → $1,206` where the record itself is in dispute presents a disputed number as an
+  achieved one.
+- **A loss is never a gain with a minus sign.** `it made -$183.8K this week` was a real bug;
+  negative weeks take the `it lost {0}` string.
 
 ## Verdict language
 

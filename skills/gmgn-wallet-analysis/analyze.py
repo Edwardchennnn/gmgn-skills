@@ -42,6 +42,20 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "was good, not any more": "以前很强，现在不行了",
+    "it lost {0} itself this week": "它自己这周亏了 {0}",
+    "7-day backtest: {0} following it → {1} ({2} in one week)": "近 7 天回测：{0} 跟着它走 → {1}（一周 {2}）",
+    " — {0} banked": " —— 累计落袋 {0}",
+    "{0} of the {1:,} coins it traded made money, and only {2} lost more than half": "它打过的 {1:,} 个币里，{0} 个赚钱，只有 {2} 个亏超一半",
+    "{0} traded, {1} of them lost money — {2} gone in total": "打了 {0}，其中 {1} 个是亏的 —— 总共亏掉 {2}",
+    "{0:,} coins": "{0:,} 个币",
+    "anonymous address": "匿名地址",
+    "unremarkable": "平平无奇",
+    "solid": "稳",
+    "seriously good": "真高手",
+    "top-tier record": "顶级战绩",
+    "loses money": "亏钱的号",
+    "record unreadable": "战绩读不出来",
     "{0:,} tokens, {1} profitable ({2}), {3}": "{0:,} 币 · {1} 盈利（{2}）· {3}",
     "{0} realized all-time — ": "累计落袋 {0} —— ",
     "it has traded {0:,} coins, {1} of them profitably": "交易过 {0:,} 个币，{1} 是赚钱的",
@@ -2046,6 +2060,38 @@ def md_table(head, rows, align=None):
     return out
 
 
+def caliber(m, g):
+    """(emoji, label) for how good this trader is — a separate question from copyability.
+
+    The card already answers "can you get its fills"; it did not answer "is this person any
+    good", and a reader who pastes an address wants that in the first glance. Without it the
+    opening was a list of ratios that a newcomer cannot rank: 69.3% and 1.2% mean nothing
+    until you know whether they are excellent or ordinary. The grade puts the ranking in the
+    heading so smart money reads as smart money and a losing wallet reads as one, instantly.
+
+    It is computed from the track record ONLY — realized money, win rate, heavy-loss share,
+    sample size. Reachability and loss-cutting are deliberately excluded: an unreachable
+    wallet can still be an excellent trader, and collapsing the two is what a single blended
+    score does wrong.
+    """
+    if g["G1"][0] is False or m["token_num"] < 5:
+        return ("⚪", T('record unreadable'))
+    ra, wr, hl, n = m["realized_all"], m["winrate"], m["lt50_share"], m["token_num"]
+    if ra is not None and ra < 0:
+        return ("🚮", T('loses money'))
+    if g["G2"][0] is False:
+        return ("📉", T('was good, not any more'))
+    if ra is None:
+        return ("⚪", T('record unreadable'))
+    if ra >= 500_000 and wr >= 0.55 and hl <= 0.10 and n >= 50:
+        return ("🏆", T('top-tier record'))
+    if ra >= 100_000 and (wr >= 0.50 or hl <= 0.15) and n >= 20:
+        return ("💪", T('seriously good'))
+    if hl <= 0.20 and wr >= 0.40:
+        return ("✅", T('solid'))
+    return ("😐", T('unremarkable'))
+
+
 def card(m, g, wallet, chain):
     """Layer one: the decision and the action, with every 'how do you know' deferred.
 
@@ -2067,7 +2113,9 @@ def card(m, g, wallet, chain):
 
     # ── line 1: who. An anonymous address has no hook to lead with, so the verdict keeps
     #    the H1 there and the whole opening collapses by one level.
-    head = f"# {ident}" if ident else f"# {emoji} {headline}"
+    cal_e, cal_l = caliber(m, g)
+    head = (f"# {cal_e} {cal_l}　{ident}" if ident
+            else f"# {cal_e} {cal_l}　{T('anonymous address')}")
     if flags:
         head += f"　`{flags[0]['emoji']} {flags[0]['name']}`"
         # Recorded so the evidence layer's flag list can skip the one the card already
@@ -2080,12 +2128,15 @@ def card(m, g, wallet, chain):
     if g["G1"][0] is False:
         out += ["> " + T('Its profit figures are not trustworthy — treat the track record as unknown'), ""]
     else:
-        rec = [T('it has traded {0:,} coins, {1} of them profitably', m["token_num"], pct(m["winrate"]))]
-        if m["lt50_share"] is not None:
-            rec.append(T('only {0} down more than half', pct(m["lt50_share"])))
-        line = joinclause(rec)
-        if m["realized_all"]:
-            line = T('{0} realized all-time — ', usd(m["realized_all"])) + line
+        if m["realized_all"] and m["realized_all"] < 0:
+            line = T('{0} traded, {1} of them lost money — {2} gone in total',
+                     T('{0:,} coins', m["token_num"]), f'{m["token_num"] - m["winners"]:,}',
+                     usd(abs(m["realized_all"])))
+        else:
+            line = T('{0} of the {1:,} coins it traded made money, and only {2} lost more than half',
+                     f'{m["winners"]:,}', m["token_num"], f'{m["buckets"]["lt_n50"]:,}')
+            if m["realized_all"]:
+                line += T(' — {0} banked', usd(m["realized_all"]))
         out += [f"**{line}**"]
 
     # ── line 3: what kind of operator, so the record above has a shape.
@@ -2104,11 +2155,14 @@ def card(m, g, wallet, chain):
         emo, label = m["form"]
         second = []
         if m["realized_7d"]:
-            second.append(T('it made {0} itself this week', usd(m["realized_7d"])))
+            second.append(T('it made {0} itself this week', usd(m["realized_7d"]))
+                          if m["realized_7d"] > 0 else
+                          T('it lost {0} itself this week', usd(abs(m["realized_7d"]))))
         second.append(T('{0} {1} — about {2:.0f}x its long-run pace', emo, label, m["pace_x"])
                       if m["pace_x"] else f"{emo} {label}")
-        out += ["> **" + T('7-day backtest: {0} following it → {1}',
-                           usd_exact(m["story_stake"]), usd_exact(m["story_out"])) + "**",
+        out += ["> **" + T('7-day backtest: {0} following it → {1} ({2} in one week)',
+                           usd_exact(m["story_stake"]), usd_exact(m["story_out"]),
+                           pct(m["roi_7d"])) + "**",
                 ">", "> " + joinclause(second),
                 ""]
 
