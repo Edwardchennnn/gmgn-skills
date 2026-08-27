@@ -1923,9 +1923,12 @@ def report(wallet, chain, m, g, gaps, brief=False):
                  T('{0} over {1} tokens · {2} heavy losses',
                    pct(m['winrate']), m['token_num'], pct(m['lt50_share'])),
                  T('cuts losses') if m["lt50_share"] < 0.35 else T('does not cut')))
-    out += md_table([T('metric'), T('value'), T('conclusion')],
-                    [[f"**{a}**", b, c] for a, b, c in rows],
-                    ["---", "---", "---:"]) + [""]
+    # Two columns, not three. The old third column repeated the gates' own conclusions
+    # (净盈 / 升温 / 机器级 / 会砍仓), which are two screens above — 107 characters saying
+    # nothing new, and it squeezed the figures into a narrow middle column.
+    out += md_table([T('metric'), T('value')],
+                    [[f"**{a}**", b] for a, b, _c in rows],
+                    ["---", "---"]) + [""]
     for note_ in (m["hold_conflict"], m["one_coin_note"]):
         if note_:
             out += [f"> ⚠️ {note_}", ""]
