@@ -138,6 +138,26 @@ its own ratio: `1002 tokens · 792 profitable (69.2%) · concentration 21.9%`.
 Net effect on one live wallet: evidence layer 2,266 → 1,364 characters, with every gate still
 printing the number that decided it.
 
+### After the gates: three sections, nothing repeated
+
+Everything below the four gates was cut to what the card did not already print:
+
+| Removed | Why |
+|---------|-----|
+| the bridge's second paragraph | Its disclaimer was the footer, word for word, and its "check the chips yourself" was WHAT TO DO NEXT's first question |
+| the bridge's promise of "the raw figures" | A pointer to a section that no longer exists. It now names what is actually below: what each check tested and the number that decided it |
+| the card's own risk flag, at the head of the flag list | The card prints the highest-severity flag twice already — as the H1 chip and as its single warning line. `card_flag_name` records it so the list starts at the second flag. Everything the card withheld still appears |
+| the live book's `N positions · $X total` header | The card's closing line is exactly that sentence |
+| live-book rows 4 and 5 | Row 1 is the coin the card named; three rows carry the shape of the book without re-listing it |
+
+`--brief` keeps the full five rows and the header, because on that path the card is all there is
+and nothing above has said them. The same switch applies to the bridge: in brief mode the
+"below:" signpost would point at an empty page, so only the footer prints.
+
+What stays, and must: the posture line and the last-trade age (the only figures that say the
+report describes a wallet still trading), three live-book rows, the three questions, and the
+sample line that bounds every activity-derived claim.
+
 **What must never be cut is a number a gate stands on.** Trimming by "which figures are most
 convincing" rather than "which figures decide something" would turn the layer from checkable
 into acceptable-only, which is the failure this skill exists to correct. The distinction is

@@ -1614,6 +1614,9 @@ def card(m, g, wallet, chain):
     head = f"# {emoji} {headline.split(' · ')[0]}"
     if flags:
         head += f"　`{flags[0]['emoji']} {flags[0]['name']}`"
+        # Recorded so the evidence layer's flag list can skip the one the card already
+        # showed, in the H1 chip and again as the card's single warning line.
+        m["card_flag_name"] = flags[0]["name"]
     out += [head, ""]
 
     # ── the money, as money — but only while the record is worth quoting ──
@@ -1731,14 +1734,14 @@ def report(wallet, chain, m, g, gaps, brief=False):
     blocked = card_blocked(m, g)
     if not blocked:
         out += card(m, g, wallet, chain)
-        out += ["---", "",
-                T('Every claim above is backed by a number. The evidence is below: '
-                  'what each of the four checks actually tested, and the raw figures.'), "",
-                T('Check the chips on these coins yourself before following. '
-                  'All of this measures behaviour that already happened — '
-                  'not a prediction, not advice.'), ""]
+        out += ["---", ""]
         if brief:
+            # Nothing follows in brief mode, so the "below:" signpost would point at an
+            # empty page. The footer is the only line that still applies.
+            out += [T('Everything above measures behaviour that already happened. Not a prediction, not advice.')]
             return "\n".join(out)
+        out += [T('Every claim above is backed by a number. Below: what each of the four '
+                  'checks tested, and the number that decided it.'), ""]
         out += ["---", "", "# " + T('EVIDENCE'), ""]
     elif brief:
         # Asked for the card, cannot honestly produce one. Say why rather than emitting a
@@ -1848,8 +1851,10 @@ def report(wallet, chain, m, g, gaps, brief=False):
         out.append("")
 
     # ── risk flags: binary facts, no paragraph to parse ──
+    shown = m.get("card_flag_name") if not blocked else None
     risk = [f"{t['emoji']} **{t['name']}** · {t['meaning']}"
-            for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3", "warn")]
+            for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3", "warn")
+            and t["name"] != shown]
     if m["honeypots"]:
         risk.append(T('🍯 {0} honeypot positions ({1}) · {2} unsellable',
                       len(m['honeypots']), joinsym(x["sym"] for x in m["honeypots"]),
@@ -1900,12 +1905,13 @@ def report(wallet, chain, m, g, gaps, brief=False):
                         else T('also bought in 24h')).strip() + "**", ""]
         out += [f"- {sym} **{usd(v)}**" for sym, v in extra] + [""]
     if m["open_book"]:
-        out += ["**" + T('{0} positions · {1} total', m['holdings_n'], usd(m['open_value'])) + "**", ""]
+        if blocked:
+            out += ["**" + T('{0} positions · {1} total', m['holdings_n'], usd(m['open_value'])) + "**", ""]
         hp_syms = {x["sym"] for x in m["honeypots"]}
         out += md_table([T('token'), T('market value'), T('P&L'), T('sells')],
                         [[bk["sym"] + (" 🍯" if bk["sym"] in hp_syms else ""),
                           usd(bk["usd"]), pct(bk["chg"], 0), f"{bk['sells']:,}"]
-                         for bk in m["open_book"]],
+                         for bk in m["open_book"][:5 if blocked else 3]],
                         ["---", "---:", "---:", "---:"]) + [""]
     else:
         out += [T('live book: unavailable (see data gaps)'), ""]
