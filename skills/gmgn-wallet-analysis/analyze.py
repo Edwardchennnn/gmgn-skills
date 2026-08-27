@@ -230,6 +230,9 @@ def dwidth(s):
     return total
 
 
+NATIVE = {"sol": "SOL", "bsc": "BNB", "eth": "ETH", "base": "ETH", "arc": "ARC"}
+
+
 def usd_exact(v):
     """Whole dollars with separators — no K/M abbreviation.
 
@@ -916,6 +919,17 @@ def compute(d, latency_s, my_size):
     # Per-trade net is the yardstick everything else is measured against. A wallet netting
     # $26 a trade while paying $4 of gas has already given a third of its edge away, and
     # your slippage comes out of what is left.
+    # Fields `portfolio stats` returns that nothing read. Each answers a question a reader
+    # asks out loud and the report could not previously answer.
+    #   native_balance — the dry powder. GMGN's own leaderboard puts it in column two.
+    #   last_timestamp — freshness. A wallet last active three days ago is not the same
+    #                    wallet as one trading right now, and every other figure here is
+    #                    silent about which it is.
+    m["native_balance"] = f(s7.get("native_balance"))
+    last_ts = f(s7.get("last_timestamp"))
+    m["idle_s"] = max(0.0, time.time() - last_ts) if last_ts > 0 else None
+    m["stale"] = m["idle_s"] is not None and m["idle_s"] > 48 * 3600
+
     m["net_per_sell"] = safe_div(m["realized_7d"], m["sell"])
 
     # `portfolio stats` reports the fees actually paid in the window — `bought_fee` and
@@ -1110,11 +1124,12 @@ def gates(m):
     if m["entry_n"] >= 5:
         if m["entry_p50"] > 0 and m["entry_p50"] < 30_000:
             reasons_fail.append(
-                T('median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost', mc(m['entry_p50']))
+                T('median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost. {1} of its entries are under $100k', mc(m['entry_p50']), pct(m['entry_sub100k']))
             )
         else:
             reasons_ok.append(
-                T('entry mcap p25/p50/p75 = {0}/{1}/{2}', mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']))
+                T('entry mcap p25/p50/p75 = {0}/{1}/{2} · {3} of entries under $100k',
+                  mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']), pct(m['entry_sub100k']))
             )
     for t in m["tag_info"]:
         if t["sev"] == "veto_g3":
@@ -1494,7 +1509,8 @@ def archetype(m):
     if m["top_pos_usd"] and m["top_pos_usd"] >= 10_000:
         tags.append(T('🏦 size-position trader, largest holding {0}', usd(m['top_pos_usd'])))
     if m["med_buys_per_pos"] and m["med_buys_per_pos"] >= 10:
-        tags.append(T('🧱 ladders its size positions, median {0:,} buys each', m['med_buys_per_pos']))
+        tags.append(T('🧱 ladders its size positions, median {0:,} buys each', m['med_buys_per_pos'])
+                    + (T(' over {0}', dur(m['accum_window_s'])) if m['accum_window_s'] > 0 else ""))
     elif m["avg_buys_per_token"] >= 3:
         tags.append(T('🧱 scales in, {0:.1f} buys/token', m['avg_buys_per_token']))
     # 🎰 low hit rate carried by one or two outsized wins — a different animal from a
@@ -1878,6 +1894,8 @@ def report(wallet, chain, m, g, gaps, brief=False):
     prov = [f"{t['emoji']} {t['name']}" for t in m["tag_info"] if t["sev"] == "neutral"]
     if m["age_days"] is not None:
         prov.append(T('{0:.0f}-day-old wallet', m['age_days']))
+    if m["native_balance"] > 0:
+        prov.append(T('{0:,.1f} {1} on hand', m["native_balance"], NATIVE.get(chain, chain.upper())))
     if m["fund_from"] or m["fund_from_address"]:
         src = m["fund_from"] or f"{m['fund_from_address'][:6]}…"
         prov.append(T('funded from {0}', src)
@@ -1966,6 +1984,12 @@ def report(wallet, chain, m, g, gaps, brief=False):
     rows.append((T('form'),
                  T('1d {0} · 7d {1} · 30d {2} · all {3}', pct(m['roi_1d']) if m['roi_1d'] is not None else 'n/a', pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a', pct(m['roi_30d']) if m['roi_30d'] is not None else 'n/a', pct(m['roi_all']) if m['roi_all'] is not None else 'n/a'),
                  f"{m['form'][0]} {m['form'][1]}"))
+    if m["realized_all"] is not None:
+        allt = T('{0} realized', usd(m['realized_all']))
+        if m["unrealized"]:
+            allt += T(' · {0} on paper', usd(m['unrealized']))
+        rows.append((T('all time'), allt,
+                     roi_label(m["roi_all"]) if m["roi_all"] is not None else T('unknown')))
     rows.append((T('cadence'),
                  T('{0:,} trades ({1:,} buy / {2:,} sell) = {3:,.0f}/day', m['trades'], m['buy'], m['sell'], m['per_day']),
                  cadence_label(m["per_day"])))
@@ -2041,6 +2065,10 @@ def report(wallet, chain, m, g, gaps, brief=False):
     pe, pl = m["posture"]
     out.append(T('🔄 WHAT IT IS DOING NOW'))
     out.append(T('  {0} {1} · 24h bought {2} / sold {3}', pe, pl, usd(m['buy_usd_24h']), usd(m['sell_usd_24h'])))
+    if m["idle_s"] is not None:
+        put(out, "  ", (T('⚠️ last trade {0} ago — every figure here describes a wallet that '
+                          'has since gone quiet', dur(m["idle_s"])) if m["stale"]
+                        else T('last trade {0} ago', dur(m["idle_s"]))), hang=2)
     if m["recent_buys"]:
         put(out, T('  bought in 24h: '),
             ", ".join(f"{sym} {usd(v)}" for sym, v in m["recent_buys"]))

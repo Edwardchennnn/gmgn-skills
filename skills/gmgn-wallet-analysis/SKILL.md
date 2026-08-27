@@ -486,6 +486,9 @@ these in `unwrap()` / `first_row()`; a hand-written call must do the same.
 | `portfolio stats` | `pnl_stat.winrate`, `.token_num`, `.avg_holding_period` | Core outcome shape |
 | `portfolio stats` | `pnl_stat.pnl_gt_5x_num` / `_2x_5x_` / `_0x_2x_` / `_nd5_0x_` / `_lt_nd5_` | Buckets: >500% / 200–500% / 0–200% / −50–0% / <−50%. **Counts tokens, not dollars** |
 | `portfolio stats` | `common.created_token_count`, `.created_at`, `.tags`, `.fund_from`, `.fund_from_address`, `.follow_count` | Identity and provenance |
+| `portfolio stats` | `native_balance` | Dry powder, in the chain's native token. GMGN's own leaderboard puts it in column two |
+| `portfolio stats` | `last_timestamp` | Freshness. Every other figure is silent about whether the wallet is still trading; past 48h the report says so with a warning |
+| `portfolio stats` | `bought_fee`, `sold_fee` | The fees actually paid. **Prefer these over the activity-sample gas estimate** — see the friction rule above |
 | `portfolio profits` | `realized_profit`, `realized_profit_cost` | Selected-period ROI numerator/denominator |
 | `portfolio profits` | `total_realized_profit`, `total_realized_profit_cost`, `unrealized_profit` | All-time ROI and open paper P&L |
 | `portfolio activity` | `event_type` / `type`, `timestamp`, `price_usd`, `cost_usd`, `gas_usd`, `token.address`, `token.symbol`, `token.total_supply` | Behaviour reconstruction |
