@@ -2218,9 +2218,8 @@ def card(m, g, wallet, chain):
                 ">", "> " + joinclause(second),
                 ""]
 
-    # ── line 5: the verdict. It is the turn, not the opening.
-    if ident:
-        out += [f"## {emoji} {headline}", ""]
+    # ── line 5: the verdict. It is the turn, not the opening -- and it is never optional.
+    out += [f"## {emoji} {headline}", ""]
     persona = []
     if m["gain_top3_share"] is not None and g["G1"][0] is not False:
         persona.append(T('its 3 best coins made {0} of the money', pct(m["gain_top3_share"])))
