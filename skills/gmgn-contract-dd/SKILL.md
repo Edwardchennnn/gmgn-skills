@@ -344,6 +344,8 @@ print("not in trending")'
 
 **`rug_ratio` arrives as a number already in 0-1** — `1` means 100%, not 1%. It is the one ratio in this skill you do not multiply, because the thresholds below are written in the same 0-1 form. Do not route it through the percent rule at the top of this file.
 
+**What the field is, from this repo rather than from inference.** `src/commands/market.ts` documents it as a **"rug pull risk score (0–1, e.g. 0.3 to exclude rugs)"**, and the CLI's own `--filter-preset safe` for `market trenches` is built on `max_rug_ratio: 0.3`. So the two bands below are not thresholds invented here — **0.30 is the cutoff the CLI itself calls "safe"**, and `docs/workflow-early-project-screening.md` already treats `rug_ratio > 0.3` as a red flag while `docs/workflow-project-deep-report.md` uses `> 0.5`. The measurements below picked the same two numbers independently, which is the outcome worth having: a threshold that is both measured on live data and consistent with how the rest of this project already reads the field.
+
 | `rug_ratio` | Effect |
 |---|---|
 | ≥ 0.50 | **cap the composite at 59** — "high risk" |
