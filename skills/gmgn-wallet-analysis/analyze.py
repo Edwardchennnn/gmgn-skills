@@ -42,6 +42,9 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "it lost {0} itself": "它自己这周亏掉 {0}",
+    "it banked {0} itself": "它自己这周落袋 {0}",
+    "{0} in one week: {1} following it becomes {2}": "一周 {0}：{1} 跟着它走会变成 {2}",
     "Read the data gap below and fix what it names, then re-run.": "看下面的数据缺口，按它写的原因处理，然后重跑。",
     "Its activity sample is too thin to judge reachability — this wallet barely trades, so there is nothing to fix. Watch it until it does.": "它的交易记录太少，判断不了你能不能吃到 —— 这个钱包几乎不交易，没什么可补的。等它动起来再看。",
     " — sparse: {0} rows stretched over {1:.0f} days": " —— 稀疏：{0} 条记录摊在 {1:.0f} 天里",
@@ -2260,16 +2263,14 @@ def card(m, g, wallet, chain):
                           T('it lost {0} itself this week', usd(abs(m["realized_7d"]))))
         second.append(T('{0} {1} — about {2:.0f}x its long-run pace', emo, label, m["pace_x"])
                       if m["pace_x"] else f"{emo} {label}")
-        conv = T('as a copy that is {0} → {1}', usd_exact(m["story_stake"]),
-                 usd_exact(m["story_out"]))
+        lead = T('{0} in one week: {1} following it becomes {2}',
+                 pct(m["roi_7d"]), usd_exact(m["story_stake"]), usd_exact(m["story_out"]))
+        tail = []
         if m["realized_7d"]:
-            lead = (T('It banked {0} this week', usd(abs(m["realized_7d"])))
-                    if m["realized_7d"] > 0 else
-                    T('It lost {0} this week', usd(abs(m["realized_7d"]))))
-            tail = [conv + T(' ({0})', pct(m["roi_7d"])), second[-1]]
-        else:
-            lead = T('{0} over the last 7 days', pct(m["roi_7d"]))
-            tail = [conv, second[-1]]
+            tail.append(T('it banked {0} itself', usd(abs(m["realized_7d"])))
+                        if m["realized_7d"] > 0 else
+                        T('it lost {0} itself', usd(abs(m["realized_7d"]))))
+        tail.append(second[-1])
         out += ["> **" + lead + "**", ">", "> " + joinclause(tail), ""]
 
     # ── line 5: the verdict. It is the turn, not the opening -- and it is never optional.

@@ -3,9 +3,9 @@
 **$2.40M banked so far — 6 of the 21 coins it traded are in profit, and only 6 lost more than half**
 SOL · wallet is 943 days old · 14 trades a day
 
-> **It lost $12.4K this week**
+> **-27.0% in one week: $1,000 following it becomes $730**
 >
-> as a copy that is $1,000 → $730 (-27.0%), 💀 broken down
+> it lost $12.4K itself, 💀 broken down
 
 ## 🔴 DO NOT COPY · it has stopped making money
 

@@ -3,9 +3,9 @@
 **$410.0K banked so far — 30 of the 74 coins it traded are in profit, and only 30 lost more than half**
 BSC · wallet is 513 days old · 22,400 followers · 159 trades a day
 
-> **It banked $28.4K this week**
+> **29.6% in one week: $1,000 following it becomes $1,296**
 >
-> as a copy that is $1,000 → $1,296 (29.6%), 🔥 heating up
+> it banked $28.4K itself, 🔥 heating up
 
 ## 🟡 WATCH, DO NOT COPY · you cannot get its fills, and it never cuts
 

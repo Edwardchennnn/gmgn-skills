@@ -3,9 +3,9 @@
 **$1.90M banked so far — 225 of the 410 coins it traded are in profit, and only 55 lost more than half**
 SOL · wallet is 413 days old · 683 trades a day
 
-> **It banked $61.0K this week**
+> **34.0% in one week: $1,000 following it becomes $1,340**
 >
-> as a copy that is $1,000 → $1,340 (34.0%), 🔥 heating up
+> it banked $61.0K itself, 🔥 heating up
 
 ## 🟡 WATCH, DO NOT COPY · you cannot get its fills
 
