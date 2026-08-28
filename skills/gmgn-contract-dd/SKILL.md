@@ -1,6 +1,6 @@
 ---
 name: gmgn-contract-dd
-description: "Contract due-diligence score for one token address — combines contract safety, holder structure and price action into a single 0-100 composite where every deduction names the exact field it came from, missing data is never counted as good news and never counted as bad news, and the reported confidence is what limits the conclusion rather than the score itself. Use when the user asks 尽调, CA 尽调, 这个币安全吗, 帮我看看这个合约, 有没有貔貅, 能不能买, is this token safe, run due diligence on this token, rug check, honeypot check, should I buy this token, or pastes a bare token contract address and wants a verdict rather than raw fields."
+description: "Contract due-diligence score for one token address — combines contract safety, holder structure and price action into a single 0-100 composite where every deduction names the exact field it came from, an absent field is never read as a passing check, the three exceptions where it does move the number are named explicitly, and the reported confidence is what limits the conclusion rather than the score itself. Use when the user wants one verdict number for a token: 尽调, CA 尽调, 给这个币打个分, 这个币安全吗, 帮我看看这个合约, 有没有貔貅, 能不能买, rug check, honeypot check, due-diligence score, score this contract, or pastes a bare token contract address and wants a single number rather than fields. Not for raw fields: price, market cap, liquidity, holder or trader lists, Smart Money positions, social links and the unscored security fields belong to gmgn-token, holder chip structure belongs to gmgn-holder-analysis, and chart-pattern naming belongs to gmgn-kline-pattern. This skill returns the composite score and nothing else."
 argument-hint: "--chain <sol|bsc|base|eth|robinhood|arc|stable> --address <token_address>"
 metadata:
   cliHelp: "gmgn-cli token security --help"
@@ -132,25 +132,29 @@ Read these two unconditionally once Step 0 has confirmed the token exists — St
 **The six EVM chains** — the real signals are `is_honeypot`, `is_open_source`, `is_renounced`, `is_blacklist`, and the taxes.
 
 Only when the `security` block is populated:
-- `is_honeypot === true` → **hard stop, composite 0**, buyable but not sellable. Stop scoring and say so.
-- `is_honeypot` missing while the block is otherwise populated → unavailable, **and cap the composite at 59** naming the missing check
+- `is_honeypot === true` → **hard stop, composite 0**, buyable but not sellable. **Run Step 7 first — it is the only exemption, and it must be checked before the stop is final.** If Step 7 does not apply, stop scoring and say so.
+- `is_honeypot` missing while the block is otherwise populated → unavailable, **and cap the composite at 79** naming the missing check
 - `is_open_source === false` → **−15**, cannot audit the real logic
-- `is_open_source` missing while the block is otherwise populated → unavailable, **cap at 59**
+- `is_open_source` missing while the block is otherwise populated → unavailable, **cap at 79**
 - `is_renounced === false` → **−8**
 - `is_blacklist === true` → **−20**, contract can bar a specific address from trading
 
 The two caps above apply **only** when the block is populated and those specific fields are absent. An unpopulated block never caps — see Step 1A.
 
+`79` is chosen deliberately: it lands in "mixed, needs manual review", not in "high risk". Without a honeypot or open-source check the token cannot be called relatively clean, so the cap **withholds the clean verdict** — but it must not **assert** a risk the data never showed. These are two of the three points in this skill where an absent field touches the number; Step 6 lists all three.
+
 ## Step 3 — Contract safety, from 100
 
 Applies on every chain, on top of the chain-mode branch:
+
+**Tiers within one field are mutually exclusive: take the single worst matching row and stop. Never sum a field's rows.** This holds for every scoring table in Steps 3, 4 and 5, whether the tiers are written as separate rows marked `same` or inline as `> 5% / > 2% | −20 / −10`. Different fields do add. Without this rule the tables are ambiguous and the same response scores differently for different readers: a creator with 1971 launches matches all five `creator_created_count` rows, so the worst-row reading is **−18** and the summed reading is **−51**; a token with zero liquidity matches all three liquidity rows, `−15` against `−36`. Measured on 2026-08-28 by scoring 16 live sol tokens both ways: the two readings differ by a **median of 22.2 composite points, up to 33.3** — more than one full grade, since the grade bands are 20 points wide. One token read 71.3 "mixed, needs manual review" under the worst-row rule and 38.0 "very high risk" under summing; another read 60.9 against 32.9. The worst-row reading is the correct one, and it is the one every measured score in this file was produced with — the argument for the `creator_created_count` top tier below ("a 50-token creator and a 1971-token creator scored identically") is only true under worst-row, since summing would already have separated them.
 
 | Field | Condition | Deduction |
 |-------|-----------|-----------|
 | `max(buy_tax, sell_tax)` | > 10% | −25 |
 | `max(buy_tax, sell_tax)` | > 5% | −10 |
 | `lock_summary.is_locked` / `burn_status` | LP neither locked nor burned | −12 |
-| `info.liquidity` or `pool.liquidity` | 0 and no 24h volume | −15 |
+| `info.liquidity` or `pool.liquidity` | 0 and `info.price.volume_24h` also 0 | −15 |
 | same | < $10K | −15 |
 | same | < $50K | −6 |
 | `pool.liquidity / pool.initial_liquidity` | pool shrank below 50% of launch | −10 |
@@ -181,6 +185,8 @@ Three field traps, all measured:
 - **`dev.twitter_name_change_history: []` and `dev.twitter_del_post_token_count: 0` are struct defaults.** On an unpopulated `dev` block both come back as `[]` and `0`, which is unavailable: neither a clean record nor a dirty one. Since neither field deducts, this only decides whether you report a value or report unavailable — never a deduction either way.
 
 ## Step 4 — Holder structure, from 100
+
+Tiers are mutually exclusive per field, worst matching row only, per Step 3.
 
 Always available:
 
@@ -217,7 +223,7 @@ Only when `info.stat` is populated per Step 1B — test it per token, do not dec
 
 ## Step 5 — Price action, from 100
 
-Needs at least 8 candles. Score the most recent 96 `15m` candles, roughly 24h.
+Needs at least 8 candles. Score the most recent 96 `15m` candles, roughly 24h. Tiers are mutually exclusive per measurement, worst matching row only, per Step 3.
 
 `market kline` with no `--from` / `--to` returned exactly 100 candles on every token measured (sol, bsc and eth, 2026-08-28), so those 96 are the tail of the default series. Do not assume the count: read `len(kline.list)` and score the last `min(96, len(kline.list))` candles. If fewer than 96 arrive, state the window actually scored rather than calling it 24h — every measurement below is a ratio and stays valid on a shorter window, but the label would not.
 
@@ -226,18 +232,25 @@ Needs at least 8 candles. Score the most recent 96 `15m` candles, roughly 24h.
 | `1 - last_close / max_high` | drawdown > 70% / > 50% / > 30% | −30 / −18 / −8 |
 | recent volume vs earlier volume | fell below 20% / below 40% | −18 / −8 |
 | worst single candle `(close-open)/open` | < −50% / < −30% | −14 / −7 |
-| `sell_volume_24h / buy_volume_24h` | > 1.3 / > 1.1 | −10 / −5 |
-| `price / price_24h` | halved in 24h | −10 |
+| `info.price.price / info.price.price_24h` | halved in 24h | −10 |
+
+**`info.price` is an object, not a number, and every value inside it is a string.** Measured on 2026-08-28: `info.price` is a dict holding `price`, `price_1m/5m/1h/6h/24h`, `buys_24h`, `sells_24h`, `volume_24h`, `buy_volume_24h`, `sell_volume_24h` and `swaps_24h`. **None of those names exist at the top level of `info`** — `info['price_24h']` is a missing key and `info['price']` is a dict, so any threshold written without the `info.price.` prefix is arithmetic on the wrong object. Convert with `float()` before comparing: `price_24h` arrives as the string `'1.72046817'`.
+
+`price_24h` is the **price 24 hours ago**, not a percent change, so `info.price.price / info.price.price_24h` below 0.5 is the halving test. It overlaps the drawdown row above deliberately: drawdown is measured against the window high, this is measured against a fixed 24h-ago anchor, and on a token younger than 24h the anchor is the launch price so the ratio comes back in the hundreds or thousands and the row correctly does not fire.
+
+**The last row comes from `token info`, not from `kline`.** It is still part of the price section and is still dropped with it when fewer than 8 candles arrive — that is deliberate, so the section is either scored whole or not at all, and the `len(kline.list)` deduction in Step 3 already accounts for the loss. Do not score it on its own while the section is dropped.
 
 ## Step 6 — Combine
 
 Base weights: **contract 0.45, holders 0.35, price 0.20.** They sum to 1.
 
+**Clamp every section score to 0-100 before weighting, and clamp the composite to 0-100 after.** The deductions in Steps 3, 4 and 5 can exceed 100 within one section — the eight `stat` checks alone total −117 if every one of them fires — and an unclamped section drags the composite below zero, which is not a value this scale has any meaning at. A section that has run out of points is at 0; it does not go on to subtract from the other sections' evidence. The lowest score measured across the 14-address battery is 58.7, so this clamp does not change any published number; it bounds a token worse than anything measured.
+
 **Renormalize over the sections that actually returned data.** Drop any section whose inputs were entirely unavailable, then divide each surviving weight by the surviving total. With price dropped, contract and holders become 0.5625 and 0.4375. Print the weights you actually used.
 
 Then, in this order:
 1. Apply any cap from Step 2. If several apply, the lowest wins.
-2. If the honeypot hard stop fired, the composite is 0 regardless of everything else.
+2. If the honeypot hard stop fired **and Step 7 did not downgrade it**, the composite is 0 regardless of everything else. Step 7 is checked before this line, not after — it appears later in this document only because it is the rarer case.
 3. If Step 0 found no record for the address, or if no section returned any data, report **cannot score** — not a number. Never emit a score for an address GMGN has no record of.
 
 **Coverage and confidence.** Count executed checks and skipped checks across all three sections; coverage is executed ÷ (executed + skipped). Two groups are excluded from both sides of that fraction: Solana's two not-applicable booleans per Step 2, and the eight `stat` checks when the block is unpopulated per Step 4. Every exclusion still appears in the unavailable list, and the `stat` exclusion additionally requires the disclosure line Step 4 names.
@@ -248,7 +261,15 @@ Then, in this order:
 | ≥ 50% | coverage low | the score is indicative only |
 | < 50% | **insufficient evidence** | state that the score cannot support any conclusion, and label the number as indicative |
 
-Coverage limits the **strength of the claim**, never the score. Missing data must not become a deduction, a cap, or a bonus — it only weakens what you are entitled to assert.
+Coverage limits the **strength of the claim**. Missing data must never become a **bonus** or a **passing check**, and outside the three exceptions named below it must not become a deduction or a cap either — it only weakens what you are entitled to assert.
+
+**Three exceptions, and only three.** Every other absent field is scored as unavailable and touches nothing but coverage.
+
+1. **A populated EVM `security` block missing `is_honeypot` → cap 79** (Step 2). "Relatively clean" is not a claim this skill may make without a honeypot check. The cap stops at 79 so it withholds the clean grade without asserting a risk the data never showed.
+2. **A populated EVM `security` block missing `is_open_source` → cap 79** (Step 2), for the same reason.
+3. **`len(kline.list)` under 24 → −12 or −6** (Step 3). This one is a genuine deduction on absent data, and it is deliberate: dropping the price section renormalizes its 0.20 onto contract and holders, which are the two sections a brand-new token is most likely to still pass, so silence about price would otherwise *raise* the score. See Step 3 for the full argument and for why the deduction is bounded and is not a rug claim. Measured cost to a bluechip: USDT on sol, zero candles, 100.0 → 93.2, still "relatively clean".
+
+Exceptions 1 and 2 withhold a verdict without asserting risk. Exception 3 does assert something — that price cannot be verified yet — which is why it is bounded at −12 and can never move a token more than one grade on its own.
 
 Grades, when confidence is not "insufficient": ≥80 relatively clean · ≥60 mixed, needs manual review · ≥40 high risk · <40 very high risk.
 
@@ -256,7 +277,11 @@ Grades, when confidence is not "insufficient": ≥80 relatively clean · ≥60 m
 
 Tokenized stocks and RWA tokens carry compliance transfer restrictions, so a honeypot simulator's test sell fails and the token gets flagged.
 
-If `is_honeypot === true` **and** the token shows over 500 sells and more than $100K sell volume in 24h, with `sell_volume / buy_volume` between 0.3 and 3.0, no privileged functions and no tax, then real trading contradicts the flag. **Downgrade it to unknown — do not clear it — and apply the cap at 59.**
+If `is_honeypot === true` **and** the token shows `info.price.sells_24h` over 500 and `info.price.sell_volume_24h` over $100K, with `info.price.sell_volume_24h / info.price.buy_volume_24h` between 0.3 and 3.0, no privileged functions and no tax, then real trading contradicts the flag. **Downgrade it to unknown — do not clear it — and apply a cap of 59.**
+
+The ratio is used here as a **two-sidedness band**, not as a risk tier: the question is only whether both sides of the book are trading at all, which is what would contradict a honeypot flag. Step 5 deliberately does **not** score this ratio in either direction — see the rejected-candidates note below for the measurement that settled that.
+
+This cap is lower than Step 2's 79 on purpose, and it is not the same situation. Step 2 caps on an **absent** field — nothing was measured, so nothing may be asserted. Here the field was measured and came back positive; only the trading evidence contradicts it. Conflicting evidence about a real flag warrants a stronger cap than silence does.
 
 ## Step 8 — Output format
 
@@ -288,6 +313,7 @@ Measured against live GMGN responses on 2026-08-27, one real token per chain acr
 - **megaeth returns a fully empty block**: `address: ""`, the four booleans null, taxes empty strings — yet `renounced_mint: false` and `renounced_freeze_account: false` are still present. That pair of defaults is what Step 1A exists to catch, and applying the Solana rule to them would have condemned a clean token.
 - **tron populates only `lock_summary`.** Two tokens with completely different risk profiles, including USDT-TRC20, returned an identical field set — proof those were defaults rather than measurements.
 - Zero-candle `kline` responses were reproduced on sol, arbitrum, xlayer and arc using bluechip stablecoins, and every one of those chains returned a full 100-candle series for its highest-liquidity active token. Zero candles is a per-token pool gap.
+- **The Step 2 hard stop and the Step 7 exemption were checked against three live `is_honeypot === true` tokens** on base (2026-08-28, all three from one factory, addresses vanity-mined to end in `b07`). None came close to Step 7's gate: `sells_24h` of 243, 0 and 0 against the 500 required, and `sell_volume_24h` of $63.6K, $0 and $0 against the $100K required. All three resolve to composite 0, which is the right answer. Step 7's gate is tight enough that ordering it before the hard stop does not open a hole — worth re-checking if that gate is ever loosened. Note also that the one honeypot with any sell flow had `sell_volume / buy_volume` of 0.00, i.e. heavily **buy**-side: a honeypot is bought and cannot be sold, so Step 7's 0.3-3.0 two-sidedness band excludes it for the right reason.
 
 ### Calibrating the fresh-launch and coverage tiers
 
@@ -300,10 +326,11 @@ The tiers added above were chosen by re-running the whole skill over 10 live tok
 | `len(kline.list)` deduction only | 88.4 | 83.8 | +4.6 | 1 of 4 |
 | **all three, as written above** | **88.4** | **78.5** | **+9.9** | **0 of 4** |
 
-Two candidate rules were measured and **rejected**, both because they cost a bluechip:
+Three candidate rules were measured and **rejected**:
 
 - **Capping the composite at 79 whenever fewer than 8 candles came back.** USDT on sol returns zero candles, so the cap demoted an established stablecoin out of "relatively clean" while only moving the gap to −2.5. "No price history" and "new token" are not the same condition.
 - **A scaling top tier on `info.image_dup_count`.** It charged RAY 12 points for twelve impostors copying RAY, and moved the gap the wrong way relative to leaving it flat.
+- **Scoring `info.price.sell_volume_24h / info.price.buy_volume_24h` at all.** This row was in an earlier draft as `> 1.3 / > 1.1 → −10 / −5` and was removed on 2026-08-28 after being measured properly for the first time. Because `net_buy_24h = buy_volume − sell_volume` and `volume_24h = buy_volume + sell_volume`, the rule can be evaluated exactly from `market trenches` rows, which also carry GMGN's own `rug_ratio` label. Over **415 live tokens** on sol, bsc and base with 24h volume above $2K: the rule fired on **0.0% of the 114 tokens with `rug_ratio > 0`** and on **10.0% of the 301 with `rug_ratio = 0`** — lift **0.00x**, i.e. it deducted only from tokens the label calls clean. Reversing the direction does not rescue it (best variant `buy/sell > 4.0`, lift 1.16x, noise) and neither does the `sells_24h / buys_24h` count ratio (lift 0.52x). Median `net_buy / volume` is `+0.0166` on risky tokens against `+0.0196` on clean ones: the measurement carries no information about the label at any threshold. Its only measured effect was costing **USDC on sol 2.0 composite points** (`sell/buy = 1.98`, a stablecoin's redemption flow) while penalising **0 of 12 fresh launches**, whose first-day flow is buy-heavy at `0.92`–`0.99`. The ratio survives in Step 7 only as a two-sidedness band, where the question is two-sided trading rather than direction.
 
 **Raising the grade boundaries instead** (clean ≥88, mixed ≥68) was also measured: every score is unchanged, the overlap survives untouched, and the new boundary lands 0.4 points under RAY. Boundaries cannot fix a distribution problem.
 
