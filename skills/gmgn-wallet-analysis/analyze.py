@@ -42,6 +42,11 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "Even at its own pace, anything over {0} moves the price against you.": "就算跟得上它的节奏，超过 {0} 的单子也会把价格推到你自己脸上。",
+    " — a pace a person can actually match": " —— 这个节奏人跟得上",
+    " — nobody is out-typing that": " —— 手速这块，人拼不过",
+    "in and out inside {0}": "进出不超过 {0}",
+    "it hunts around {0}": "它专打 {0} 上下的盘子",
     "{0} — about {1:.0f}x its long-run pace": "{0} —— 比长期均速快 {1:.0f} 倍",
     "{0} follow it for a week and {1} becomes {2} ({3})": "{0} 跟它一周，{1} 变 {2}（{3}）",
     "only {0} lost more than half": "亏超一半的只有 {0} 个",
@@ -2207,6 +2212,30 @@ def caliber(m, g):
     return ("😐", T('unremarkable'))
 
 
+def plain_persona(m):
+    """One jargon-free sentence: what it hunts, how fast it moves, what that means for a human.
+
+    Built from entry_p50, per_day and copy_window_s -- the same numbers the style label is
+    derived from, said in the words a reader already owns. The closing clause is the point:
+    a cadence figure only matters once someone tells you whether a person can match it.
+    """
+    bits = []
+    if m["entry_p50"] > 0:
+        bits.append(T('it hunts around {0}', mc(m["entry_p50"])))
+    if m["per_day"] >= 1:
+        bits.append(T('{0:,.0f} trades a day', m["per_day"]))
+    if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
+        bits.append(T('in and out inside {0}', dur(m["copy_window_s"])))
+    if not bits:
+        return None
+    line = joinclause(bits)
+    if m["per_day"] > 50 or (m["copy_window_n"] >= 3 and 0 < m["copy_window_s"] < 60):
+        line += T(' — nobody is out-typing that')
+    elif m["per_day"] < 10:
+        line += T(' — a pace a person can actually match')
+    return line
+
+
 def _qualifier(m, chain):
     """Chain, age and following, as a tail on the record line rather than a line of its own."""
     q = [chain.upper()]
@@ -2317,8 +2346,9 @@ def card(m, g, wallet, chain):
                        if m["gain_top3_share"] >= 0.5 else
                        T('the money is spread across many coins (top 3 = {0}), so no single '
                          'copy decides it', pct(m["gain_top3_share"])))
-    if m["entry_p50"] > 0:
-        persona.append(T('usually enters around {0}', mc(m["entry_p50"])))
+    pp = plain_persona(m)
+    if pp:
+        out += [pp, ""]
     if persona:
         out += [" · ".join(persona), ""]
 
@@ -2330,14 +2360,9 @@ def card(m, g, wallet, chain):
     if emoji == "🔴":
         out += ["## " + T('  WHAT TO DO').strip(), "", why, ""]
     elif unreachable:
-        bar = []
-        if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
-            bar.append(T('it is gone in {0}', dur(m["copy_window_s"])))
         if m["size_cap"]:
-            bar.append(T('and anything over {0} moves the price against you',
-                         usd_exact(m["size_cap"])))
-        if bar:
-            out += [T('The bar to clear: {0}.', joinclause(bar)), ""]
+            out += [T('Even at its own pace, anything over {0} moves the price against you.',
+                      usd_exact(m["size_cap"])), ""]
         out += [why, ""]
     else:
         out += ["## " + T('  HOW TO FOLLOW').strip(), ""]
