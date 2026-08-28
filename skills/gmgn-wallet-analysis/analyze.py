@@ -42,6 +42,11 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "the money is spread across many coins (top 3 = {0}), so no single copy decides it": "钱摊在很多币上（前 3 个只占 {0}），单独跟中哪一笔都不决定结果",
+    "{0} of the money came from just 3 coins — copying it randomly mostly misses them": "{0} 的钱只来自 3 个币 —— 随机跟单大概率跟不到这几个",
+    "wide enough to place by hand, if you are watching": "这个窗口手动下单来得及，前提是你在盯",
+    "under a minute — you need automated copy-trading for this; clicking by hand you will not make it": "不到一分钟 —— 这个节奏得用自动跟单，手点是赶不上的",
+    "，买在市值 {0}": "，买在市值 {0}",
     "{0} banked so far — ": "累计落袋 {0} —— ",
     "as a copy that is {0} → {1}": "折算成跟单是 {0} → {1}",
     "{0} over the last 7 days": "近 7 天 {0}",
@@ -1154,11 +1159,15 @@ def compute(d, latency_s, my_size):
         if ev_type(a) == "buy":
             b24 += c
             sym = (a.get("token") or {}).get("symbol") or (tok_addr(a) or "?")[:6]
-            recent_buys[sym] = recent_buys.get(sym, 0.0) + c
+            prev = recent_buys.get(sym, (0.0, 0.0))
+            sup = f((a.get("token") or {}).get("total_supply"))
+            px = f(a.get("price_usd"))
+            recent_buys[sym] = (prev[0] + c, (px * sup) if (sup > 0 and px > 0) else prev[1])
         else:
             s24 += c
     m["buy_usd_24h"], m["sell_usd_24h"] = b24, s24
-    m["recent_buys"] = sorted(recent_buys.items(), key=lambda kv: -kv[1])[:5]
+    m["recent_buys"] = [(k, v[0], v[1]) for k, v in
+                        sorted(recent_buys.items(), key=lambda kv: -kv[1][0])[:5]]
     if b24 + s24 <= 0:
         m["posture"] = ("😴", T('quiet for 24h'))
     elif s24 > 2 * b24:
@@ -2242,7 +2251,11 @@ def card(m, g, wallet, chain):
     out += [f"## {emoji} {headline}", ""]
     persona = []
     if m["gain_top3_share"] is not None and g["G1"][0] is not False:
-        persona.append(T('its 3 best coins made {0} of the money', pct(m["gain_top3_share"])))
+        persona.append(T('{0} of the money came from just 3 coins — copying it randomly '
+                         'mostly misses them', pct(m["gain_top3_share"]))
+                       if m["gain_top3_share"] >= 0.5 else
+                       T('the money is spread across many coins (top 3 = {0}), so no single '
+                         'copy decides it', pct(m["gain_top3_share"])))
     if m["entry_p50"] > 0:
         persona.append(T('usually enters around {0}', mc(m["entry_p50"])))
     if persona:
@@ -2272,6 +2285,10 @@ def card(m, g, wallet, chain):
                      if m["my_size"] > m["size_cap"] else
                      T('the {0} you asked about is within that', usd_exact(m["my_size"]))), ""]
         if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
+            out += [(T('under a minute — you need automated copy-trading for this; clicking '
+                       'by hand you will not make it')
+                     if m["copy_window_s"] < 60 else
+                     T('wide enough to place by hand, if you are watching')), ""]
             out += [T('past that, let it go — its cost is lower than yours, and entering '
                       'late means buying what it is selling'), ""]
 
@@ -2290,7 +2307,10 @@ def card(m, g, wallet, chain):
 
     if m["recent_buys"]:
         out += ["## " + T('  BOUGHT IN THE LAST 24H').strip(), ""]
-        out += [f"- {s} **{usd(v)}**" for s, v in m["recent_buys"][:3]] + [""]
+        for sym_, v_, mc_ in m["recent_buys"][:3]:
+            out.append(f"- {sym_} **{usd(v_)}**"
+                       + (T('，买在市值 {0}', mc(mc_)) if mc_ else ""))
+        out.append("")
 
     if m["open_value"] and m["open_book"]:
         top = m["open_book"][0]
@@ -2492,7 +2512,8 @@ def report(wallet, chain, m, g, gaps, brief=False):
     if extra:
         out += ["**" + (T('bought in 24h') if blocked
                         else T('also bought in 24h')).strip() + "**", ""]
-        out += [f"- {sym} **{usd(v)}**" for sym, v in extra] + [""]
+        out += [f"- {sym} **{usd(v)}**" + (T('，买在市值 {0}', mc(mc_)) if mc_ else "")
+                for sym, v, mc_ in extra] + [""]
     if m["open_book"]:
         if blocked:
             out += ["**" + T('{0} positions · {1} total', m['holdings_n'], usd(m['open_value'])) + "**", ""]

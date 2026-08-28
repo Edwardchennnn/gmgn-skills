@@ -49,11 +49,11 @@
 
 **bought in 24h**
 
-- MEME0 **$5.2K**
-- MEME1 **$5.2K**
-- MEME2 **$5.2K**
-- MEME3 **$5.2K**
-- MEME4 **$5.2K**
+- MEME0 **$5.2K**，买在市值 $810K
+- MEME1 **$5.2K**，买在市值 $1.1M
+- MEME2 **$5.2K**，买在市值 $1.4M
+- MEME3 **$5.2K**，买在市值 $1.7M
+- MEME4 **$5.2K**，买在市值 $2.0M
 
 live book: unavailable (see data gaps)
 

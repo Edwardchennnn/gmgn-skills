@@ -9,13 +9,15 @@ SOL · wallet is 623 days old · 11 trades a day
 
 ## 🟡 COPY THE BUYS, NOT THE EXITS · it does not cut losses
 
-its 3 best coins made 89.6% of the money · usually enters around $610K
+89.6% of the money came from just 3 coins — copying it randomly mostly misses them · usually enters around $610K
 
 ## HOW TO FOLLOW
 
 | start no larger than | get your order in within |
 |---|---|
 | **$259** | **3.0d of its buy** |
+
+wide enough to place by hand, if you are watching
 
 past that, let it go — its cost is lower than yours, and entering late means buying what it is selling
 

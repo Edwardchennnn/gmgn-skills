@@ -9,13 +9,15 @@ BSC · wallet is 513 days old · 22,400 followers · 159 trades a day
 
 ## 🟡 WATCH, DO NOT COPY · you cannot get its fills, and it never cuts
 
-its 3 best coins made 99.9% of the money · usually enters around $63K
+99.9% of the money came from just 3 coins — copying it randomly mostly misses them · usually enters around $63K
 
 ## HOW TO FOLLOW
 
 | start no larger than | get your order in within |
 |---|---|
 | **$53** | **45s of its buy** |
+
+under a minute — you need automated copy-trading for this; clicking by hand you will not make it
 
 past that, let it go — its cost is lower than yours, and entering late means buying what it is selling
 
@@ -27,9 +29,9 @@ past that, let it go — its cost is lower than yours, and entering late means b
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME0 **$310**
-- MEME1 **$310**
-- MEME2 **$310**
+- MEME0 **$310**，买在市值 $26K
+- MEME1 **$310**，买在市值 $35K
+- MEME2 **$310**，买在市值 $45K
 
 It is still holding 8 coins worth $12.2K — biggest is WINNER at $9.4K.
 

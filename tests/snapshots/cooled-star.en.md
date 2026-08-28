@@ -21,9 +21,9 @@ Re-run in 7 days to see whether it recovers or keeps sliding.
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME10 **$2.6K**
-- MEME11 **$2.6K**
-- MEME12 **$2.6K**
+- MEME10 **$2.6K**，买在市值 $671K
+- MEME11 **$2.6K**，买在市值 $847K
+- MEME12 **$2.6K**，买在市值 $1.0M
 
 It is still holding 2 coins worth $16.1K — biggest is OLDMEME at $12.0K.
 

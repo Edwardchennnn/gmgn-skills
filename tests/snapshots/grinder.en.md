@@ -9,7 +9,7 @@ SOL · wallet is 723 days old · 26 trades a day
 
 ## 🟢 COPYABLE AT SMALL SIZE · all four pass
 
-its 3 best coins made 71.8% of the money · usually enters around $688K
+71.8% of the money came from just 3 coins — copying it randomly mostly misses them · usually enters around $688K
 
 ## HOW TO FOLLOW
 
@@ -17,15 +17,17 @@ its 3 best coins made 71.8% of the money · usually enters around $688K
 |---|---|
 | **$214** | **2.0h of its buy** |
 
+wide enough to place by hand, if you are watching
+
 past that, let it go — its cost is lower than yours, and entering late means buying what it is selling
 
 `✅ record is real · ✅ earning now · ✅ you can keep up · ✅ it cuts losses`
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME7 **$1.8K**
-- MEME8 **$1.8K**
-- MEME9 **$1.8K**
+- MEME7 **$1.8K**，买在市值 $1.2M
+- MEME8 **$1.8K**，买在市值 $1.3M
+- MEME9 **$1.8K**，买在市值 $333K
 
 It is still holding 9 coins worth $28.8K — biggest is PEPE2 at $9.4K.
 

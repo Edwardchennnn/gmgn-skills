@@ -20,9 +20,9 @@ Treat its P&L as if it were not there. Watch what it buys; do not use these numb
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME0 **$340**
-- MEME1 **$340**
-- MEME2 **$340**
+- MEME0 **$340**，买在市值 $28K
+- MEME1 **$340**，买在市值 $38K
+- MEME2 **$340**，买在市值 $48K
 
 It is still holding 9 coins worth $5.1K — biggest is WBNB at $3.7K.
 

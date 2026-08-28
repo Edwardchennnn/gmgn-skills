@@ -17,6 +17,8 @@ usually enters around $20K
 |---|---|
 | **$38** | **4s of its buy** |
 
+under a minute — you need automated copy-trading for this; clicking by hand you will not make it
+
 past that, let it go — its cost is lower than yours, and entering late means buying what it is selling
 
 ❌ **you cannot keep up**
@@ -25,9 +27,9 @@ past that, let it go — its cost is lower than yours, and entering late means b
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME0 **$240**
-- MEME1 **$240**
-- MEME2 **$240**
+- MEME0 **$240**，买在市值 $8K
+- MEME1 **$240**，买在市值 $11K
+- MEME2 **$240**，买在市值 $14K
 
 ---
 

@@ -9,13 +9,15 @@ BSC · wallet is 751 days old · 41,071 followers · 15 trades a day
 
 ## 🟢 COPYABLE AT SMALL SIZE · all four pass
 
-its 3 best coins made 94.7% of the money · usually enters around $34.7M
+94.7% of the money came from just 3 coins — copying it randomly mostly misses them · usually enters around $34.7M
 
 ## HOW TO FOLLOW
 
 | start no larger than | get your order in within |
 |---|---|
 | **$1,175** | **2m of its buy** |
+
+wide enough to place by hand, if you are watching
 
 past that, let it go — its cost is lower than yours, and entering late means buying what it is selling
 
@@ -25,9 +27,9 @@ past that, let it go — its cost is lower than yours, and entering late means b
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME0 **$3.4K**
-- MEME1 **$3.4K**
-- MEME2 **$3.4K**
+- MEME0 **$3.4K**，买在市值 $14.3M
+- MEME1 **$3.4K**，买在市值 $19.4M
+- MEME2 **$3.4K**，买在市值 $24.5M
 
 It is still holding 13 coins worth $117.9K — biggest is LOBSTER at $54.3K.
 

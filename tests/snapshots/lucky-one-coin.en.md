@@ -18,7 +18,7 @@ Come back when it has done it again on other tokens.
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME10 **$2.2K**
+- MEME10 **$2.2K**，买在市值 $256K
 
 ---
 
