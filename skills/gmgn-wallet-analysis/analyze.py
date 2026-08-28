@@ -2421,12 +2421,14 @@ def card(m, g, wallet, chain):
     # Read the gates. These were hardcoded to "✓" in the first cut, which put
     # "✓ the record is real" on a card whose verdict was DO NOT COPY *because* that check
     # failed — the card asserting the opposite of its own headline.
-    bad = [k for k in ("G1", "G2", "G3", "G4") if g[k][0] is False]
-    ok = [k for k in ("G1", "G2", "G3", "G4") if g[k][0] is True]
-    if bad:
-        out += ["　".join("❌ **" + T(GATE_PLAIN_NEG[k]) + "**" for k in bad), ""]
-    if ok:
-        out += ["`" + " · ".join("✅ " + T(GATE_PLAIN[k][0]) for k in ok) + "`", ""]
+    chips = []
+    for k in ("G1", "G2", "G3", "G4"):
+        if g[k][0] is True:
+            chips.append("✅ " + T(GATE_PLAIN[k][0]))
+        elif g[k][0] is False:
+            chips.append("❌ **" + T(GATE_PLAIN_NEG[k]) + "**")
+    if chips:
+        out += ["　".join(chips), ""]
 
     if flags:
         out += ["> ⚠️ " + flags[0]["meaning"], ""]
