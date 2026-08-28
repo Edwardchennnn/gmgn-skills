@@ -344,6 +344,8 @@ Exceptions 1 and 2 withhold a verdict without asserting risk. Exception 3 does a
 
 Grades, when confidence is not "insufficient": ≥80 relatively clean · ≥60 mixed, needs manual review · ≥40 high risk · <40 very high risk.
 
+**"Relatively clean" means "no measured red flag among the fields this skill reads" — it does not mean "not a rug", and the report must not imply that it does.** Measured 2026-08-28 on ten tokens carrying GMGN's own `rug_ratio >= 0.5`: three scored ≥80, none scored below 60, and nine reported "evidence sufficient". The reason is in the appendix — `rug_ratio` itself is on an endpoint this skill does not call, and the rows that fire hardest on labelled rugs are the price ones, which detect a token that has already dumped rather than one about to. State the grade as what it is: an absence of findings in the fields listed above.
+
 ## Step 7 — Tokenized-equity honeypot false positive
 
 Tokenized stocks and RWA tokens carry compliance transfer restrictions, so a honeypot simulator's test sell fails and the token gets flagged.
@@ -411,7 +413,37 @@ The whole procedure was reimplemented as a script and re-run against live respon
 
 Two further readings from that pass, both about where this composite's discriminating power actually comes from:
 
-- **The contract permission fields are close to constant on live tokens.** Sampled the top ten trending tokens per chain on 2026-08-28: on `sol`, 10 of 10 returned `renounced_mint: true`, `renounced_freeze_account: true`, `burn_status: "burn"` and `lock_summary.is_locked: true`; on `bsc`, 10 of 10 returned `is_open_source: true`, `is_honeypot: false`, `is_renounced: true`, `is_blacklist: false` and `lock_summary.is_locked: true` with `lock_detail[0].percent: "0.95"` against the blackhole address. One token each on `arc`, `stable` and `robinhood` returned identical values on every one of those fields — the only field that differed between the three chains and bsc was `top_10_holder_rate`. So Step 2's branch and the LP row rarely fire, and the 0.45 contract weight is carried in practice by `creator_created_count`, liquidity and `len(kline.list)`. The composite's separating power sits mostly in the 0.35 holder section. **This is a per-row firing-rate reading, which the tier calibration above did not do — it compared composites only.** Anyone re-tuning the weights should measure firing rates first.
+- **The contract permission fields are close to constant on live tokens.** Sampled the top ten trending tokens per chain on 2026-08-28: on `sol`, 10 of 10 returned `renounced_mint: true`, `renounced_freeze_account: true`, `burn_status: "burn"` and `lock_summary.is_locked: true`; on `bsc`, 10 of 10 returned `is_open_source: true`, `is_honeypot: false`, `is_renounced: true`, `is_blacklist: false` and `lock_summary.is_locked: true` with `lock_detail[0].percent: "0.95"` against the blackhole address. One token each on `arc`, `stable` and `robinhood` returned identical values on every one of those fields — the only field that differed between the three chains and bsc was `top_10_holder_rate`. So Step 2's branch and the LP row rarely fire, and the 0.45 contract weight is carried in practice by `creator_created_count`, liquidity and `len(kline.list)`. The composite's separating power sits mostly in the 0.35 holder section. **This is a per-row firing-rate reading, which the tier calibration above did not do — it compared composites only.**
+
+Measured properly on 2026-08-28 over the 25 tokens scored end to end this session — six bluechips, six current fresh launches, ten tokens with `rug_ratio >= 0.5`, and one each on arc, stable and robinhood:
+
+| Row | fired on | blue (6) | fresh (6) | rug ≥ .5 (10) |
+|---|---|---|---|---|
+| `renounced_mint`, `renounced_freeze_account` | **0 / 25** | 0 | 0 | 0 |
+| `is_honeypot`, `is_open_source`, `is_renounced`, `is_blacklist` | **0 / 25** | 0 | 0 | 0 |
+| `max(buy_tax, sell_tax)` | **0 / 25** | 0 | 0 | 0 |
+| LP not locked and not burned | 1 / 25 | 1 | 0 | 0 |
+| liquidity | 13 / 25 | 0 | 6 | 6 |
+| `pool.liquidity / initial_liquidity` | 5 / 25 | 0 | 0 | 5 |
+| `stat.creator_created_count` | 13 / 25 | 0 | 4 | 8 |
+| `info.image_dup_count` | 8 / 25 | 3 | 3 | 1 |
+| `len(kline.list)` | 5 / 25 | 1 | 3 | 1 |
+| `top_10_holder_rate` | 9 / 25 | 0 | 4 | 4 |
+| `info.holder_count` | 9 / 25 | 0 | 5 | 3 |
+| `creator_hold_rate`, `fresh_wallet_rate`, `private_vault_hold_rate` | **0 / 25** | 0 | 0 | 0 |
+| `top_bundler_trader_percentage` | 6 / 25 | 0 | 4 | 2 |
+| `top70_sniper_hold_rate` | 1 / 25 | 0 | 0 | 1 |
+| `top_rat_trader_percentage` | 2 / 25 | 0 | 2 | 0 |
+| `top_entrapment_trader_percentage` | 10 / 25 | 1 | 2 | 5 |
+| `bot_degen_rate` | 2 / 25 | 0 | 2 | 0 |
+| drawdown | 11 / 25 | 0 | 2 | 8 |
+| worst single candle | 7 / 25 | 0 | 2 | 5 |
+| `price / price_24h` | **0 / 25** | 0 | 0 | 0 |
+| `vol_ratio < 0.20` | 2 / 25 | 0 | 0 | 2 |
+
+**Eleven of the twenty-seven rows never fired once.** Every permission field in Step 2 is among them, on all seven chains, so the entire chain-mode branch contributed nothing across 25 tokens — the 0.45 contract weight is carried in practice by liquidity, `creator_created_count`, `pool_shrink`, `image_dup_count` and `len(kline.list)`. Three of the eight `stat` metrics (`creator_hold_rate`, `fresh_wallet_rate`, `private_vault_hold_rate`) and the `price_24h` row never fired either; the `price_24h` result is expected and already explained above, the other three are thresholds that may simply be set too high.
+
+Ten rows fire on labelled rugs and never on bluechips, so they are the ones doing the separating: liquidity (6/10), `creator_created_count` (8/10), `pool_shrink` (5/10), drawdown (8/10), `worst_candle` (5/10), `top_10_holder_rate` (4/10), `holder_count` (3/10), bundler (2/10), `vol_ratio` (2/10), sniper (1/10). **Anyone re-tuning the weights should start from this table**, not from composite comparisons.
 - **`security.privileges` was `null` on every response taken**, across all six chains sampled. See Step 7: that is why its exemption gate opens only on a present-and-empty value.
 
 ### Calibrating the fresh-launch and coverage tiers
@@ -455,6 +487,14 @@ That live confirmation, against the full 14-address battery:
 | malformed address | sol | rejected pre-request | rejected pre-request |
 
 Lowest bluechip 88.4, highest fresh launch 73.1, gap **+15.3**; no bluechip lost its grade, and no fresh launch is read as "relatively clean".
+
+> **⚠️ That gap did not survive re-measurement, and this is the most important limitation in this file.** Re-run on 2026-08-28 against six *current* fresh launches (three pump.fun `near_completion` on sol, three flap on bsc, all with 24h volume over $20K and liquidity over $10K): lowest bluechip 88.4, **highest fresh launch 89.6, gap −1.2**, and **three of six read "relatively clean"**. The +15.3 above was measured on four launches captured at one moment and does not generalise — which the caveat under it already warned about, but not strongly enough.
+>
+> **The harder result: this composite does not separate tokens GMGN itself labels as rugs.** Scored ten tokens carrying `rug_ratio >= 0.5` with 24h volume over $20K, taken from `market trending`: **three read "relatively clean"** — ANTSEM at `rug_ratio: 1.00` scored **92.8**, GASSPAS at 0.54 scored **96.5**, Pistacio at 0.96 scored **86.8** — seven read "mixed", and **not one reached "high risk"**. Median composite 73.8. Nine of the ten reported 100% coverage, "evidence sufficient".
+>
+> Two causes are visible in the per-row data below. First, **this skill never reads `rug_ratio`**, GMGN's own rug label, because it lives on `market trending` / `market trenches` rather than on the three endpoints this skill restricts itself to — the single most predictive field GMGN publishes is outside the design. Second, the rows that do fire hardest on labelled rugs are `drawdown` (8 of 10) and `worst_candle` (5 of 10), which detect a token that **has already dumped**, not one that is about to. A labelled rug that has not dumped yet — ANTSEM, GASSPAS, Pistacio — passes.
+>
+> **Read the grade bands accordingly: "relatively clean" on this scale means "no measured red flag among the fields this skill reads", not "not a rug".** Fixing it is a threshold-and-scope decision, not a wording one: it needs either `rug_ratio` brought in as a fourth endpoint, or materially tighter `stat` tiers, re-calibrated against a labelled sample far larger than ten.
 
 Caveat on all of the above: ten scored tokens, four of them fresh launches, and two of those four came from the same four.meme factory (both addresses vanity-mined to end in `7777`). The gap holds on this sample; it is not a claim about generalisation.
 
