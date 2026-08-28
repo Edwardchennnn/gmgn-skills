@@ -17,9 +17,15 @@ for f in tests/fixtures/*.json; do
     # A dossier that prints no decision is the failure this net exists to catch.
     printf '%s\n' "$out" | grep -qE '^#{1,2} (🔴|🟡|🟢|⚪)' || { echo "── NO VERDICT  $n.$lang"; fail=1; }
     # A key written in Chinese falls back to itself, so the English report prints Chinese.
-    # Invisible while zh was the default; caught here now.
-    if [ "$lang" = en ] && printf '%s\n' "$out" | grep -qP '[\x{4e00}-\x{9fff}]'; then
-      echo "── CHINESE IN EN  $n"; printf '%s\n' "$out" | grep -nP '[\x{4e00}-\x{9fff}]' | head -3; fail=1
+    # Invisible while zh was the default. BSD grep has no -P, so this is done in python.
+    if [ "$lang" = en ]; then
+      leak=$(printf '%s\n' "$out" | python3 -c '
+import sys, re
+bad = [(n, l) for n, l in enumerate(sys.stdin.read().splitlines(), 1)
+       if re.search(r"[\u4e00-\u9fff]", l)]
+for n, l in bad[:3]: print("  L%d %s" % (n, l[:70]))
+')
+      if [ -n "$leak" ]; then echo "── CHINESE IN EN  $n"; echo "$leak"; fail=1; fi
     fi
   done
 done
