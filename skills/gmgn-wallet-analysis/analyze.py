@@ -42,6 +42,8 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "and ": "而且",
+    "but ": "但",
     " · {0}": " · {0}",
     "it lost {0} itself": "它自己这周亏掉 {0}",
     "it banked {0} itself": "它自己这周落袋 {0}",
@@ -2281,7 +2283,15 @@ def card(m, g, wallet, chain):
         out += ["> **" + lead + "**", ">", "> " + joinclause(tail), ""]
 
     # ── line 5: the verdict. It is the turn, not the opening -- and it is never optional.
-    out += [f"## {emoji} {headline}", ""]
+    #    Only the contrast is worth a word. An agreement connective added nothing, and in
+    #    the 📉 + 🔴 case it restated: "was good, not any more" and "it has stopped making
+    #    money" are one finding from one gate, so "and" made them read as two. A neutral
+    #    grade establishes no direction to agree or disagree with, and an unknown one
+    #    nothing at all -- both take no connective.
+    CAL_GOOD = ("🏆", "💪", "✅")
+    link = (T('but ') if cal_e != "⚪" and emoji != "⚪"
+            and (cal_e in CAL_GOOD) != (emoji == "🟢") else "")
+    out += [f"## {emoji} {link}{headline}", ""]
     persona = []
     if m["gain_top3_share"] is not None and g["G1"][0] is not False:
         persona.append(T('{0} of the money came from just 3 coins — copying it randomly '

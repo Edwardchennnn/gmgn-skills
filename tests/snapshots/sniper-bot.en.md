@@ -6,7 +6,7 @@
 >
 > it banked $61.0K itself, 🔥 heating up
 
-## 🟡 WATCH, DO NOT COPY · you cannot get its fills
+## 🟡 but WATCH, DO NOT COPY · you cannot get its fills
 
 usually enters around $20K
 
