@@ -42,6 +42,9 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "See the first gate below for what failed.": "具体没过哪一条，看下面第一道闸门。",
+    "NO READ · the track record did not check out": "看不出来 · 战绩没通过核验",
+    "DO NOT COPY · one position carried the whole result": "别跟 · 全靠一个仓位撑起来的",
     "{0} of the {1:,} coins it traded are in profit, and only {2} lost more than half": "它打过的 {1:,} 个币里，{0} 个现在是赚的，只有 {2} 个亏超一半",
     "{0:,} tokens, {1:,} in profit, {2}, {3}": "{0:,} 币 · {1:,} 个在赚 · {2} · {3}",
     " ({0:,} bought and not yet sold, so they have no realized result)": "（其中 {0:,} 个买了还没卖，没有已实现结果）",
@@ -1157,6 +1160,7 @@ def compute(d, latency_s, my_size):
     m["pcr"] = None
     m["pcr_source"] = None
     m["pcr_trusted"] = False
+    m["pcr_represents_record"] = False
     m["one_coin_note"] = None
     if h:
         profits = sorted((f(x.get("total_profit")) for x in h), reverse=True)  # confirmed name
@@ -1168,6 +1172,11 @@ def compute(d, latency_s, my_size):
             # 3+ winners and 8+ positions is what stops this vetoing every small sample:
             # with one winner in the page, PCR is 100% by definition.
             m["pcr_trusted"] = len(pos) >= 3 and len(h) >= 8
+            # ...and the open book has to be most of what it ever traded before its
+            # concentration may speak for the record.
+            m["pcr_represents_record"] = (
+                m["pcr_trusted"] and len(h) >= 0.5 * max(1, m["token_num"])
+            )
         m["hold_to_zero"] = sum(
             1
             for x in h
@@ -1463,7 +1472,7 @@ def gates(m):
         )
     elif m["one_coin_note"]:
         g["G1"] = (False, m["one_coin_note"])
-    elif m["pcr_trusted"] and m["pcr"] >= 0.75:
+    elif m["pcr_represents_record"] and m["pcr"] >= 0.75:
         g["G1"] = (
             False,
             T('profit concentration {0} (across {1} positions) — one coin carried the record', pct(m['pcr']), m['holdings_n']),
@@ -1646,10 +1655,20 @@ def verdict(m, g):
             return ("🔴",
                     T('DO NOT COPY · one token made all the money'),
                     T('Come back when it has done it again on other tokens.'))
+        if m["pcr_represents_record"] and m["pcr"] is not None and m["pcr"] >= 0.75:
+            return ("🔴",
+                    T('DO NOT COPY · one position carried the whole result'),
+                    T('Come back when it has done it again on other tokens.'))
         # Too thin to measure is ⚪, not 🔴. Nothing bad was found — nothing was found.
+        # Only claim a thin sample when it IS one: this used to be the catch-all, so any
+        # G1 failure the branches above did not name printed a false token count.
+        if m["token_num"] < 5:
+            return ("⚪",
+                    T('NO READ · only {0} tokens traded', m['token_num']),
+                    T('The sample is too small for any ratio to hold. Watchlist it until it has traded 5.'))
         return ("⚪",
-                T('NO READ · only {0} tokens traded', m['token_num']),
-                T('The sample is too small for any ratio to hold. Watchlist it until it has traded 5.'))
+                T('NO READ · the track record did not check out'),
+                T('See the first gate below for what failed.'))
 
     if p["G2"] is False:
         return ("🔴",
