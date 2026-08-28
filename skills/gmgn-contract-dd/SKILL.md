@@ -279,6 +279,8 @@ Needs at least 8 candles. Tiers are mutually exclusive per measurement, worst ma
 | `float(info.price.price) / float(info.price.price_24h)` | < 0.5, halved in 24h | −10 |
 | `vol_ratio = mean(V[-20:]) / mean(V[-40:-20])` | **< 0.20 only** — needs `len(W) >= 40` and `mean(V[-40:-20]) > 0` | −18 |
 
+**Every row in the table above is active and deducts. This skill has no candidate, disabled or "pending" scoring rows anywhere** — a rule that did not survive measurement was deleted outright rather than parked, which is what happened to `sell_volume_24h / buy_volume_24h` and to `vol_ratio`'s own `0.20–0.40` tier. So the tables are safe to implement on their own; the prose under them explains *why* a threshold is where it is and never revokes a row.
+
 **Guards. A degenerate candle must never manufacture a deduction out of a division.** Skip the measurement and mark it unavailable — never deduct — when its denominator is zero or its input is missing: `max(H) == 0` drops the drawdown row; a candle with `O[i] == 0` is excluded from the worst-candle scan rather than scoring as −100%; `float(info.price.price_24h) == 0` drops the `price_24h` row; `len(W) < 40` or `mean(V[-40:-20]) == 0` drops the `vol_ratio` row. A skipped row here is an ordinary unavailable check and touches only coverage.
 
 **The volume row ships with one tier, and the second tier was measured out of existence.** An earlier draft read "recent volume vs earlier volume fell below 20% / below 40% → −18 / −8" with no window definition, so it was never reproducibly executable. Defining it as `vol_ratio` above made it executable for the first time, and it was then put through the same test the `sell_volume_24h / buy_volume_24h` row got: fire rate on tokens labelled `rug_ratio > 0` against tokens labelled `rug_ratio = 0`.
@@ -297,7 +299,7 @@ Note the batch-to-batch instability that the tier split resolves: taken as one r
 
 **Do not add a shallower tier back without repeating this measurement.** The row still needs 40 candles, which structurally excludes tokens under ten hours old; that is a real limit on what it can see, and the `len(kline.list)` deduction in Step 3 is what covers those tokens instead.
 
-So compute `vol_ratio`, report it in the findings with its value, and **do not deduct on it.** Before it may score, run the test the sell/buy row got: fire rate on `market trenches` rows with `rug_ratio > 0` against rows with `rug_ratio = 0`, same volume floor, one snapshot. It scores only if the lift is meaningfully above 1.0x. **That test has not been run** — the attempt on 2026-08-28 was cut short by a `RATE_LIMIT_BANNED` response, so no risky-token fire rate exists yet. Until it does, the 2-of-5 bluechip reading is the only evidence about this row and it points the wrong way, which is why the row is reported rather than scored.
+**So `vol_ratio < 0.20` is ACTIVE and deducts −18, exactly as the scoring table above says.** An earlier draft of this file held the row back as reported-not-scored while its lift test was unfinished; the test is finished, it is the table immediately above, and that draft wording is gone. Compute the value, apply the −18 when it is under 0.20, and also report the value itself in the findings so a reader can see how close it came. There is no shallower tier: `0.20–0.40` is deleted, not deactivated.
 
 **`info.price` is an object, not a number, and every value inside it is a string.** Measured on 2026-08-28: `info.price` is a dict holding `price`, `price_1m/5m/1h/6h/24h`, `buys_24h`, `sells_24h`, `volume_24h`, `buy_volume_24h`, `sell_volume_24h` and `swaps_24h`. **None of those names exist at the top level of `info`** — `info['price_24h']` is a missing key and `info['price']` is a dict, so any threshold written without the `info.price.` prefix is arithmetic on the wrong object. Convert with `float()` before comparing: `price_24h` arrives as the string `'1.72046817'`.
 
@@ -398,7 +400,7 @@ Then, in this order:
 
 One group is **held out of both sides** when it applies: the nine `stat` checks (eight in Holders, `creator_created_count` in Contract) when Step 1B finds the block unpopulated. Held-out checks still appear in the unavailable list, and holding them out additionally requires the disclosure line Step 4 names. Everything else that could not be read is **skipped** — it stays in the denominator.
 
-If your executed + skipped + held-out does not equal 22 or 24, you have invented or dropped a check; recount before reporting a confidence label.
+If your executed + skipped + held-out does not equal **23 on `sol` or 25 on the EVM chains**, you have invented or dropped a check; recount before reporting a confidence label. The identity holds in both directions: with `stat` populated the nine `stat` checks are executed or skipped and held-out is 0, and with `stat` unpopulated they move to held-out — either way the three numbers still sum to the same total, which is the whole point of holding them out rather than dropping them.
 
 | Coverage | Confidence | What it does to the conclusion |
 |----------|-----------|-------------------------------|
