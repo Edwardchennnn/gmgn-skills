@@ -20,7 +20,7 @@ metadata:
 
 **⚠️ IPv6 NOT SUPPORTED: on a `401` / `403` with correct credentials, run `ifconfig | grep inet6` (macOS) or `ip addr show | grep inet6`. If that lists a global IPv6 address, tell the user to disable IPv6 — gmgn-cli only works over IPv4. Do not call any third-party IP-echo service to check this: the local interface listing already answers it, and this skill contacts GMGN and nothing else.**
 
-This skill turns three read-only CLI calls — plus one conditional fourth, only to tell a wallet from an unknown address — into one auditable score. It does not trade, does not need a private key, and reads nothing on the local machine other than the API key that `gmgn-cli config` already manages.
+This skill turns three read-only CLI calls — plus a listing lookup for GMGN's own rug label, and one conditional call only to tell a wallet from an unknown address — into one auditable score. It does not trade, does not need a private key, and reads nothing on the local machine other than the API key that `gmgn-cli config` already manages.
 
 ## Sub-commands
 
@@ -32,13 +32,20 @@ gmgn-cli token security --chain <chain> --address <token_address> --raw
 gmgn-cli market kline   --chain <chain> --address <token_address> --resolution 15m --raw
 ```
 
+Plus a **listing lookup** for Step 5B's rug-label cross-check, which is the only way to reach `rug_ratio` — stop as soon as the address is found:
+
+```
+gmgn-cli market trenches --chain <chain> --raw
+gmgn-cli market trending --chain <chain> --interval 24h --limit 100 --raw
+```
+
 Plus one **conditional** call, made only when Step 0 finds `info.symbol` empty and has to tell a wallet apart from an address GMGN holds no record of:
 
 ```
 gmgn-cli portfolio stats --chain <chain> --wallet <address> --period 30d --raw
 ```
 
-It never runs on a token that resolved, it feeds no threshold, and it is read-only on the same API-key-only auth as the other three — `portfolio stats` is not in the CLI's signed-request set, so no private key is involved.
+That one never runs on a token that resolved and feeds no threshold. All six are read-only and on the CLI's API-key-only auth path — none of them is in its signed-request set, so no private key is involved.
 
 Nothing else. Do not call swap, order, or cooking commands from this skill.
 
@@ -298,6 +305,40 @@ So compute `vol_ratio`, report it in the findings with its value, and **do not d
 
 **The last row comes from `token info`, not from `kline`.** It is still part of the price section and is still dropped with it when fewer than 8 candles arrive — that is deliberate, so the section is either scored whole or not at all, and the `len(kline.list)` deduction in Step 3 already accounts for the loss. Do not score it on its own while the section is dropped.
 
+## Step 5B — Cross-check against GMGN's own rug label
+
+**This step exists because the composite, on its own, does not separate tokens GMGN itself labels as rugs.** Measured 2026-08-28 on ten tokens carrying `rug_ratio >= 0.5` with over $20K of 24h volume: three scored "relatively clean" — ANTSEM at `rug_ratio: 1.00` scored **92.8**, GASSPAS at 0.54 scored **96.5**, Pistacio at 0.96 scored **86.8** — seven scored "mixed", and none reached "high risk". Nine of the ten reported "evidence sufficient". A verdict number that calls a maximum-rug-label token relatively clean at high confidence is worse than no number, so the label is read and it caps.
+
+**There is no address lookup for `rug_ratio`.** It is absent from `token info`, `token security` and `token pool` — verified — and `gmgn-cli` has no `market search` sub-command in any version measured, so the field is only reachable from the per-chain listings. Scan them and stop as soon as the address matches, comparing lowercased:
+
+1. `gmgn-cli market trenches --chain <chain> --raw` — three buckets, `completed` / `near_completion` / `new_creation`, 180 rows, which is where launches live. Measured: this response is **unwrapped**, so the three bucket names are the top-level keys.
+2. `gmgn-cli market trending --chain <chain> --interval 24h --limit 100 --raw` — where actively traded tokens live. Measured: this response **keeps** the `{"code":…,"data":…}` envelope, so the rows are at `data.rank`.
+
+**The two shapes differ, and assuming either one for both is a silent empty read** — a scan that looks for `data.rank` in the trenches response finds nothing and concludes `rug_ratio` is unavailable, which is a false negative on exactly the tokens this step exists for.
+
+**`rug_ratio` arrives as a number already in 0-1** — `1` means 100%, not 1%. It is the one ratio in this skill you do not multiply, because the thresholds below are written in the same 0-1 form. Do not route it through the percent rule at the top of this file.
+
+| `rug_ratio` | Effect |
+|---|---|
+| ≥ 0.50 | **cap the composite at 59** — "high risk" |
+| 0.30 to 0.50 | **cap at 79** — withholds "relatively clean" |
+| < 0.30 | no cap |
+| address in neither listing | no cap, and say so in the report |
+
+**This cap asserts a risk, and it is entitled to.** Step 2's caps sit at 79 because they fire on an *absent* field and may not assert what was never measured. Step 5B is the opposite case: the label was measured and came back positive, which is why its lower band goes to 59 — the same reasoning Step 7 uses for its own 59.
+
+**Caps only. This step can never raise a score, and `rug_ratio: 0` is never evidence of safety** — 302 of 400 trending rows across four chains read exactly 0, so a zero is the population default rather than a clean bill of health.
+
+Measured effect of each band:
+
+- **≥ 0.50 → 59.** On the ten labelled rugs above, all ten move to "high risk", which removes three false "relatively clean" verdicts including the `rug_ratio: 1.00` one. On the six fresh launches scored the same day, only MERP is affected — `rug_ratio: 1.00`, composite 89.6 "relatively clean" before the cap.
+- **0.30 to 0.50 → 79.** Scored five tokens in that band: RAX 80.0, BANDOS 83.5, POKEMON 88.0, AFD 90.5 all read "relatively clean" and all four are withheld by the cap; JWA at 76.5 was already below it. Four of five changed, so the band is doing work rather than decorating.
+- **< 0.30 → nothing.** Unmeasured as a band and deliberately inert, because a cap here would be a guess.
+
+**Absence cannot hurt a token, and that is structural rather than lucky.** The listings rank churning tokens, so established assets are simply not in them: all six bluechips in this file — USDC, USDT and RAY on sol, CAKE on bsc, WETH on base, USDT on eth — were absent from every listing on all four chains scanned, so no bluechip can be capped by this step. Report the absence as `rug_ratio unavailable — address not in the trenches or trending listing for this chain`.
+
+**`rug_ratio` is a cross-check, not a scored check, and it is not in Step 6's coverage inventory.** Coverage measures how much of the token's own contract, holder and price data could be read; `rug_ratio` is GMGN's aggregate label *about* the token, and its availability tracks whether the token happens to be ranked right now — which is not a fact about the evidence. Putting it in the denominator would dock every established token's coverage for being established, the same inversion Step 4 rejects for the `stat` block. So the inventory totals stay 23 and 25.
+
 ## Step 6 — Combine
 
 Base weights: **contract 0.45, holders 0.35, price 0.20.** They sum to 1.
@@ -307,7 +348,7 @@ Base weights: **contract 0.45, holders 0.35, price 0.20.** They sum to 1.
 **Renormalize over the sections that actually returned data.** Drop any section whose inputs were entirely unavailable, then divide each surviving weight by the surviving total. With price dropped, contract and holders become 0.5625 and 0.4375. Print the weights you actually used.
 
 Then, in this order:
-1. **Collect every cap that applies, from Step 2 *and* Step 7, and take the lowest.** Step 2 can contribute 79 (missing `is_honeypot`, missing `is_open_source`); Step 7 contributes 59 when it downgrades a honeypot flag. An earlier version of this list named only Step 2's caps, which left Step 7's 59 with no place to be applied — a downgraded honeypot would have kept its raw composite. If both apply, 59 wins.
+1. **Collect every cap that applies — Step 2, Step 5B and Step 7 — and take the lowest.** Step 2 can contribute 79 (missing `is_honeypot`, missing `is_open_source`); Step 5B contributes 79 or 59 from `rug_ratio`; Step 7 contributes 59 when it downgrades a honeypot flag. An earlier version of this list named only Step 2's caps, which left the others with no place to be applied — a downgraded honeypot, or a token GMGN labels a rug, would have kept its raw composite.
 2. If the honeypot hard stop fired **and Step 7 did not downgrade it**, the composite is 0 regardless of everything else. Step 7 is checked before this line, not after — it appears later in this document only because it is the rarer case.
 3. If Step 0 found no record for the address, or if no section returned any data, report **cannot score** — not a number. Never emit a score for an address GMGN has no record of. If Step 0's wallet probe identified a wallet, hand off instead of reporting either.
 
@@ -344,7 +385,7 @@ Exceptions 1 and 2 withhold a verdict without asserting risk. Exception 3 does a
 
 Grades, when confidence is not "insufficient": ≥80 relatively clean · ≥60 mixed, needs manual review · ≥40 high risk · <40 very high risk.
 
-**"Relatively clean" means "no measured red flag among the fields this skill reads" — it does not mean "not a rug", and the report must not imply that it does.** Measured 2026-08-28 on ten tokens carrying GMGN's own `rug_ratio >= 0.5`: three scored ≥80, none scored below 60, and nine reported "evidence sufficient". The reason is in the appendix — `rug_ratio` itself is on an endpoint this skill does not call, and the rows that fire hardest on labelled rugs are the price ones, which detect a token that has already dumped rather than one about to. State the grade as what it is: an absence of findings in the fields listed above.
+**"Relatively clean" means "no measured red flag among the fields this skill reads, and no rug label from GMGN" — it still does not mean "not a rug", and the report must not imply that it does.** The scored rows alone did not carry this: measured 2026-08-28 on ten tokens carrying `rug_ratio >= 0.5`, three scored ≥80 and none scored below 60. Step 5B's cap is what closes that, and it closes it by refusing a verdict rather than by measuring the contract better — the underlying reason is still true, that the rows firing hardest on labelled rugs are the price ones, which detect a token that has already dumped rather than one about to. A token with no rug label and a young chart can still score in the eighties on nothing but the absence of findings. Say the grade as what it is.
 
 ## Step 7 — Tokenized-equity honeypot false positive
 
@@ -369,15 +410,25 @@ Report in this order:
 3. Each section's sub-score, then every deduction as: field path → measured value → points → reason.
 4. **The unavailable list, in full, never omitted.** For each entry say why: not applicable on this chain, block unpopulated, or field absent.
 5. **Reported-not-scored findings**, each quoted with its value and labelled as not having moved the score: the two `dev` X fields, labelled as history of the linked X account rather than of this token; and any `[filtered]` string or `neutralized … suspicious metadata` stderr notice from `gmgn-cli`.
-6. Any cap applied and which missing check caused it.
+6. Any cap applied and what caused it — a missing check (Step 2), the `rug_ratio` band (Step 5B), or a downgraded honeypot flag (Step 7). Always print the Step 5B line, including when it found nothing: either `rug_ratio 0.96 (trenches/completed) → cap 59` or `rug_ratio unavailable — address not in the trenches or trending listing for this chain`. It is the one line that tells the reader whether GMGN's own label was consulted at all.
 7. One line stating this is a rule-based read of public on-chain data, not investment advice.
 
 ## Notes
 
-- All three commands support `--raw`. Always use it.
-- **With `--raw`, all four of these commands print the unwrapped payload — there is no `code` field to read.** Measured: `token info` and `token security` return the object itself (`{"address": …, "symbol": …}`), `market kline` returns `{"list": [...]}`, and `portfolio stats` returns `{"wallet_address": …, "buy": …}`. Do not look for `code`, `data`, or an HTTP status; decide "no record" from `info.symbol` per Step 0. Other `gmgn-cli` commands do keep the `{"code":…,"data":…}` envelope under `--raw`, so do not generalise either shape.
+- Every command used here supports `--raw`. Always use it.
+- **The response shape is per command, not global — three different shapes are in play and guessing wrong reads as empty data.** Measured 2026-08-28:
+
+  | Command | Shape under `--raw` |
+  |---|---|
+  | `token info`, `token security` | unwrapped object — `{"address": …, "symbol": …}` |
+  | `market kline` | unwrapped — `{"list": [...]}` |
+  | `portfolio stats` | unwrapped — `{"wallet_address": …, "buy": …}` |
+  | `market trenches` | unwrapped — the three bucket names are the top-level keys |
+  | `market trending` | **wrapped** — `{"code":0,"data":{"rank":[…]}}` |
+
+  So do not look for `code` or `data` on the four unwrapped ones, and do look for them on `market trending`. Decide "no record" from `info.symbol` per Step 0, never from a `code` field.
 - `gmgn-cli` exits **1** with a printed message on a chain outside the seven and on a malformed address, before any request is sent. It exits **0** for a well-formed address GMGN has no record of — that case is Step 0's job, not the exit code's.
-- This skill is read-only: three GET endpoints for scoring plus Step 0's conditional `portfolio stats` probe, no signing, no private key, no local file access beyond the API key `gmgn-cli config` already manages. All four are on the CLI's API-key-only auth path.
+- This skill is read-only: three GET endpoints for scoring, the two listing endpoints Step 5B scans for `rug_ratio`, and Step 0's conditional `portfolio stats` probe — no signing, no private key, no local file access beyond the API key `gmgn-cli config` already manages. All six are on the CLI's API-key-only auth path.
 - Chain support is **per endpoint**, not global. Do not assume that a chain accepted by one GMGN endpoint is accepted by another.
 - For chart-pattern naming rather than a risk score, that is `gmgn-kline-pattern`. For holder chip structure in depth, that is `gmgn-holder-analysis`. For raw fields with no scoring, that is `gmgn-token`. This skill owns the composite risk score and nothing else.
 
@@ -492,9 +543,13 @@ Lowest bluechip 88.4, highest fresh launch 73.1, gap **+15.3**; no bluechip lost
 >
 > **The harder result: this composite does not separate tokens GMGN itself labels as rugs.** Scored ten tokens carrying `rug_ratio >= 0.5` with 24h volume over $20K, taken from `market trending`: **three read "relatively clean"** — ANTSEM at `rug_ratio: 1.00` scored **92.8**, GASSPAS at 0.54 scored **96.5**, Pistacio at 0.96 scored **86.8** — seven read "mixed", and **not one reached "high risk"**. Median composite 73.8. Nine of the ten reported 100% coverage, "evidence sufficient".
 >
-> Two causes are visible in the per-row data below. First, **this skill never reads `rug_ratio`**, GMGN's own rug label, because it lives on `market trending` / `market trenches` rather than on the three endpoints this skill restricts itself to — the single most predictive field GMGN publishes is outside the design. Second, the rows that do fire hardest on labelled rugs are `drawdown` (8 of 10) and `worst_candle` (5 of 10), which detect a token that **has already dumped**, not one that is about to. A labelled rug that has not dumped yet — ANTSEM, GASSPAS, Pistacio — passes.
+> Two causes were visible in the per-row data below. First, **the scored rows never read `rug_ratio`**, GMGN's own rug label, because it lives on `market trending` / `market trenches` rather than on the three endpoints the scoring restricts itself to — the most predictive field GMGN publishes sat outside the design. That is what **Step 5B** now reaches, as a cap rather than as a scored row. Second, and still unfixed, the rows that fire hardest on labelled rugs are `drawdown` (8 of 10) and `worst_candle` (5 of 10), which detect a token that **has already dumped**, not one that is about to — so a labelled rug that has not dumped yet (ANTSEM, GASSPAS, Pistacio) still passes every scored row and is caught only by the cap.
 >
-> **Read the grade bands accordingly: "relatively clean" on this scale means "no measured red flag among the fields this skill reads", not "not a rug".** Fixing it is a threshold-and-scope decision, not a wording one: it needs either `rug_ratio` brought in as a fourth endpoint, or materially tighter `stat` tiers, re-calibrated against a labelled sample far larger than ten.
+> **This is what Step 5B was added for, and it closes the labelled-rug half.** Bringing `rug_ratio` in as a listing lookup and capping on it moves all ten of those tokens to "high risk", and withholds "relatively clean" from four of five tokens measured in the 0.30-0.50 band. It cannot touch a bluechip: all six in this file were absent from every listing scanned on four chains, so the cap has no path to them.
+>
+> **The fresh-launch half is deliberately left open, because the gap metric was the wrong target.** After Step 5B the highest fresh launch is GROKCHAIN at 89.4 with `rug_ratio: 0.00` and no failed check other than thin liquidity, a small holder count and an 8% drawdown — so the gap is still about −1. That is not obviously a mis-score: the original calibration treated "young" as a proxy for "risky", and a young token with no rug label and no red flags genuinely has no red flags. What conveys youth is the `len(kline.list)` deduction and the confidence line, not a depressed composite. **So stop reading the bluechip-minus-fresh-launch gap as a quality metric** — the metric that matters is whether a labelled rug can read as clean, and that one is now closed by construction rather than by threshold tuning.
+>
+> Still true regardless: "relatively clean" means "no measured red flag among the fields this skill reads, and no rug label", not "not a rug".
 
 Caveat on all of the above: ten scored tokens, four of them fresh launches, and two of those four came from the same four.meme factory (both addresses vanity-mined to end in `7777`). The gap holds on this sample; it is not a claim about generalisation.
 
