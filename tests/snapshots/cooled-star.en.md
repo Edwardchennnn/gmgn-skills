@@ -1,7 +1,6 @@
 # 📉 was good, not any more　anonymous address
 
-**$2.40M banked so far — 6 of the 21 coins it traded are in profit, and only 6 lost more than half**
-SOL · wallet is 943 days old · 14 trades a day
+**$2.40M banked so far — 6 of the 21 coins it traded are in profit, and only 6 lost more than half** · SOL · wallet is 943 days old
 
 > **-27.0% in one week: $1,000 following it becomes $730**
 >

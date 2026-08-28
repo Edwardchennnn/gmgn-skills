@@ -1,7 +1,6 @@
 # 💪 seriously good　@Mirro7777　`📣 KOL`
 
-**$458.6K banked so far — 162 of the 183 coins it traded are in profit, and only 8 lost more than half**
-BSC · wallet is 751 days old · 41,071 followers · 15 trades a day
+**$458.6K banked so far — 162 of the 183 coins it traded are in profit, and only 8 lost more than half** · BSC · wallet is 751 days old · 41,071 followers
 
 > **67.5% in one week: $1,000 following it becomes $1,675**
 >

@@ -2,7 +2,7 @@
 
 > Its profit figures are not trustworthy — treat the track record as unknown
 
-SOL · wallet is 533 days old · 6 trades a day
+SOL · wallet is 533 days old
 
 ## 🔴 DO NOT COPY · one token made all the money
 

@@ -2,7 +2,7 @@
 
 > Its profit figures are not trustworthy — treat the track record as unknown
 
-BSC · wallet is 793 days old · 47,999 followers · 1,103 trades a day
+BSC · wallet is 793 days old · 47,999 followers
 
 ## 🔴 DO NOT COPY · the profit is self-dealt
 

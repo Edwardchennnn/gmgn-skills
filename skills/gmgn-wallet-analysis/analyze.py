@@ -42,6 +42,7 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    " · {0}": " · {0}",
     "it lost {0} itself": "它自己这周亏掉 {0}",
     "it banked {0} itself": "它自己这周落袋 {0}",
     "{0} in one week: {1} following it becomes {2}": "一周 {0}：{1} 跟着它走会变成 {2}",
@@ -2195,6 +2196,16 @@ def caliber(m, g):
     return ("😐", T('unremarkable'))
 
 
+def _qualifier(m, chain):
+    """Chain, age and following, as a tail on the record line rather than a line of its own."""
+    q = [chain.upper()]
+    if m["age_days"] is not None and m["age_days"] >= 180:
+        q.append(T('wallet is {0:.0f} days old', m["age_days"]))
+    if m["followers"] >= 10_000:
+        q.append(T('{0:,} followers', m["followers"]))
+    return T(' · {0}', " · ".join(q))
+
+
 def card(m, g, wallet, chain):
     """Layer one: the decision and the action, with every 'how do you know' deferred.
 
@@ -2229,7 +2240,8 @@ def card(m, g, wallet, chain):
     # ── line 2: the record, present tense. This is the hook: what it has actually done,
     #    stated as a standing fact rather than as a return the reader could have captured.
     if g["G1"][0] is False:
-        out += ["> " + T('Its profit figures are not trustworthy — treat the track record as unknown'), ""]
+        out += ["> " + T('Its profit figures are not trustworthy — treat the track record as unknown'),
+                "", _qualifier(m, chain).lstrip(" ·　").strip()]
     else:
         if m["realized_all"] and m["realized_all"] < 0:
             line = T('{0} traded, {1} of them lost money — {2} gone in total',
@@ -2240,16 +2252,11 @@ def card(m, g, wallet, chain):
                      f'{m["winners"]:,}', m["token_num"], f'{m["buckets"]["lt_n50"]:,}')
             if m["realized_all"]:
                 line = T('{0} banked so far — ', usd(m["realized_all"])) + line
-        out += [f"**{line}**"]
+        out += [f"**{line}**" + _qualifier(m, chain)]
 
-    # ── line 3: what kind of operator, so the record above has a shape.
-    qual = [chain.upper()]
-    if m["age_days"] is not None and m["age_days"] >= 180:
-        qual.append(T('wallet is {0:.0f} days old', m["age_days"]))
-    if m["followers"] >= 10_000:
-        qual.append(T('{0:,} followers', m["followers"]))
-    qual.append(T('{0:,.0f} trades a day', m["per_day"]))
-    out += [" · ".join(qual), ""]
+    # ── line 3 is gone: the provenance rides on the record line above, so the 7-day figure
+    #    lands on line 3 instead of line 5.
+    out.append("")
 
     # ── line 4: the 7-day window, framed as a backtest of the trader -- present tense,
     #    and paired with what the wallet itself made so the figure reads as evidence of
