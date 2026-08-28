@@ -42,6 +42,15 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "{0} — about {1:.0f}x its long-run pace": "{0} —— 比长期均速快 {1:.0f} 倍",
+    "{0} follow it for a week and {1} becomes {2} ({3})": "{0} 跟它一周，{1} 变 {2}（{3}）",
+    "only {0} lost more than half": "亏超一半的只有 {0} 个",
+    "{0} banked so far, ": "累计落袋 {0}，",
+    "{0} of the {1:,} coins it traded are in profit": "它打过的 {1:,} 个币里，{0} 个现在是赚的",
+    "The bar to clear: {0}.": "门槛在这：{0}。",
+    "and anything over {0} moves the price against you": "而超过 {0} 的单子会把价格推到你自己脸上",
+    "it enters around {0}": "它在市值 {0} 附近进",
+    "it is gone in {0}": "它 {0}就走",
     "and ": "而且",
     "but ": "但",
     " · {0}": " · {0}",
@@ -2245,16 +2254,24 @@ def card(m, g, wallet, chain):
         out += ["> " + T('Its profit figures are not trustworthy — treat the track record as unknown'),
                 "", _qualifier(m, chain).lstrip(" ·　").strip()]
     else:
+        # The bold line carries the money and the win count and stops. Sixty-three bolded
+        # characters before the first verb is a line a scanner's eye bounces off; the caveat
+        # and the provenance are true but they are not the hook, so they drop one line and
+        # lose the bold.
         if m["realized_all"] and m["realized_all"] < 0:
-            line = T('{0} traded, {1} of them lost money — {2} gone in total',
-                     T('{0:,} coins', m["token_num"]), f'{m["token_num"] - m["winners"]:,}',
-                     usd(abs(m["realized_all"])))
+            head_line = T('{0} traded, {1} of them lost money — {2} gone in total',
+                          T('{0:,} coins', m["token_num"]),
+                          f'{m["token_num"] - m["winners"]:,}', usd(abs(m["realized_all"])))
+            sub = []
         else:
-            line = T('{0} of the {1:,} coins it traded are in profit, and only {2} lost more than half',
-                     f'{m["winners"]:,}', m["token_num"], f'{m["buckets"]["lt_n50"]:,}')
+            head_line = T('{0} of the {1:,} coins it traded are in profit',
+                          f'{m["winners"]:,}', m["token_num"])
             if m["realized_all"]:
-                line = T('{0} banked so far — ', usd(m["realized_all"])) + line
-        out += [f"**{line}**" + _qualifier(m, chain)]
+                head_line = T('{0} banked so far, ', usd(m["realized_all"])) + head_line
+            sub = [T('only {0} lost more than half', f'{m["buckets"]["lt_n50"]:,}')]
+        out += [f"**{head_line}**",
+                (joinclause(sub) + _qualifier(m, chain)) if sub
+                else _qualifier(m, chain).lstrip(" ·　").strip()]
 
     # ── line 3 is gone: the provenance rides on the record line above, so the 7-day figure
     #    lands on line 3 instead of line 5.
@@ -2272,14 +2289,15 @@ def card(m, g, wallet, chain):
                           T('it lost {0} itself this week', usd(abs(m["realized_7d"]))))
         second.append(T('{0} {1} — about {2:.0f}x its long-run pace', emo, label, m["pace_x"])
                       if m["pace_x"] else f"{emo} {label}")
-        lead = T('{0} in one week: {1} following it becomes {2}',
-                 pct(m["roi_7d"]), usd_exact(m["story_stake"]), usd_exact(m["story_out"]))
+        lead = T('{0} follow it for a week and {1} becomes {2} ({3})', emo,
+                 usd_exact(m["story_stake"]), usd_exact(m["story_out"]), pct(m["roi_7d"]))
         tail = []
         if m["realized_7d"]:
             tail.append(T('it banked {0} itself', usd(abs(m["realized_7d"])))
                         if m["realized_7d"] > 0 else
                         T('it lost {0} itself', usd(abs(m["realized_7d"]))))
-        tail.append(second[-1])
+        tail.append(T('{0} — about {1:.0f}x its long-run pace', label, m["pace_x"])
+                    if m["pace_x"] else label)
         out += ["> **" + lead + "**", ">", "> " + joinclause(tail), ""]
 
     # ── line 5: the verdict. It is the turn, not the opening -- and it is never optional.
@@ -2308,8 +2326,19 @@ def card(m, g, wallet, chain):
     # A red verdict gets the verdict's own instruction, never a sizing and a copy window:
     # those are directions for FOLLOWING, and printing them under DO NOT COPY is the card
     # telling the reader to do the thing its own headline just told them not to.
+    unreachable = g["G3"][0] is False
     if emoji == "🔴":
         out += ["## " + T('  WHAT TO DO').strip(), "", why, ""]
+    elif unreachable:
+        bar = []
+        if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
+            bar.append(T('it is gone in {0}', dur(m["copy_window_s"])))
+        if m["size_cap"]:
+            bar.append(T('and anything over {0} moves the price against you',
+                         usd_exact(m["size_cap"])))
+        if bar:
+            out += [T('The bar to clear: {0}.', joinclause(bar)), ""]
+        out += [why, ""]
     else:
         out += ["## " + T('  HOW TO FOLLOW').strip(), ""]
         cells, heads = [], []
