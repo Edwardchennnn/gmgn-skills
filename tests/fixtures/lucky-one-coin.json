@@ -1,0 +1,459 @@
+{
+ "_wallet": "LuckyOneCoin333333333333333333333333333",
+ "stats_7d": {
+  "buy": "26",
+  "sell": "19",
+  "realized_profit": "88000",
+  "bought_cost": "24000",
+  "realized_profit_pnl": "3.66",
+  "pnl_stat": {
+   "token_num": "14",
+   "winrate": "0.29",
+   "avg_holding_period": "68000",
+   "pnl_gt_5x_num": "1",
+   "pnl_2x_5x_num": "0",
+   "pnl_0x_2x_num": "3",
+   "pnl_nd5_0x_num": "4",
+   "pnl_lt_nd5_num": "6"
+  },
+  "common": {
+   "created_at": "1741856000",
+   "created_token_count": "0"
+  }
+ },
+ "stats_30d": {
+  "buy": "70",
+  "sell": "55",
+  "realized_profit": "91000",
+  "bought_cost": "60000",
+  "realized_profit_pnl": "1.51",
+  "pnl_stat": {
+   "token_num": "31",
+   "winrate": "0.31",
+   "avg_holding_period": "71000",
+   "pnl_gt_5x_num": "1",
+   "pnl_2x_5x_num": "1",
+   "pnl_0x_2x_num": "8",
+   "pnl_nd5_0x_num": "10",
+   "pnl_lt_nd5_num": "11"
+  },
+  "common": {}
+ },
+ "profits_1d": {
+  "realized_profit": "-400",
+  "realized_profit_cost": "3100",
+  "total_realized_profit": "0",
+  "total_realized_profit_cost": "0",
+  "unrealized_profit": "0"
+ },
+ "profits_all": {
+  "realized_profit": "0",
+  "realized_profit_cost": "0",
+  "total_realized_profit": "96000",
+  "total_realized_profit_cost": "140000",
+  "unrealized_profit": "-2100"
+ },
+ "activity": [
+  {
+   "event_type": "buy",
+   "timestamp": "1759524800",
+   "price_usd": "0.000189",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN000",
+    "symbol": "MEME0",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759592800",
+   "price_usd": "0.0002646",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN000",
+    "symbol": "MEME0",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759592860",
+   "price_usd": "0.0002646",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN000",
+    "symbol": "MEME0",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "buy",
+   "timestamp": "1759568000",
+   "price_usd": "0.0002562",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN001",
+    "symbol": "MEME1",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759636000",
+   "price_usd": "0.00035867999999999995",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN001",
+    "symbol": "MEME1",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759636060",
+   "price_usd": "0.00035867999999999995",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN001",
+    "symbol": "MEME1",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "buy",
+   "timestamp": "1759611200",
+   "price_usd": "0.0003234",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN002",
+    "symbol": "MEME2",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759679200",
+   "price_usd": "0.00045275999999999997",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN002",
+    "symbol": "MEME2",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759679260",
+   "price_usd": "0.00045275999999999997",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN002",
+    "symbol": "MEME2",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "buy",
+   "timestamp": "1759654400",
+   "price_usd": "0.0003906",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN003",
+    "symbol": "MEME3",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759722400",
+   "price_usd": "0.0005468399999999999",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN003",
+    "symbol": "MEME3",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759722460",
+   "price_usd": "0.0005468399999999999",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN003",
+    "symbol": "MEME3",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "buy",
+   "timestamp": "1759697600",
+   "price_usd": "0.00045780000000000007",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN004",
+    "symbol": "MEME4",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759765600",
+   "price_usd": "0.00064092",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN004",
+    "symbol": "MEME4",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759765660",
+   "price_usd": "0.00064092",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN004",
+    "symbol": "MEME4",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "buy",
+   "timestamp": "1759740800",
+   "price_usd": "0.000525",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN005",
+    "symbol": "MEME5",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759808800",
+   "price_usd": "0.0007349999999999999",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN005",
+    "symbol": "MEME5",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759808860",
+   "price_usd": "0.0007349999999999999",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN005",
+    "symbol": "MEME5",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "buy",
+   "timestamp": "1759784000",
+   "price_usd": "0.0005922",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN006",
+    "symbol": "MEME6",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759852000",
+   "price_usd": "0.0008290799999999999",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN006",
+    "symbol": "MEME6",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759852060",
+   "price_usd": "0.0008290799999999999",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN006",
+    "symbol": "MEME6",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "buy",
+   "timestamp": "1759827200",
+   "price_usd": "0.0006594",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN007",
+    "symbol": "MEME7",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759895200",
+   "price_usd": "0.0009231599999999999",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN007",
+    "symbol": "MEME7",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759895260",
+   "price_usd": "0.0009231599999999999",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN007",
+    "symbol": "MEME7",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "buy",
+   "timestamp": "1759870400",
+   "price_usd": "0.0007266",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN008",
+    "symbol": "MEME8",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759938400",
+   "price_usd": "0.00101724",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN008",
+    "symbol": "MEME8",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759938460",
+   "price_usd": "0.00101724",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN008",
+    "symbol": "MEME8",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "buy",
+   "timestamp": "1759913600",
+   "price_usd": "0.000189",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN009",
+    "symbol": "MEME9",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759981600",
+   "price_usd": "0.0002646",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN009",
+    "symbol": "MEME9",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1759981660",
+   "price_usd": "0.0002646",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN009",
+    "symbol": "MEME9",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "buy",
+   "timestamp": "1759956800",
+   "price_usd": "0.0002562",
+   "cost_usd": "2200.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN010",
+    "symbol": "MEME10",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1760024800",
+   "price_usd": "0.00035867999999999995",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN010",
+    "symbol": "MEME10",
+    "total_supply": "1000000000.0"
+   }
+  },
+  {
+   "event_type": "sell",
+   "timestamp": "1760024860",
+   "price_usd": "0.00035867999999999995",
+   "cost_usd": "1540.0",
+   "gas_usd": "0.3",
+   "token": {
+    "address": "TOKEN010",
+    "symbol": "MEME10",
+    "total_supply": "1000000000.0"
+   }
+  }
+ ],
+ "holdings": [],
+ "_gaps": [
+  "holdings unavailable \u2014 fixture (forces bucket-inference path)"
+ ],
+ "_chain": "sol"
+}

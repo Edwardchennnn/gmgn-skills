@@ -1065,7 +1065,7 @@ def compute(d, latency_s, my_size):
                 mcaps.append(px * sup)
             if f(a.get("cost_usd")) > 0:
                 buy_costs.append(f(a.get("cost_usd")))
-    m["avg_gas_usd"] = safe_div(sum(gas), len(gas))
+    m["avg_gas_usd"] = safe_div(sum(gas), len(gas)) if len(gas) >= 10 else 0.0
     m["median_buy_usd"] = med(buy_costs)
     # gas as a share of trade size — the number that says whether the edge survives friction
     denom = m["median_buy_usd"] or m["avg_buy_usd"]
@@ -1075,6 +1075,7 @@ def compute(d, latency_s, my_size):
     m["entry_p75"] = quantile(mcaps, 0.75)
     m["entry_n"] = len(mcaps)
     m["entry_sub100k"] = safe_div(sum(1 for x in mcaps if x < 100_000), len(mcaps))
+    m["entry_n_thin"] = len(mcaps) < 8
 
     copy_windows, accum_windows, buys_per_tok, sells_per_tok, flip5 = [], [], [], [], 0
     round_trips = 0
@@ -1104,9 +1105,14 @@ def compute(d, latency_s, my_size):
     m["copy_window_n"] = len(copy_windows)
     m["accum_window_s"] = med(accum_windows)
     m["avg_buys_per_token"] = safe_div(sum(buys_per_tok), len(buys_per_tok))
-    m["avg_sells_per_token"] = safe_div(sum(sells_per_tok), len(sells_per_tok))
-    m["flip5_rate"] = safe_div(flip5, round_trips)
-    m["dump_share"] = safe_div(dump_shape, max(1, sum(1 for v in sells_per_tok if v)))
+    # ✂️ scales-out needs more than a couple of tokens before "2.0 sells/token" means
+    # anything; on one token it is that token, not a habit.
+    m["avg_sells_per_token"] = (safe_div(sum(sells_per_tok), len(sells_per_tok))
+                                if len(sells_per_tok) >= 5 else 0.0)
+    # ⚡ 5-second flipper: with 2 round trips this is 0%, 50% or 100% by arithmetic.
+    m["flip5_rate"] = safe_div(flip5, round_trips) if round_trips >= 10 else 0.0
+    _sellers = sum(1 for v in sells_per_tok if v)
+    m["dump_share"] = safe_div(dump_shape, _sellers) if _sellers >= 10 else 0.0
     m["distinct_tokens_sampled"] = len(by_tok)
 
     # Concentration of buy spend across tokens, and clustering in the day. Both are
@@ -1252,7 +1258,7 @@ def compute(d, latency_s, my_size):
     m["conviction_share"] = None
     m["conviction_top"] = []
     if h:
-        gains, conv, conv_syms = 0.0, 0.0, []
+        gains, conv, conv_syms, gainers = 0.0, 0.0, [], 0
         for x in h:
             # `realized_profit` is the right numerator — a wash trader's closed loops are
             # what the tag is about. Fall back to `total_profit` only when the row omits it.
@@ -1260,6 +1266,7 @@ def compute(d, latency_s, my_size):
             if rp <= 0:
                 continue
             gains += rp
+            gainers += 1
             cost = f(h_get(x, "accu_cost", "cost", "history_bought_cost"))
             sells = i(h_get(x, "history_total_sells", "sell_tx_count"))
             per_exit = safe_div(rp, sells) if sells > 0 else rp
@@ -1267,7 +1274,8 @@ def compute(d, latency_s, my_size):
                 conv += rp
                 conv_syms.append(((x.get("token") or {}).get("symbol") or "?", rp))
         if gains > 0:
-            m["conviction_share"] = conv / gains
+            if gainers >= 3:
+                m["conviction_share"] = conv / gains
             m["conviction_top"] = sorted(conv_syms, key=lambda kv: -kv[1])[:3]
 
     # ── where the money came from ───────────────────────────────────────────────
@@ -1343,7 +1351,7 @@ def compute(d, latency_s, my_size):
     m["idle_s"] = max(0.0, time.time() - last_ts) if last_ts > 0 else None
     m["stale"] = m["idle_s"] is not None and m["idle_s"] > 48 * 3600
 
-    m["net_per_sell"] = safe_div(m["realized_7d"], m["sell"])
+    m["net_per_sell"] = safe_div(m["realized_7d"], m["sell"]) if m["sell"] >= 5 else 0.0
 
     # `portfolio stats` reports the fees actually paid in the window — `bought_fee` and
     # `sold_fee` — and this used to ignore both, estimating friction instead from the gas
