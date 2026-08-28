@@ -8,7 +8,7 @@
 
 ## 🟢 COPYABLE AT SMALL SIZE · all four pass
 
-94.7% of the money came from just 3 coins — copying it randomly mostly misses them · usually enters around $34.7M
+94.7% of the money came from just 3 coins — copying it randomly mostly misses them · usually enters around $29.6M
 
 ## HOW TO FOLLOW
 
@@ -26,9 +26,9 @@ past that, let it go — its cost is lower than yours, and entering late means b
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME0 **$3.4K**, bought at $14.3M mcap
-- MEME1 **$3.4K**, bought at $19.4M mcap
-- MEME2 **$3.4K**, bought at $24.5M mcap
+- MEME33 **$3.4K**, bought at $44.8M mcap
+- MEME34 **$3.4K**, bought at $49.9M mcap
+- MEME35 **$3.4K**, bought at $55.0M mcap
 
 It is still holding 13 coins worth $117.9K — biggest is LOBSTER at $54.3K.
 
@@ -48,7 +48,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
   high frequency and strongly profitable — the strongest cell (7d 67.5% + only 4.4% heavy losses)
 - **account** — x.com/Mirro7777
 - **provenance** — ❔ `app_smart_money` · 🔧 GMGN user · 751-day-old wallet · funded from Binance: Hot Wallet 11 $120
-- **marks** — 🏦 size-position trader, largest holding $54.3K · 🧱 scales in, 34.0 buys/token · ✂️ scales out, 6.0 sells/token
+- **marks** — 🏦 size-position trader, largest holding $54.3K · 🧱 scales in, 31.5 buys/token · ✂️ scales out, 6.0 sells/token
 - **engine** — **🎯 pick-and-size**
   15 trades/day is not fast; 100.0% of gains came from positions netting more than their own cost, top 3 winners = 94.7%
 
@@ -66,7 +66,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 ### ✅ can you get filled
 
 - copy window 2m (your latency budget 3s)
-- entry mcap p25/p50/p75 = $24.5M/$34.7M/$44.8M
+- entry mcap p25/p50/p75 = $19.4M/$29.6M/$49.9M
 
 ### ✅ does it cut losses
 
@@ -83,7 +83,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 🔄 WHAT IT IS DOING NOW
 
-🔁 **rotating** · 24h bought $135.8K / sold $190.1K
+🔁 **rotating** · 24h bought $25.2K / sold $38.0K
 
 | token | market value | P&L | sells |
 |---|---:|---:|---:|
@@ -93,12 +93,12 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## ✅ WHAT TO DO NEXT
 
-- What do the chips look like on MEME0 — who is holding, and at what cost?
+- What do the chips look like on MEME33 — who is holding, and at what cost?
 - Score it 0-100 with my own latency and slippage modelled in?
-- What shape is MEME0 in right now — still climbing, or already breaking down?
+- What shape is MEME33 in right now — still climbing, or already breaking down?
 
 ---
 
-`sample  1,600 activity rows / 40 tokens · spans 0.8h (hit page cap — busiest slice only)`
+`sample  300 activity rows / 8 tokens · spans 0.3h (hit page cap — busiest slice only)`
 
 Everything above measures behaviour that already happened. Not a prediction, not advice.

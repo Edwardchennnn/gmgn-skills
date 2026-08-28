@@ -79,7 +79,9 @@ def trades(n_tokens, buys_per, sells_per, mcap, buy_usd, hold_s, gap_s, gas=0.3,
                 "token": {"address": addr, "symbol": sym, "total_supply": s(supply)},
             })
         t += gap_s
-    return rows
+    # The CLI returns at most 3 pages of 100; emitting more
+    # builds a shape no live response can have.
+    return rows[-300:]
 
 
 HONEYPOTS = {"QQQB", "SPYB", "GOOGLB", "XAUt", "NVDAB", "TSLAB", "AAPLB", "MSFTB"}
@@ -261,9 +263,10 @@ FIXTURES["wash-trader-kol"] = {
         ("USD1", 221, 228, -7, -0.03, 1),
         ("MUB", 77, 80, -2, -0.03, 1),
         ("GOOGLB", 0.82, 7, -6, -0.89, 0),
-        ("BNC", 210, 340, -130, -0.38, 2),
-        ("EASY", 95, 340, -245, -0.72, 1),
-        ("NAKA", 610, 340, 270, 0.79, 2),
+        ("BNC", 210, 1_900, 95, 0.05, 14),
+        ("EASY", 95, 2_600, 180, 0.07, 18),
+        ("NAKA", 610, 3_400, 270, 0.08, 22),
+        ("CAKEB", 180, 1_200, 60, 0.05, 11),
     ]),
 }
 

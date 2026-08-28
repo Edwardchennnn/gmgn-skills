@@ -24,7 +24,7 @@ Treat its P&L as if it were not there. Watch what it buys; do not use these numb
 - MEME1 **$340**, bought at $38K mcap
 - MEME2 **$340**, bought at $48K mcap
 
-It is still holding 9 coins worth $5.1K — biggest is WBNB at $3.7K.
+It is still holding 10 coins worth $5.3K — biggest is WBNB at $3.7K.
 
 ---
 
@@ -80,7 +80,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 | token | market value | P&L | sells |
 |---|---:|---:|---:|
 | WBNB | $3.7K | 0% | 0 |
-| NAKA | $610 | 79% | 22 |
+| NAKA | $610 | 8% | 22 |
 | USD1 | $221 | -3% | 1 |
 
 ## ✅ WHAT TO DO NEXT

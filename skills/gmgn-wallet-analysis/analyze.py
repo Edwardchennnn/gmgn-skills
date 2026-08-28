@@ -2413,7 +2413,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
             ""]
 
     if m["trades"] == 0:
-        out += ["### " + T('NEXT'), ""]
+        out += ["## " + T('NEXT'), ""]
         for step in (
             T('Confirm this is a wallet, not a token contract — a contract queries fine and returns zeros everywhere, which looks like an answer and is not one.'),
             T('Confirm the chain: base58 → sol, 0x → bsc/base/eth.'),
@@ -2422,7 +2422,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
         ):
             out.append(f"- {step}")
         if gaps:
-            out += ["", "### " + T('DATA GAPS:'), ""] + [f"- ⚪ {gp}" for gp in gaps]
+            out += ["", "## " + T('DATA GAPS:'), ""] + [f"- ⚪ {gp}" for gp in gaps]
         return "\n".join(out)
 
     if blocked:

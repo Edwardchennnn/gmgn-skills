@@ -1095,11 +1095,11 @@
     "launchpad_platform": "flap"
    },
    "usd_value": "77",
-   "accu_cost": 1200,
-   "total_profit": 60,
-   "realized_profit": 60,
+   "accu_cost": "80",
+   "total_profit": "-2",
+   "realized_profit": "-2",
    "total_profit_pnl": "-0.03",
-   "history_total_sells": 11
+   "history_total_sells": "1"
   },
   {
    "token": {
@@ -1123,11 +1123,11 @@
     "launchpad_platform": "flap"
    },
    "usd_value": "210",
-   "accu_cost": 1900,
-   "total_profit": 95,
-   "realized_profit": 95,
-   "total_profit_pnl": "-0.38",
-   "history_total_sells": 14
+   "accu_cost": "1900",
+   "total_profit": "95",
+   "realized_profit": "95",
+   "total_profit_pnl": "0.05",
+   "history_total_sells": "14"
   },
   {
    "token": {
@@ -1137,11 +1137,11 @@
     "launchpad_platform": "flap"
    },
    "usd_value": "95",
-   "accu_cost": 2600,
-   "total_profit": 180,
-   "realized_profit": 180,
-   "total_profit_pnl": "-0.72",
-   "history_total_sells": 18
+   "accu_cost": "2600",
+   "total_profit": "180",
+   "realized_profit": "180",
+   "total_profit_pnl": "0.07",
+   "history_total_sells": "18"
   },
   {
    "token": {
@@ -1151,11 +1151,25 @@
     "launchpad_platform": "flap"
    },
    "usd_value": "610",
-   "accu_cost": 3400,
-   "total_profit": 270,
-   "realized_profit": 270,
-   "total_profit_pnl": "0.79",
-   "history_total_sells": 22
+   "accu_cost": "3400",
+   "total_profit": "270",
+   "realized_profit": "270",
+   "total_profit_pnl": "0.08",
+   "history_total_sells": "22"
+  },
+  {
+   "token": {
+    "symbol": "CAKEB",
+    "token_address": "H9",
+    "is_honeypot": "false",
+    "launchpad_platform": "flap"
+   },
+   "usd_value": "180",
+   "accu_cost": "1200",
+   "total_profit": "60",
+   "realized_profit": "60",
+   "total_profit_pnl": "0.05",
+   "history_total_sells": "11"
   }
  ]
 }
