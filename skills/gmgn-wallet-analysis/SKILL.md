@@ -249,80 +249,46 @@ The script computes these; know what they mean so you can answer a question abou
 
 ## Verifying a change
 
-There is no test suite here; the twelve-fixture generator is in git history on
-`feat/wallet-analysis-skill`. Any change to `analyze.py` has to be checked against live wallets —
-pick wallets that exercise opposite verdicts, run each once, and read the whole report. Live data
-moves (the 1d window is rolling, `activity` is a sample), so two runs minutes apart differ for
-reasons unrelated to your change.
+The skill ships two files and nothing else. There is no test directory: nothing in this repo
+runs one (CI builds TypeScript and packs the npm artifact), no other skill has one, and
+committed snapshots rot the moment someone edits a string without re-blessing them.
 
-Three mechanical checks, all of which must come back clean in both languages:
+**A regression net exists in git history and is one command away.** It is worth restoring
+before any non-trivial edit to `analyze.py`:
 
 ```bash
-# 1. markdown is well-formed: delimiter rows, constant column counts, no skipped heading
-#    level, an H1 present, balanced bold, no raw HTML, no empty header row.
-python3 analyze.py <WALLET> <CHAIN> zh > /tmp/r.md && python3 - <<'PYEOF'
-import re
-t = open("/tmp/r.md", encoding="utf-8").read().splitlines()
-e, i = [], 0
-while i < len(t):
-    if t[i].startswith("|"):
-        if re.fullmatch(r'\|(\s*\|)+', t[i]): e.append(f"L{i+1} empty header row")
-        if i+1 >= len(t) or not re.fullmatch(r'\|(\s*:?-+:?\s*\|)+', t[i+1].strip()):
-            e.append(f"L{i+1} no delimiter row")
-        cols, j = t[i].count("|"), i
-        while j < len(t) and t[j].startswith("|"):
-            if t[j].count("|") != cols: e.append(f"L{j+1} column count differs")
-            j += 1
-        i = j
-    else:
-        i += 1
-for n, l in enumerate(t, 1):
-    if re.match(r'^#{1,6}[^ #]', l): e.append(f"L{n} heading needs a space after #")
-    if l.count("**") % 2: e.append(f"L{n} unbalanced bold")
-    for tag in re.findall(r'</?([a-zA-Z]+)[^>]*>', l): e.append(f"L{n} raw HTML <{tag}>")
-h = [l for l in t if re.match(r"^#{1,6} ", l)]
-if h and not h[0].startswith("# "): e.append("document has no H1")
-lv = [len(re.match(r"^#+", l).group()) for l in h]
-e += [f"heading skips a level: {a} -> {b}" for a, b in zip(lv, lv[1:]) if b > a + 1]
-print("\n".join(e) if e else "markdown OK")
-PYEOF
-
-# 2. every T("...") literal has a ZH entry, and 3. every follow-up carries a trigger phrase.
-python3 - <<'PYEOF'
-import ast
-tree = ast.parse(open("analyze.py", encoding="utf-8").read())
-zh = next(n for n in tree.body
-          if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "ZH")
-t = {k.value: v.value for k, v in zip(zh.value.keys, zh.value.values)}
-calls = {n.args[0].value for n in ast.walk(tree)
-         if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "T"
-         and n.args and isinstance(n.args[0], ast.Constant)}
-print("translations missing:", sorted(calls - set(t)) or "none")
-TRIG = {"gmgn-holder-analysis": ["筹码分析", "持仓分析"], "gmgn-kline-pattern": ["走势", "形态"],
-        "gmgn-wallet-score": ["跟单评分", "发盘情况怎么样"], "gmgn-token": ["安全", "代币合约"],
-        "gmgn-track": ["聪明钱", "KOL"], "gmgn-portfolio": ["持仓"]}
-Q = [("What do the chips look like on {0} — who is holding, and at what cost?", "gmgn-holder-analysis"),
-     ("Score it 0-100 with my own latency and slippage modelled in?", "gmgn-wallet-score"),
-     ("It launched {0} tokens — how many of them are still alive?", "gmgn-wallet-score"),
-     ("What shape is {0} in right now — still climbing, or already breaking down?", "gmgn-kline-pattern"),
-     ("Are the contracts on {0} safe — honeypot, liquidity, mint authority?", "gmgn-token"),
-     ("Who else is buying {0} — any smart money or KOLs in there?", "gmgn-track"),
-     ("It holds {0} coins — list the whole book with costs?", "gmgn-portfolio"),
-     ("Is this address a wallet at all, or a token contract?", "gmgn-token")]
-print("unrouted:", [(e, s) for e, s in Q if not any(w in t[e] for w in TRIG[s])] or "none")
-PYEOF
+git show 79f94fc:tests/gen_fixtures.py > /tmp/gen_fixtures.py
+git show 79f94fc:tests/run.sh          > /tmp/run.sh
 ```
 
-`T()` falls back to English rather than failing, so a reworded string silently half-anglicises the
-Chinese report. **Only add entries to `ZH`, never prune** — check 1 sees only literal call sites,
-and several strings reach `T()` through a variable (`TAGS`, `TITLES`, `GATE_NAMES`, `GATE_GLOSS`,
-`GATE_PLAIN`, and the holdings sentence built as `tpl = (... if ... else ...)`).
+`gen_fixtures.py` writes thirteen fixtures from a fixed timestamp, so they are deterministic
+and never need committing. `run.sh` renders each in both languages, diffs against a snapshot,
+and independently asserts that every dossier prints a verdict, that no English output contains
+CJK, and that the markdown is structurally sound (delimiter rows, constant column counts, no
+skipped heading level, an H1 present, balanced bold, no raw HTML, no unreplaced `{0}`). It
+issues zero API calls and finishes in seconds.
+
+Restore it rather than testing on live wallets alone. Live data moves — the 1d window is
+rolling and `activity` is a sample — so two runs minutes apart differ for reasons unrelated to
+your change, and a full dossier costs weight 26–28 against a bucket of 20, so a handful of
+verification runs rate-limits the account. Ten of the fourteen verdict branches are also
+close to impossible to reach on demand: you would need to find a wallet whose wash-trade flag
+is corroborated *right now*.
+
+What that net caught in one session, none of which eight live wallets did:
+
+- the verdict silently not printing at all for any wallet without an X account (six of twelve
+  fixtures, invisible live because every test wallet had one)
+- a sample guard whose denominator was inverted, flipping a corroborated 🔴 to a 🟡
+- two strings keyed in Chinese, so the English report printed Chinese
+- `****` from a double-bolded line, and a `#` → `###` heading skip
 
 Two thresholds must not be loosened without re-deriving them, because the first cut got both
-wrong: the copy window's **3× margin**, and profit concentration's **≥3 winners / ≥8 positions**
-floor. And no third-party label may veto on its own — `wash_trader` needs the conviction-share
-test, `is_honeypot` needs the sell-count test. Both false-positived on one real wallet in the
-same run and together produced a 🔴 on a wallet with $459K of genuine realized profit.
+wrong: the copy window's **3× margin**, and profit concentration's **≥3 winners / ≥8
+positions** floor. And no third-party label may veto on its own — `wash_trader` needs the
+conviction-share test, `is_honeypot` needs the sell-count test. Both false-positived on one
+real wallet in the same run and together produced a 🔴 on a wallet with $459K of genuine
+realized profit.
 
 ## Step 1 — Confirm it is a wallet, not a token
 
