@@ -168,15 +168,14 @@ The two caps above apply **only** when the block is populated and those specific
 
 Applies on every chain, on top of the chain-mode branch:
 
-**Tiers within one field are mutually exclusive: take the single worst matching row and stop. Never sum a field's rows.** This holds for every scoring table in Steps 3, 4 and 5, whether the tiers are written as separate rows marked `same` or inline as `> 5% / > 2% | −20 / −10`. Different fields do add. Without this rule the tables are ambiguous and the same response scores differently for different readers: a creator with 1971 launches matches all five `creator_created_count` rows, so the worst-row reading is **−18** and the summed reading is **−51**; a token with zero liquidity matches all three liquidity rows, `−15` against `−36`. Measured on 2026-08-28 by scoring 16 live sol tokens both ways: the two readings differ by a **median of 22.2 composite points, up to 33.3** — more than one full grade, since the grade bands are 20 points wide. One token read 71.3 "mixed, needs manual review" under the worst-row rule and 38.0 "very high risk" under summing; another read 60.9 against 32.9. The worst-row reading is the correct one, and it is the one every measured score in this file was produced with — the argument for the `creator_created_count` top tier below ("a 50-token creator and a 1971-token creator scored identically") is only true under worst-row, since summing would already have separated them.
+**Tiers within one field are mutually exclusive: take the single worst matching row and stop. Never sum a field's rows.** This holds for every scoring table in Steps 3, 4 and 5, whether the tiers are written as separate rows marked `same` or inline as `> 5% / > 2% | −20 / −10`. Different fields do add. Without this rule the tables are ambiguous and the same response scores differently for different readers: a creator with 1971 launches matches all five `creator_created_count` rows, so the worst-row reading is **−18** and the summed reading is **−51**; a token with zero liquidity matches both liquidity rows, `−15` against `−21`. Measured on 2026-08-28 by scoring 16 live sol tokens both ways: the two readings differ by a **median of 22.2 composite points, up to 33.3** — more than one full grade, since the grade bands are 20 points wide. One token read 71.3 "mixed, needs manual review" under the worst-row rule and 38.0 "very high risk" under summing; another read 60.9 against 32.9. The worst-row reading is the correct one, and it is the one every measured score in this file was produced with — the argument for the `creator_created_count` top tier below ("a 50-token creator and a 1971-token creator scored identically") is only true under worst-row, since summing would already have separated them.
 
 | Field | Condition | Deduction |
 |-------|-----------|-----------|
-| `max(buy_tax, sell_tax)` | > 10% | −25 |
-| `max(buy_tax, sell_tax)` | > 5% | −10 |
-| `lock_summary.is_locked` / `burn_status` | LP neither locked nor burned | −12 |
-| `info.liquidity` or `pool.liquidity` | 0 and `info.price.volume_24h` also 0 | −15 |
-| same | < $10K | −15 |
+| `max(float(buy_tax), float(sell_tax))` | > 10% | −25 |
+| same | > 5% | −10 |
+| `lock_summary.is_locked` **and** `burn_status` | both present and both negative: not locked and not burned | −12 |
+| `info.liquidity` or `pool.liquidity` | < $10K, including a genuine 0 | −15 |
 | same | < $50K | −6 |
 | `pool.liquidity / pool.initial_liquidity` | pool shrank below 50% of launch | −10 |
 | `stat.creator_created_count` | ≥ 500 tokens launched | −18 |
@@ -184,7 +183,7 @@ Applies on every chain, on top of the chain-mode branch:
 | same | ≥ 50 | −10 |
 | same | ≥ 10 | −6 |
 | same | ≥ 3 | −3 |
-| `info.image_dup_count` | logo duplicates another token | −6 |
+| `info.image_dup_count` | `> 0`, the logo is shared with another token | −6 |
 | `len(kline.list)` | fewer than 8 candles | −12 |
 | same | 8 to 23 candles | −6 |
 
@@ -200,10 +199,11 @@ Applies on every chain, on top of the chain-mode branch:
 
 **The two `dev` X fields are reported, never deducted.** `dev.twitter_name_change_history` and `dev.twitter_del_post_token_count` are aggregates over the **linked X account across every token it has ever been attached to**, not facts about this token. Each history entry carries *another* token's address plus the handle in use at the time. Measured: USDC's history reads `circlepay` → `circle` → `arc`, and CAKE reports `twitter_del_post_token_count: 44` — legitimate corporate history on two of the most established tokens on their chains. Deducting on a non-empty array punishes any project whose X account has a past, which correlates with being established rather than with being a rug. Quote both fields in the findings so the user can judge the handle's history themselves, and leave the score alone — this skill deducts only on evidence about the token in front of it.
 
-Three field traps, all measured:
+Five field traps, all measured:
 
-- **Liquidity lives in two places.** `info.liquidity` can be `0` while `pool.liquidity` holds the real figure. Take the non-zero one and say which you used.
-- **`burn_status: ""` is absent, not a measurement.** Deduct the −12 only when the block is populated *and* the fields genuinely say unlocked-and-unburned. An empty string plus a missing `lock_summary` is unavailable.
+- **Liquidity lives in two places, and a `0` in both is ambiguous.** `info.liquidity` can be `0` while `pool.liquidity` holds the real figure. Take the non-zero one and say which you used. When **both** read 0, resolve it with `info.price.volume_24h` before scoring: 0 liquidity with 0 24h volume is a **genuine dead pool** and takes the −15; 0 liquidity with non-zero 24h volume is **unavailable**, because a pool cannot turn over volume it does not have — report it unavailable and skip the row. This replaces an earlier row reading "0 and `info.price.volume_24h` also 0 → −15", which was dead text: under the worst-row rule a liquidity of 0 already matches `< $10K` at the same −15, so the row could never change an outcome, and its existence implied a `0` was always a measurement.
+- **`buy_tax` / `sell_tax` of `"0"` is a real 0% tax; `""` is not.** The two arrive differently and mean opposite things. Measured on populated blocks: USDC, CAKE and one token each on arc, stable and robinhood all return `buy_tax: "0"`, `sell_tax: "0"` — a genuine no-tax token, scored as an executed check that passes. On an unpopulated EVM block they arrive as `""`, which is exactly what Step 1A keys on, and there they are **unavailable** — not a 0% tax. Never coerce `""` to `0.0`.
+- **`burn_status: ""` is absent, not a measurement — and it is the usual case on the EVM chains.** "Neither locked nor burned" is a claim about two facts, so it needs both of them. Deduct the −12 only when `lock_summary.is_locked === false` **and** `burn_status` is present and not `"burn"`. If `burn_status` is `""`, the burn half was never reported and the row is **unavailable**, however clear `is_locked: false` is — half the evidence cannot carry a two-part claim. Measured 2026-08-28, three distinct values: `""` on every EVM token sampled (10 of 10 on bsc, one each on arc, stable and robinhood); `"burn"` on 10 of 10 trending sol tokens and on USDC and USDT; and **`"none"` on RAY** — an explicit negative, which is a real measurement and is exactly the case this row exists for. RAY reads `is_locked: false` with `burn_status: "none"`, both halves present and both negative, and takes the −12 (it is one of the three deductions behind RAY's 88.4). So the row is decidable on Solana and usually unavailable on the EVM chains — the honest reading of the data rather than a threshold worth widening, and the same conclusion Step 7 reaches about `privileges`.
 - **`initial_liquidity: 0` is normal on old pools.** It means the shrink ratio cannot be computed, not that the pool shrank. Report unavailable.
 - **`dev.twitter_name_change_history: []` and `dev.twitter_del_post_token_count: 0` are struct defaults.** On an unpopulated `dev` block both come back as `[]` and `0`, which is unavailable: neither a clean record nor a dirty one. Since neither field deducts, this only decides whether you report a value or report unavailable — never a deduction either way.
 
@@ -240,7 +240,7 @@ Only when `info.stat` is populated per Step 1B — test it per token, do not dec
 | `stat.fresh_wallet_rate` | > 50% | −8 |
 | `stat.private_vault_hold_rate` | > 5% | −8 |
 
-**When the block is unpopulated, all eight are unavailable — never eight passes.** Together with `stat.creator_created_count` from Step 3 that is nine unavailable checks. Do **not** put them in the coverage denominator: hold all nine out of it entirely. Otherwise nine skipped checks bury the coverage number on every token GMGN has no chain-analysis data for, and a token where every applicable check passed reads as poorly evidenced. Measured: CAKE and eth USDT read 93.3% and 86.7% with the nine held out, and would read 58.3% and 54.2% with them counted as skipped — "coverage low" on two tokens with no failed check between them.
+**When the block is unpopulated, all eight are unavailable — never eight passes.** Together with `stat.creator_created_count` from Step 3 that is nine unavailable checks. Do **not** put them in the coverage denominator: hold all nine out of it entirely. Otherwise nine skipped checks bury the coverage number on every token GMGN has no chain-analysis data for, and a token where every applicable check passed reads as poorly evidenced. Measured 2026-08-28: CAKE and eth USDT read 86.7% and 80.0% with the nine held out, and would read 54.2% and 50.0% with them counted as skipped — "coverage low" on two tokens with no failed check between them.
 
 **Holding them out of the denominator is a labelling choice, and it must be disclosed.** `stat` population is per token, not per chain, so an empty block is genuinely missing data for this token rather than a field the chain cannot have. Therefore, whenever the nine are held out, the report **must** carry the line *"chain-analysis metrics (9 checks) unavailable for this token"* next to the confidence label, so the reader can discount the confidence themselves. Confidence without that line is overstated.
 
@@ -265,7 +265,9 @@ Needs at least 8 candles. Tiers are mutually exclusive per measurement, worst ma
 
 **Guards. A degenerate candle must never manufacture a deduction out of a division.** Skip the measurement and mark it unavailable — never deduct — when its denominator is zero or its input is missing: `max(H) == 0` drops the drawdown row; a candle with `O[i] == 0` is excluded from the worst-candle scan rather than scoring as −100%; `float(info.price.price_24h) == 0` drops the last row. A skipped row here is an ordinary unavailable check and touches only coverage.
 
-**Volume trend is measured and reported, not scored — pending one test.** An earlier draft carried a row reading "recent volume vs earlier volume fell below 20% / below 40% → −18 / −8" with no window definition, which meant it was never reproducibly executable. Define it as `vol_ratio = mean(V[-20:]) / mean(V[-40:-20])`, requiring `len(W) >= 40` and `mean(V[-40:-20]) > 0`, and it becomes executable for the first time — and the first thing it does is cost **USDC on sol 8 points** in this section (`vol_ratio` under 0.40 on a stablecoin whose 24h turnover simply ebbed), which is 1.6 composite points off a token with nothing wrong with it. That is the same shape as the `sell_volume_24h / buy_volume_24h` row this skill already removed for firing only on clean tokens, and the honest position is that **its lift against risky tokens has not been measured.** So compute `vol_ratio`, report it in the findings with its value, and **do not deduct on it.** Before it may score, run the test the sell/buy row got: fire rate on `market trenches` rows with `rug_ratio > 0` against rows with `rug_ratio = 0`, same volume floor, one snapshot. It scores only if the lift is meaningfully above 1.0x.
+**Volume trend is measured and reported, not scored — pending one test.** An earlier draft carried a row reading "recent volume vs earlier volume fell below 20% / below 40% → −18 / −8" with no window definition, which meant it was never reproducibly executable. Define it as `vol_ratio = mean(V[-20:]) / mean(V[-40:-20])`, requiring `len(W) >= 40` and `mean(V[-40:-20]) > 0`, and it becomes executable for the first time — and the first thing it does is cost **USDC on sol 8 points** in this section (`vol_ratio` under 0.40 on a stablecoin whose 24h turnover simply ebbed), which is 1.6 composite points off a token with nothing wrong with it. That is the same shape as the `sell_volume_24h / buy_volume_24h` row this skill already removed for firing only on clean tokens, and the honest position is that **its lift against risky tokens has not been measured.** Measured on the five scorable bluechips, 2026-08-28: `vol_ratio` of **0.28** (USDC/sol), **0.42** (RAY/sol), **0.616** (CAKE/bsc), **0.381** (WETH/base) and **1.427** (USDT/eth). At the tiers above that is a deduction on **2 of 5** — −8 on USDC and −8 on WETH — for nothing worse than a quiet day.
+
+So compute `vol_ratio`, report it in the findings with its value, and **do not deduct on it.** Before it may score, run the test the sell/buy row got: fire rate on `market trenches` rows with `rug_ratio > 0` against rows with `rug_ratio = 0`, same volume floor, one snapshot. It scores only if the lift is meaningfully above 1.0x. **That test has not been run** — the attempt on 2026-08-28 was cut short by a `RATE_LIMIT_BANNED` response, so no risky-token fire rate exists yet. Until it does, the 2-of-5 bluechip reading is the only evidence about this row and it points the wrong way, which is why the row is reported rather than scored.
 
 **`info.price` is an object, not a number, and every value inside it is a string.** Measured on 2026-08-28: `info.price` is a dict holding `price`, `price_1m/5m/1h/6h/24h`, `buys_24h`, `sells_24h`, `volume_24h`, `buy_volume_24h`, `sell_volume_24h` and `swaps_24h`. **None of those names exist at the top level of `info`** — `info['price_24h']` is a missing key and `info['price']` is a dict, so any threshold written without the `info.price.` prefix is arithmetic on the wrong object. Convert with `float()` before comparing: `price_24h` arrives as the string `'1.72046817'`.
 
@@ -282,9 +284,9 @@ Base weights: **contract 0.45, holders 0.35, price 0.20.** They sum to 1.
 **Renormalize over the sections that actually returned data.** Drop any section whose inputs were entirely unavailable, then divide each surviving weight by the surviving total. With price dropped, contract and holders become 0.5625 and 0.4375. Print the weights you actually used.
 
 Then, in this order:
-1. Apply any cap from Step 2. If several apply, the lowest wins.
+1. **Collect every cap that applies, from Step 2 *and* Step 7, and take the lowest.** Step 2 can contribute 79 (missing `is_honeypot`, missing `is_open_source`); Step 7 contributes 59 when it downgrades a honeypot flag. An earlier version of this list named only Step 2's caps, which left Step 7's 59 with no place to be applied — a downgraded honeypot would have kept its raw composite. If both apply, 59 wins.
 2. If the honeypot hard stop fired **and Step 7 did not downgrade it**, the composite is 0 regardless of everything else. Step 7 is checked before this line, not after — it appears later in this document only because it is the rarer case.
-3. If Step 0 found no record for the address, or if no section returned any data, report **cannot score** — not a number. Never emit a score for an address GMGN has no record of.
+3. If Step 0 found no record for the address, or if no section returned any data, report **cannot score** — not a number. Never emit a score for an address GMGN has no record of. If Step 0's wallet probe identified a wallet, hand off instead of reporting either.
 
 **Coverage and confidence.** Coverage is executed ÷ (executed + skipped), counted against the fixed inventory below. **Count against this list and nothing else** — an inventory that each executor reconstructs from the prose is not reproducible, and coverage is what governs how strong a claim the score may support.
 
@@ -374,15 +376,19 @@ The whole procedure was reimplemented as a script and re-run against live respon
 | USDC | sol | populated → populated | 100.0, unchanged | 83% → 90.9% |
 | USDT | sol | populated → populated | 93.2, unchanged | 61% → 77.3% |
 | RAY | sol | populated → populated | 88.4, unchanged | 91% → 95.5% |
-| CAKE | bsc | unpopulated → unpopulated | 100.0, unchanged | 56% → 93.3% |
-| WETH | base | **populated → unpopulated** | 97.3, unchanged | 88% → 86.7% |
-| USDT | eth | unpopulated → unpopulated | 97.3, unchanged | 56% → 86.7% |
+| CAKE | bsc | unpopulated → unpopulated | 100.0, unchanged | 56% → 86.7% |
+| WETH | base | **populated → unpopulated** | 97.3, unchanged | 88% → 80.0% |
+| USDT | eth | unpopulated → unpopulated | 97.3, unchanged | 56% → 80.0% |
+
+**The inventory in Step 6 was checked against these runs and it closes:** executed + skipped + held-out came to exactly 22 on all three `sol` tokens and exactly 24 on all three EVM tokens, with no check left over and none double-counted. That is the property that makes coverage reproducible; re-run it after any change to a scoring table.
+
+**Two of those coverage figures sit exactly on a grade boundary.** WETH and eth USDT both land at 80.0%, the "evidence sufficient" threshold, so a single additional unavailable field on either would demote it to "coverage low". Worth knowing before treating the label as robust: it is not, on those two.
 
 **WETH on base is the only token whose `stat` classification flips**, and it is the reason Step 1B gained its second test. Its composite does not move because the nine checks it was silently passing were all reading zero and deducting nothing — which is exactly the point: the score was right by accident while the confidence behind it was overstated. The fix does not correct a number, it corrects what the number is entitled to claim.
 
 Two further readings from that pass, both about where this composite's discriminating power actually comes from:
 
-- **The contract permission fields are close to constant on live tokens.** Sampled the top ten trending tokens per chain on 2026-08-28: on `sol`, 10 of 10 returned `renounced_mint: true`, `renounced_freeze_account: true`, `burn_status: "burn"` and `lock_summary.is_locked: true`; on `bsc`, 10 of 10 returned `is_open_source: true`, `is_honeypot: false`, `is_renounced: true`, `is_blacklist: false` and `lock_summary.is_locked: true` with `lock_detail[0].percent: "0.95"` against the blackhole address. One token each on `arc`, `stable` and `robinhood` returned that same bsc field set, byte for byte. So Step 2's branch and the LP row rarely fire, and the 0.45 contract weight is carried in practice by `creator_created_count`, liquidity and `len(kline.list)`. The composite's separating power sits mostly in the 0.35 holder section. **This is a per-row firing-rate reading, which the tier calibration above did not do — it compared composites only.** Anyone re-tuning the weights should measure firing rates first.
+- **The contract permission fields are close to constant on live tokens.** Sampled the top ten trending tokens per chain on 2026-08-28: on `sol`, 10 of 10 returned `renounced_mint: true`, `renounced_freeze_account: true`, `burn_status: "burn"` and `lock_summary.is_locked: true`; on `bsc`, 10 of 10 returned `is_open_source: true`, `is_honeypot: false`, `is_renounced: true`, `is_blacklist: false` and `lock_summary.is_locked: true` with `lock_detail[0].percent: "0.95"` against the blackhole address. One token each on `arc`, `stable` and `robinhood` returned identical values on every one of those fields — the only field that differed between the three chains and bsc was `top_10_holder_rate`. So Step 2's branch and the LP row rarely fire, and the 0.45 contract weight is carried in practice by `creator_created_count`, liquidity and `len(kline.list)`. The composite's separating power sits mostly in the 0.35 holder section. **This is a per-row firing-rate reading, which the tier calibration above did not do — it compared composites only.** Anyone re-tuning the weights should measure firing rates first.
 - **`security.privileges` was `null` on every response taken**, across all six chains sampled. See Step 7: that is why its exemption gate opens only on a present-and-empty value.
 
 ### Calibrating the fresh-launch and coverage tiers
@@ -404,7 +410,7 @@ Three candidate rules were measured and **rejected**:
 
 **Raising the grade boundaries instead** (clean ≥88, mixed ≥68) was also measured: every score is unchanged, the overlap survives untouched, and the new boundary lands 0.4 points under RAY. Boundaries cannot fix a distribution problem.
 
-On coverage, holding the nine unpopulated `stat` checks out of the denominator is what keeps CAKE and eth USDT out of "coverage low" with no failed check between them — counted as skipped they read 58.3% and 54.2%, held out they read 93.3% and 86.7%. It leaves every Solana token and every fresh launch untouched. The rejected alternative was **per-section coverage taking the worst section**: it drove CAKE to 20% and eth USDT to 10% — "insufficient evidence" on two tokens with no failed check — while *raising* a 4-candle fresh launch to 100%. It inverts the signal.
+On coverage, holding the nine unpopulated `stat` checks out of the denominator is what keeps CAKE and eth USDT out of "coverage low" with no failed check between them — counted as skipped they read 54.2% and 50.0%, held out they read 86.7% and 80.0%. It leaves every Solana token and every fresh launch untouched. The rejected alternative was **per-section coverage taking the worst section**: it drove CAKE to 20% and eth USDT to 10% — "insufficient evidence" on two tokens with no failed check — while *raising* a 4-candle fresh launch to 100%. It inverts the signal.
 
 **Every row of that table came from one simultaneous snapshot, and it has to.** A fresh launch's score moves by the minute: re-running the unchanged skill against the same four launches roughly half an hour later already put the "before" gap at +6.9 rather than −2.1, purely because two of them had drifted. Comparing a candidate tier table against a "before" number captured at a different moment measures the market, not the table. Take the snapshot once, run every candidate against it, then confirm the winner live.
 
@@ -415,9 +421,9 @@ That live confirmation, against the full 14-address battery:
 | USDC | sol | 100.0 clean · 83% sufficient | 100.0 clean · **90.9% sufficient** |
 | USDT | sol | 100.0 clean · 61% low | 93.2 clean · **77.3% low** |
 | RAY | sol | 88.4 clean · 91% sufficient | 88.4 clean · **95.5% sufficient** |
-| CAKE | bsc | 100.0 clean · **56% low** | 100.0 clean · **93.3% sufficient** |
-| WETH | base | 97.3 clean · 88% sufficient | 97.3 clean · **86.7% sufficient** |
-| USDT | eth | 97.3 clean · **56% low** | 97.3 clean · **86.7% sufficient** |
+| CAKE | bsc | 100.0 clean · **56% low** | 100.0 clean · **86.7% sufficient** |
+| WETH | base | 97.3 clean · 88% sufficient | 97.3 clean · **80.0% sufficient** |
+| USDT | eth | 97.3 clean · **56% low** | 97.3 clean · **80.0% sufficient** |
 | pump.fun launch A | sol | 79.6 mixed | 70.6 mixed |
 | pump.fun launch B | sol | 77.3 mixed | 70.6 mixed |
 | four.meme launch A | bsc | 69.9 mixed | **58.7 high risk** |
