@@ -34,7 +34,7 @@ import time
 
 # ─── language ────────────────────────────────────────────────────────────────
 # English is the source of truth: every user-facing string in this file is written in
-# English, and `lang/<code>.json` maps an English template to its translation. A key that
+# English, and the `ZH` table below maps an English template to its translation. A key that
 # is missing from the table falls back to English, which is always a correct answer — so a
 # partial translation degrades into mixed language, never into a crash or a blank line.
 #
