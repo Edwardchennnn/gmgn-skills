@@ -4,7 +4,6 @@ description: "Contract due-diligence score for one token address — combines co
 argument-hint: "--chain <sol|bsc|base|eth|robinhood|arc|stable> --address <token_address>"
 metadata:
   cliHelp: "gmgn-cli token security --help"
-  catalogSlug: "contract-due-diligence-score"
 ---
 
 **BEFORE RUNNING ANY COMMAND: Run `gmgn-cli config --check`. If exit code is 0, proceed normally. If exit code is 1, (1) run `gmgn-cli config` and show the output to the user; (2) once the user sends the API Key, run `gmgn-cli config --apply <KEY>` and show the output. If `--check` errors with an unknown option, tell the user to run `npm install -g gmgn-cli` to update, then retry.**
@@ -32,6 +31,18 @@ gmgn-cli market kline   --chain <chain> --address <token_address> --resolution 1
 ```
 
 Nothing else. Do not call swap, order, or cooking commands from this skill.
+
+## Relationship to the neighbouring skills
+
+The holder section (0.35) and the price section (0.20) are deliberately coarse: they exist to move one verdict number, not to explain a chip structure or a chart. When the user wants the explanation rather than the verdict, hand off:
+
+| The user wants | Skill |
+|---|---|
+| the chip breakdown — distribution, entry cost, whale / dev / KOL behaviour, risk wallets | `gmgn-holder-analysis` |
+| a read of the chart — the pattern named, with its own 0-100 | `gmgn-kline-pattern` |
+| the raw security / pool / holder / trader fields | `gmgn-token` |
+
+Those skills read the same raw fields on different thresholds and different weights, so their numbers will not match this composite, and neither number is a correction of the other. Never substitute one of their scores for a section score here, and never place two of these numbers side by side without saying they measure different things.
 
 ## Supported Chains
 
@@ -206,7 +217,9 @@ Only when `info.stat` is populated per Step 1B — test it per token, do not dec
 
 ## Step 5 — Price action, from 100
 
-Needs at least 8 candles. Score the last 96 15m candles, roughly 24h.
+Needs at least 8 candles. Score the most recent 96 `15m` candles, roughly 24h.
+
+`market kline` with no `--from` / `--to` returned exactly 100 candles on every token measured (sol, bsc and eth, 2026-08-28), so those 96 are the tail of the default series. Do not assume the count: read `len(kline.list)` and score the last `min(96, len(kline.list))` candles. If fewer than 96 arrive, state the window actually scored rather than calling it 24h — every measurement below is a ratio and stays valid on a shorter window, but the label would not.
 
 | Measurement | Condition | Deduction |
 |-------------|-----------|-----------|
