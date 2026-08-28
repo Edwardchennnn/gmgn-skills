@@ -135,6 +135,31 @@ Two shapes to preserve:
 - **A loss is never a gain with a minus sign.** `it made -$183.8K this week` was a real bug;
   negative weeks take the `it lost {0}` string.
 
+### One number, one meaning, everywhere
+
+`winners` and `winrate` count different things and must never be presented as one ratio:
+
+- **`winners`** — every position currently in profit, realized or not. It is a *count of coins*.
+- **`winrate`** — the API's realized win rate, over positions the wallet has actually sold.
+
+G1 used to print `133 tokens, 115 profitable (45.9%)`, which asserts that 115/133 is 45.9%.
+It is 86.5%. The parenthetical belonged to a different numerator, and a reader who did the
+division found the report contradicting itself two lines into its own evidence.
+
+They are now labelled separately, and the count that explains the gap prints beside them
+whenever `dist_gap` is set — positions bought and not yet sold sit at 0% inside the 0–200%
+band, so they inflate `winners` without ever reaching `winrate`:
+
+> `107 币 · 89 个在赚 · 卖掉的部分胜率 44.4%（其中 34 个买了还没卖，没有已实现结果） · 集中度 46.1%`
+
+The card names the same number with the same verb — `89 个现在是赚的` — so no reconciliation is
+required anywhere in the report.
+
+This defect was introduced by a deletion, not by a change: the reconciliation used to be a
+note under the outcome-distribution histogram, and removing the histogram removed the note
+while leaving the contradiction it resolved. **When deleting a figure, check what else was
+relying on it to make sense.**
+
 ## Verdict language
 
 This layer is the only part most readers finish, so it is written to be read once:
