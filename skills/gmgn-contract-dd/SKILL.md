@@ -20,17 +20,25 @@ metadata:
 
 **⚠️ IPv6 NOT SUPPORTED: on a `401` / `403` with correct credentials, run `ifconfig | grep inet6` (macOS) or `ip addr show | grep inet6`. If that lists a global IPv6 address, tell the user to disable IPv6 — gmgn-cli only works over IPv4. Do not call any third-party IP-echo service to check this: the local interface listing already answers it, and this skill contacts GMGN and nothing else.**
 
-This skill turns three read-only CLI calls into one auditable score. It does not trade, does not need a private key, and reads nothing on the local machine other than the API key that `gmgn-cli config` already manages.
+This skill turns three read-only CLI calls — plus one conditional fourth, only to tell a wallet from an unknown address — into one auditable score. It does not trade, does not need a private key, and reads nothing on the local machine other than the API key that `gmgn-cli config` already manages.
 
 ## Sub-commands
 
-This skill runs exactly these three, all read-only:
+Every score comes from these three, all read-only:
 
 ```
 gmgn-cli token info     --chain <chain> --address <token_address> --raw
 gmgn-cli token security --chain <chain> --address <token_address> --raw
 gmgn-cli market kline   --chain <chain> --address <token_address> --resolution 15m --raw
 ```
+
+Plus one **conditional** call, made only when Step 0 finds `info.symbol` empty and has to tell a wallet apart from an address GMGN holds no record of:
+
+```
+gmgn-cli portfolio stats --chain <chain> --wallet <address> --period 30d --raw
+```
+
+It never runs on a token that resolved, it feeds no threshold, and it is read-only on the same API-key-only auth as the other three — `portfolio stats` is not in the CLI's signed-request set, so no private key is involved.
 
 Nothing else. Do not call swap, order, or cooking commands from this skill.
 
@@ -242,7 +250,7 @@ Only when `info.stat` is populated per Step 1B — test it per token, do not dec
 
 **When the block is unpopulated, all eight are unavailable — never eight passes.** Together with `stat.creator_created_count` from Step 3 that is nine unavailable checks. Do **not** put them in the coverage denominator: hold all nine out of it entirely. Otherwise nine skipped checks bury the coverage number on every token GMGN has no chain-analysis data for, and a token where every applicable check passed reads as poorly evidenced. Measured 2026-08-28: CAKE and eth USDT read 86.7% and 80.0% with the nine held out, and would read 54.2% and 50.0% with them counted as skipped — "coverage low" on two tokens with no failed check between them.
 
-**Holding them out of the denominator is a labelling choice, and it must be disclosed.** `stat` population is per token, not per chain, so an empty block is genuinely missing data for this token rather than a field the chain cannot have. Therefore, whenever the nine are held out, the report **must** carry the line *"chain-analysis metrics (9 checks) unavailable for this token"* next to the confidence label, so the reader can discount the confidence themselves. Confidence without that line is overstated.
+**Holding them out of the denominator is a labelling choice, and it must be disclosed.** `stat` population is per token, not per chain, so an empty block is genuinely missing data for this token rather than a field the chain cannot have. Therefore, whenever the nine are held out, the report **must** carry the line *"`stat` chain-analysis metrics (9 checks: the 8 holder metrics plus `creator_created_count`) unavailable for this token"* next to the confidence label, so the reader can discount the confidence themselves. Confidence without that line is overstated.
 
 ## Step 5 — Price action, from 100
 
@@ -340,7 +348,7 @@ This cap is lower than Step 2's 79 on purpose, and it is not the same situation.
 Report in this order:
 
 1. Composite score, grade, and confidence label side by side. When confidence is "insufficient evidence", say so on the same line as the number.
-2. Coverage as `executed N / skipped M` against the inventory total from Step 6, and the weights actually used. If the nine `stat` checks were held out of the denominator, print *"chain-analysis metrics (9 checks) unavailable for this token"* on this line — it is mandatory, not optional.
+2. Coverage as `executed N / skipped M / held-out K of T`, where `T` is the Step 6 inventory total — 22 on `sol`, 24 on the EVM chains — and the weights actually used. **`N + M + K` must equal `T`; print all four numbers so a reader can check that it does.** A line that omits `K` cannot be verified, which defeats the point of having a fixed inventory. If the nine `stat` checks were held out, also print *"`stat` chain-analysis metrics (9 checks: the 8 holder metrics plus `creator_created_count`) unavailable for this token"* — mandatory, not optional.
 3. Each section's sub-score, then every deduction as: field path → measured value → points → reason.
 4. **The unavailable list, in full, never omitted.** For each entry say why: not applicable on this chain, block unpopulated, or field absent.
 5. **Reported-not-scored findings**, each quoted with its value and labelled as not having moved the score: the two `dev` X fields, labelled as history of the linked X account rather than of this token; `vol_ratio` from Step 5 when it was computable, labelled as unvalidated; and any `[filtered]` string or `neutralized … suspicious metadata` stderr notice from `gmgn-cli`.
@@ -350,9 +358,9 @@ Report in this order:
 ## Notes
 
 - All three commands support `--raw`. Always use it.
-- **With `--raw`, these three commands print the unwrapped payload — there is no `code` field to read.** Measured: `token info` and `token security` return the object itself (`{"address": …, "symbol": …}`) and `market kline` returns `{"list": [...]}`. Do not look for `code`, `data`, or an HTTP status; decide "no record" from `info.symbol` per Step 0. Other `gmgn-cli` commands do keep the `{"code":…,"data":…}` envelope under `--raw`, so do not generalise either shape.
+- **With `--raw`, all four of these commands print the unwrapped payload — there is no `code` field to read.** Measured: `token info` and `token security` return the object itself (`{"address": …, "symbol": …}`), `market kline` returns `{"list": [...]}`, and `portfolio stats` returns `{"wallet_address": …, "buy": …}`. Do not look for `code`, `data`, or an HTTP status; decide "no record" from `info.symbol` per Step 0. Other `gmgn-cli` commands do keep the `{"code":…,"data":…}` envelope under `--raw`, so do not generalise either shape.
 - `gmgn-cli` exits **1** with a printed message on a chain outside the seven and on a malformed address, before any request is sent. It exits **0** for a well-formed address GMGN has no record of — that case is Step 0's job, not the exit code's.
-- This skill is read-only: three GET endpoints, no signing, no private key, no local file access beyond the API key `gmgn-cli config` already manages.
+- This skill is read-only: three GET endpoints for scoring plus Step 0's conditional `portfolio stats` probe, no signing, no private key, no local file access beyond the API key `gmgn-cli config` already manages. All four are on the CLI's API-key-only auth path.
 - Chain support is **per endpoint**, not global. Do not assume that a chain accepted by one GMGN endpoint is accepted by another.
 - For chart-pattern naming rather than a risk score, that is `gmgn-kline-pattern`. For holder chip structure in depth, that is `gmgn-holder-analysis`. For raw fields with no scoring, that is `gmgn-token`. This skill owns the composite risk score and nothing else.
 

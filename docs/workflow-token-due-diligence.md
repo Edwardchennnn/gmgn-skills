@@ -36,6 +36,8 @@ gmgn-cli token security --chain sol --address <token_address> --raw
 
 **Every rate and tax field is a decimal fraction**: `top_10_holder_rate: "0.1783"` is 17.83%, `buy_tax: "0.01"` is a 1% tax.
 
+**A `0` in these fields is not automatically a pass.** `top_10_holder_rate` comes back as the string `"0"` on Solana and on some EVM tokens — 0% top-ten concentration does not exist, so read that as *not reported* and fall back to `token info` → `stat.top_10_holder_rate`. For the taxes the two spellings differ: `"0"` on a populated block is a genuine 0% tax, while `""` means the block was never populated and the tax is unknown. Reading either blank as a safe zero is how a token with no security record reads as clean.
+
 **Three fields this table used to list are not returned by `token security` at all** — verified absent from every live response:
 
 - `rug_ratio` — it is a `market trending` / `market trenches` row field, not a security field. Read it there.
