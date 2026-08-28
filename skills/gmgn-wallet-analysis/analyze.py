@@ -42,6 +42,8 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "Read the data gap below and fix what it names, then re-run.": "看下面的数据缺口，按它写的原因处理，然后重跑。",
+    "Its activity sample is too thin to judge reachability — this wallet barely trades, so there is nothing to fix. Watch it until it does.": "它的交易记录太少，判断不了你能不能吃到 —— 这个钱包几乎不交易，没什么可补的。等它动起来再看。",
     " — sparse: {0} rows stretched over {1:.0f} days": " —— 稀疏：{0} 条记录摊在 {1:.0f} 天里",
     "measured across {0:.0f} days of its trades, not just this week": "这个窗口是拿它 {0:.0f} 天的交易算出来的，远不止报告的 7 天窗口",
     " (these buys span {0:.0f} days, so this is its habit, not this week)": "（这些买入横跨 {0:.0f} 天，远超报告的 7 天窗口，是它一贯的习惯）",
@@ -1751,7 +1753,10 @@ def verdict(m, g):
     if p["G3"] is None or p["G4"] is None:
         return ("🟡",
                 T('HOLD OFF · one of the four was not measured'),
-                T('Fill in the missing data first — usually by configuring GMGN_PRIVATE_KEY.'))
+                (T('Its activity sample is too thin to judge reachability — this wallet barely '
+                   'trades, so there is nothing to fix. Watch it until it does.')
+                 if p["G3"] is None and m["sampled"] < 10 else
+                 T('Read the data gap below and fix what it names, then re-run.')))
 
     size = usd(m["size_cap"]) if m["size_cap"] else T('your normal size')
     win = dur(m["copy_window_s"]) if m["copy_window_s"] > 0 else None
