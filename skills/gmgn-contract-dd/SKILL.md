@@ -318,27 +318,32 @@ So compute `vol_ratio`, report it in the findings with its value, and **do not d
 ```
 export ADDR=<token_address>
 
-gmgn-cli market trenches --chain <chain> --raw | python3 -c 'import sys,json,os
+gmgn-cli market trenches --chain <chain> --raw | python3 -c 'import sys,json,os,time
 a=os.environ["ADDR"].lower()
 d=json.load(sys.stdin)
 for b in ("completed","near_completion","new_creation"):
     for r in d.get(b) or []:
         if r["address"].lower()==a:
-            print("trenches/"+b, r.get("rug_ratio")); sys.exit()
+            ts=int(r.get("created_timestamp") or 0)
+            h=(time.time()-ts)/3600 if ts>0 else None
+            print("trenches/%s rug_ratio=%s age=%s"%(b, r.get("rug_ratio"), ("%.1fh"%h) if h else "unknown")); sys.exit()
 print("not in trenches")'
 ```
 
 If that prints `not in trenches`, and only then:
 
 ```
-gmgn-cli market trending --chain <chain> --interval 24h --limit 100 --raw | python3 -c 'import sys,json,os
+gmgn-cli market trending --chain <chain> --interval 24h --limit 100 --raw | python3 -c 'import sys,json,os,time
 a=os.environ["ADDR"].lower()
-d=json.load(sys.stdin)
-for r in (d.get("data") or {}).get("rank") or []:
+for r in (json.load(sys.stdin).get("data") or {}).get("rank") or []:
     if r["address"].lower()==a:
-        print("trending", r.get("rug_ratio")); sys.exit()
+        ts=int(r.get("open_timestamp") or 0)
+        h=(time.time()-ts)/3600 if ts>0 else None
+        print("trending rug_ratio=%s age=%s"%(r.get("rug_ratio"), ("%.1fh"%h) if h else "unknown")); sys.exit()
 print("not in trending")'
 ```
+
+**The same row also carries the token's age, so take it while you are here — it costs nothing extra and Step 8 has to report it.** The field differs between the two listings, which is why the two scripts read different keys: `trenches` rows carry `created_timestamp` (populated; `open_timestamp` is 0 on `near_completion` tokens that have not graduated), and `trending` rows carry `open_timestamp` (`created_timestamp` is absent there). Both are unix seconds. Verified 2026-08-28: `trending rug_ratio=1 age=21.7h` on ANTSEM, `trenches/near_completion rug_ratio=0 age=3.6h` on a live launch.
 
 **The two responses have different shapes, which is why the two scripts differ and neither can be reused for the other endpoint.** `trenches` is **unwrapped** — the three bucket names are the top-level keys. `trending` **keeps** the `{"code":…,"data":…}` envelope, so its rows are at `data.rank`. Pointing the wrong script at either one finds nothing and reports `rug_ratio` unavailable — a false negative on exactly the tokens this step exists for, and a silent one, since an empty scan looks identical to an unlisted token.
 
@@ -433,7 +438,9 @@ This cap is lower than Step 2's 79 on purpose, and it is not the same situation.
 
 Report in this order:
 
-1. Composite score, grade, and confidence label side by side. When confidence is "insufficient evidence", say so on the same line as the number.
+1. Composite score, grade, and confidence label side by side, **and the token's age from Step 5B when it is known**. When confidence is "insufficient evidence", say so on the same line as the number.
+
+   The age belongs on that line because nothing else on it conveys youth. Measured 2026-08-28: a pump.fun launch a few hours old scored **89.4 "relatively clean · evidence sufficient"** with no failed check beyond thin liquidity, a small holder count and an 8% drawdown — every one of which is true and none of which says "this token is hours old". The `len(kline.list)` deduction only reaches tokens under 24 candles, so a token with six hours of history escapes it entirely. Printing `age 3.6h` next to the grade is what stops the number from reading as reassurance. When Step 5B found the address in neither listing, say `age unknown` — and note that being unlisted correlates with being established, which is the opposite of the case this line guards against.
 2. Coverage as `executed N / skipped M / held-out K of T`, where `T` is the Step 6 inventory total — 23 on `sol`, 25 on the EVM chains — and the weights actually used. **`N + M + K` must equal `T`; print all four numbers so a reader can check that it does.** A line that omits `K` cannot be verified, which defeats the point of having a fixed inventory. If the nine `stat` checks were held out, also print *"`stat` chain-analysis metrics (9 checks: the 8 holder metrics plus `creator_created_count`) unavailable for this token"* — mandatory, not optional.
 3. Each section's sub-score, then every deduction as: field path → measured value → points → reason.
 4. **The unavailable list, in full, never omitted.** For each entry say why: not applicable on this chain, block unpopulated, or field absent.
@@ -575,7 +582,8 @@ Lowest bluechip 88.4, highest fresh launch 73.1, gap **+15.3**; no bluechip lost
 >
 > **This is what Step 5B was added for, and it closes the labelled-rug half.** Bringing `rug_ratio` in as a listing lookup and capping on it moves all ten of those tokens to "high risk", and withholds "relatively clean" from four of five tokens measured in the 0.30-0.50 band. It cannot touch a bluechip: all six in this file were absent from every listing scanned on four chains, so the cap has no path to them.
 >
-> **The fresh-launch half is deliberately left open, because the gap metric was the wrong target.** After Step 5B the highest fresh launch is GROKCHAIN at 89.4 with `rug_ratio: 0.00` and no failed check other than thin liquidity, a small holder count and an 8% drawdown — so the gap is still about −1. That is not obviously a mis-score: the original calibration treated "young" as a proxy for "risky", and a young token with no rug label and no red flags genuinely has no red flags. What conveys youth is the `len(kline.list)` deduction and the confidence line, not a depressed composite. **So stop reading the bluechip-minus-fresh-launch gap as a quality metric** — the metric that matters is whether a labelled rug can read as clean, and that one is now closed by construction rather than by threshold tuning.
+> **The fresh-launch half is handled by reporting rather than by scoring, because the gap metric was the wrong target.** Step 8 now prints the token's age beside the grade — free, since Step 5B's listing row already carries it — so a few-hours-old token cannot present as "relatively clean · evidence sufficient" with nothing on the line to say how young it is.
+> After Step 5B the highest fresh launch is GROKCHAIN at 89.4 with `rug_ratio: 0.00` and no failed check other than thin liquidity, a small holder count and an 8% drawdown — so the gap is still about −1. That is not obviously a mis-score: the original calibration treated "young" as a proxy for "risky", and a young token with no rug label and no red flags genuinely has no red flags. What conveys youth is the `len(kline.list)` deduction and the confidence line, not a depressed composite. **So stop reading the bluechip-minus-fresh-launch gap as a quality metric** — the metric that matters is whether a labelled rug can read as clean, and that one is now closed by construction rather than by threshold tuning.
 >
 > Still true regardless: "relatively clean" means "no measured red flag among the fields this skill reads, and no rug label", not "not a rug".
 
