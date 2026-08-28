@@ -42,6 +42,35 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "⚠️ Its last trade was {0} ago — every figure here describes a wallet that has since gone quiet.": "⚠️ 它最后一笔成交在 {0}前 —— 这里所有数字描述的都是一个已经安静下来的钱包。",
+    "Last trade {0} ago.": "最后一笔成交在 {0}前。",
+    "⚠️ A track record is past behaviour. It is not a forecast, and none of this is advice — size it yourself.": "⚠️ 战绩只反映已经发生的操作，不代表未来收益。仓位自己定，风险自己担。",
+    "only {0:,} lost more than half": "亏超一半的只有 {0:,} 个",
+    "{0:,} of {1:,} coins in profit": "{1:,} 个币里 {0:,} 个在赚",
+    "This wallet trades by {0}": "这个钱包{0}",
+    "This wallet has lost {0} {1}, {2}": "这个钱包{1}{2}，累计亏了 {0}",
+    "This wallet has made {0} {1}, {2}": "这个钱包{1}{2}，累计赚了 {0}",
+    "so far": "到目前为止",
+    "over {0:.0f} days": "在过去 {0:.0f} 天里",
+    "trading steadily across a wide book": "靠一个很宽的盘面稳定出货",
+    "getting into small caps early": "靠早早进小盘",
+    "picking a few coins and sizing into them": "靠选中几个币然后加到重仓",
+    "turning over volume at machine speed": "靠机器速度高频周转",
+    "outrunning everyone into small caps": "靠机器速度抢在所有人前面进小盘",
+    "Even at its own pace, anything over {0} moves the price against you.": "就算跟得上它的节奏，超过 {0} 的单子也会把价格推到你自己脸上。",
+    " — a pace a person can actually match": " —— 这个节奏人跟得上",
+    " — nobody is out-typing that": " —— 手速这块，人拼不过",
+    "in and out inside {0}": "进出不超过 {0}",
+    "it hunts around {0}": "它专打 {0} 上下的盘子",
+    "{0} — about {1:.0f}x its long-run pace": "{0} —— 比长期均速快 {1:.0f} 倍",
+    "{0} follow it for a week and {1} becomes {2} ({3})": "{0} 跟它一周，{1} 变 {2}（{3}）",
+    "only {0} lost more than half": "亏超一半的只有 {0} 个",
+    "{0} banked so far, ": "累计落袋 {0}，",
+    "{0} of the {1:,} coins it traded are in profit": "它打过的 {1:,} 个币里，{0} 个现在是赚的",
+    "The bar to clear: {0}.": "门槛在这：{0}。",
+    "and anything over {0} moves the price against you": "而超过 {0} 的单子会把价格推到你自己脸上",
+    "it enters around {0}": "它在市值 {0} 附近进",
+    "it is gone in {0}": "它 {0}就走",
     "and ": "而且",
     "but ": "但",
     " · {0}": " · {0}",
@@ -1389,7 +1418,8 @@ def compute(d, latency_s, my_size):
     #                    silent about which it is.
     m["native_balance"] = f(s7.get("native_balance"))
     last_ts = f(s7.get("last_timestamp"))
-    m["idle_s"] = max(0.0, time.time() - last_ts) if last_ts > 0 else None
+    ref_now = f(d.get("_now")) or time.time()
+    m["idle_s"] = max(0.0, ref_now - last_ts) if last_ts > 0 else None
     m["stale"] = m["idle_s"] is not None and m["idle_s"] > 48 * 3600
 
     m["net_per_sell"] = safe_div(m["realized_7d"], m["sell"]) if m["sell"] >= 5 else 0.0
@@ -2198,11 +2228,46 @@ def caliber(m, g):
     return ("😐", T('unremarkable'))
 
 
+def hook_method(m):
+    """How this wallet makes its money, in four or five words. Drives the opening sentence."""
+    fast = m["per_day"] >= 50
+    small = 0 < m["entry_p50"] < 100_000
+    if fast and small:
+        return T('outrunning everyone into small caps')
+    if fast:
+        return T('turning over volume at machine speed')
+    if m["gain_top3_share"] is not None and m["gain_top3_share"] >= 0.5:
+        return T('picking a few coins and sizing into them')
+    if small:
+        return T('getting into small caps early')
+    return T('trading steadily across a wide book')
+
+
+def plain_persona(m):
+    """One jargon-free sentence: what it hunts, how fast it moves, what that means for a human.
+
+    Built from entry_p50, per_day and copy_window_s -- the same numbers the style label is
+    derived from, said in the words a reader already owns. The closing clause is the point:
+    a cadence figure only matters once someone tells you whether a person can match it.
+    """
+    bits = []
+    if m["per_day"] >= 1:
+        bits.append(T('{0:,.0f} trades a day', m["per_day"]))
+    if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
+        bits.append(T('in and out inside {0}', dur(m["copy_window_s"])))
+    if not bits:
+        return None
+    line = joinclause(bits)
+    if m["per_day"] > 50 or (m["copy_window_n"] >= 3 and 0 < m["copy_window_s"] < 60):
+        line += T(' — nobody is out-typing that')
+    elif m["per_day"] < 10:
+        line += T(' — a pace a person can actually match')
+    return line
+
+
 def _qualifier(m, chain):
     """Chain, age and following, as a tail on the record line rather than a line of its own."""
     q = [chain.upper()]
-    if m["age_days"] is not None and m["age_days"] >= 180:
-        q.append(T('wallet is {0:.0f} days old', m["age_days"]))
     if m["followers"] >= 10_000:
         q.append(T('{0:,} followers', m["followers"]))
     return T(' · {0}', " · ".join(q))
@@ -2245,16 +2310,24 @@ def card(m, g, wallet, chain):
         out += ["> " + T('Its profit figures are not trustworthy — treat the track record as unknown'),
                 "", _qualifier(m, chain).lstrip(" ·　").strip()]
     else:
+        # The bold line carries the money and the win count and stops. Sixty-three bolded
+        # characters before the first verb is a line a scanner's eye bounces off; the caveat
+        # and the provenance are true but they are not the hook, so they drop one line and
+        # lose the bold.
+        age = (T('over {0:.0f} days', m["age_days"]) if m["age_days"] is not None
+               and m["age_days"] >= 30 else None)
         if m["realized_all"] and m["realized_all"] < 0:
-            line = T('{0} traded, {1} of them lost money — {2} gone in total',
-                     T('{0:,} coins', m["token_num"]), f'{m["token_num"] - m["winners"]:,}',
-                     usd(abs(m["realized_all"])))
+            head_line = T('This wallet has lost {0} {1}, {2}',
+                          usd(abs(m["realized_all"])), age or T('so far'), hook_method(m))
+        elif m["realized_all"]:
+            head_line = T('This wallet has made {0} {1}, {2}',
+                          usd(m["realized_all"]), age or T('so far'), hook_method(m))
         else:
-            line = T('{0} of the {1:,} coins it traded are in profit, and only {2} lost more than half',
-                     f'{m["winners"]:,}', m["token_num"], f'{m["buckets"]["lt_n50"]:,}')
-            if m["realized_all"]:
-                line = T('{0} banked so far — ', usd(m["realized_all"])) + line
-        out += [f"**{line}**" + _qualifier(m, chain)]
+            head_line = T('This wallet trades by {0}', hook_method(m))
+        sub = [T('{0:,} of {1:,} coins in profit', m["winners"], m["token_num"])]
+        if m["buckets"]["lt_n50"] is not None:
+            sub.append(T('only {0:,} lost more than half', m["buckets"]["lt_n50"]))
+        out += [f"**{head_line}**", joinclause(sub) + _qualifier(m, chain)]
 
     # ── line 3 is gone: the provenance rides on the record line above, so the 7-day figure
     #    lands on line 3 instead of line 5.
@@ -2272,14 +2345,15 @@ def card(m, g, wallet, chain):
                           T('it lost {0} itself this week', usd(abs(m["realized_7d"]))))
         second.append(T('{0} {1} — about {2:.0f}x its long-run pace', emo, label, m["pace_x"])
                       if m["pace_x"] else f"{emo} {label}")
-        lead = T('{0} in one week: {1} following it becomes {2}',
-                 pct(m["roi_7d"]), usd_exact(m["story_stake"]), usd_exact(m["story_out"]))
+        lead = T('{0} follow it for a week and {1} becomes {2} ({3})', emo,
+                 usd_exact(m["story_stake"]), usd_exact(m["story_out"]), pct(m["roi_7d"]))
         tail = []
         if m["realized_7d"]:
             tail.append(T('it banked {0} itself', usd(abs(m["realized_7d"])))
                         if m["realized_7d"] > 0 else
                         T('it lost {0} itself', usd(abs(m["realized_7d"]))))
-        tail.append(second[-1])
+        tail.append(T('{0} — about {1:.0f}x its long-run pace', label, m["pace_x"])
+                    if m["pace_x"] else label)
         out += ["> **" + lead + "**", ">", "> " + joinclause(tail), ""]
 
     # ── line 5: the verdict. It is the turn, not the opening -- and it is never optional.
@@ -2299,8 +2373,9 @@ def card(m, g, wallet, chain):
                        if m["gain_top3_share"] >= 0.5 else
                        T('the money is spread across many coins (top 3 = {0}), so no single '
                          'copy decides it', pct(m["gain_top3_share"])))
-    if m["entry_p50"] > 0:
-        persona.append(T('usually enters around {0}', mc(m["entry_p50"])))
+    pp = plain_persona(m)
+    if pp:
+        out += [pp, ""]
     if persona:
         out += [" · ".join(persona), ""]
 
@@ -2308,8 +2383,14 @@ def card(m, g, wallet, chain):
     # A red verdict gets the verdict's own instruction, never a sizing and a copy window:
     # those are directions for FOLLOWING, and printing them under DO NOT COPY is the card
     # telling the reader to do the thing its own headline just told them not to.
+    unreachable = g["G3"][0] is False
     if emoji == "🔴":
         out += ["## " + T('  WHAT TO DO').strip(), "", why, ""]
+    elif unreachable:
+        if m["size_cap"]:
+            out += [T('Even at its own pace, anything over {0} moves the price against you.',
+                      usd_exact(m["size_cap"])), ""]
+        out += [why, ""]
     else:
         out += ["## " + T('  HOW TO FOLLOW').strip(), ""]
         cells, heads = [], []
@@ -2343,12 +2424,14 @@ def card(m, g, wallet, chain):
     # Read the gates. These were hardcoded to "✓" in the first cut, which put
     # "✓ the record is real" on a card whose verdict was DO NOT COPY *because* that check
     # failed — the card asserting the opposite of its own headline.
-    bad = [k for k in ("G1", "G2", "G3", "G4") if g[k][0] is False]
-    ok = [k for k in ("G1", "G2", "G3", "G4") if g[k][0] is True]
-    if bad:
-        out += ["　".join("❌ **" + T(GATE_PLAIN_NEG[k]) + "**" for k in bad), ""]
-    if ok:
-        out += ["`" + " · ".join("✅ " + T(GATE_PLAIN[k][0]) for k in ok) + "`", ""]
+    chips = []
+    for k in ("G1", "G2", "G3", "G4"):
+        if g[k][0] is True:
+            chips.append("✅ " + T(GATE_PLAIN[k][0]))
+        elif g[k][0] is False:
+            chips.append("❌ **" + T(GATE_PLAIN_NEG[k]) + "**")
+    if chips:
+        out += ["　".join(chips), ""]
 
     if flags:
         out += ["> ⚠️ " + flags[0]["meaning"], ""]
@@ -2360,6 +2443,11 @@ def card(m, g, wallet, chain):
                        + (T(', bought at {0} mcap', mc(mc_)) if mc_ else ""))
         out.append("")
 
+    if m["idle_s"] is not None:
+        out += [(T('⚠️ Its last trade was {0} ago — every figure here describes a wallet that '
+                   'has since gone quiet.', dur(m["idle_s"])) if m["stale"]
+                 else T('Last trade {0} ago.', dur(m["idle_s"]))), ""]
+
     if m["open_value"] and m["open_book"]:
         top = m["open_book"][0]
         # "Not a wallet that only churns" was a defence against a churn accusation. Now that
@@ -2367,6 +2455,8 @@ def card(m, g, wallet, chain):
         # reader never saw -- and it was editorial either way. The facts stand alone.
         out += [T('It is still holding {0} coins worth {1} — biggest is {2} at {3}.',
                   m["holdings_n"], usd(m["open_value"]), top["sym"], usd(top["usd"])), ""]
+    out += ["> " + T('⚠️ A track record is past behaviour. It is not a forecast, and none of '
+                     'this is advice — size it yourself.'), ""]
     return out
 
 
@@ -2551,7 +2641,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
     pe, pl = m["posture"]
     out += ["## " + T('🔄 WHAT IT IS DOING NOW'), "",
             T('{0} **{1}** · 24h bought {2} / sold {3}', pe, pl, usd(m['buy_usd_24h']), usd(m['sell_usd_24h']))]
-    if m["idle_s"] is not None:
+    if m["idle_s"] is not None and blocked:
         out.append((("> ⚠️ " + T('last trade {0} ago — every figure here describes a wallet that '
                                  'has since gone quiet', dur(m["idle_s"]))) if m["stale"]
                     else T('last trade {0} ago', dur(m["idle_s"]))))
