@@ -42,6 +42,7 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "no open position is in profit, so concentration says nothing here": "当前持仓没有一个是赚的，集中度在这里说明不了什么",
     "current book is {0} concentrated ({1} open of {2:,} traded, so this says nothing about the closed record)": "当前持仓集中度 {0}（{1} 个在手 / 共打过 {2:,} 个，说明不了已平仓的部分）",
     "See the first gate below for what failed.": "具体没过哪一条，看下面第一道闸门。",
     "NO READ · the track record did not check out": "看不出来 · 战绩没通过核验",
@@ -1287,11 +1288,14 @@ def compute(d, latency_s, my_size):
             sells = i(h_get(x, "history_total_sells", "sell_tx_count"))
             wins.append((rp, safe_div(rp, sells) if sells > 0 else rp))
         if wins:
-            tot = sum(w[0] for w in wins)
-            top3 = sum(sorted((w[0] for w in wins), reverse=True)[:3])
-            m["gain_top3_share"] = safe_div(top3, tot)
             pe = sorted(w[1] for w in wins)
             m["med_gain_per_exit"] = pe[len(pe) // 2]
+            # A top-3 share over 3 or fewer winners is 100% by definition. Same guard as
+            # pcr_trusted, and for the same reason: it is arithmetic, not evidence.
+            if len(wins) > 3:
+                tot = sum(w[0] for w in wins)
+                top3 = sum(sorted((w[0] for w in wins), reverse=True)[:3])
+                m["gain_top3_share"] = safe_div(top3, tot)
 
     # If a wash-trading tag is present but the gains demonstrably come from positions with
     # a real net edge, demote the tag in place: it stays visible as a warning with the
@@ -1487,6 +1491,8 @@ def gates(m):
                         pct(m['pcr']), m['holdings_n'], m['token_num'])
         elif m["pcr"] is not None:
             pcr_txt = T('profit concentration {0} (only {1} positions — too thin to rely on)', pct(m['pcr']), m['holdings_n'])
+        elif m["holdings_n"]:
+            pcr_txt = T('no open position is in profit, so concentration says nothing here')
         else:
             pcr_txt = T('profit concentration not measured (holdings unavailable)')
         wr_txt = T('{0} win rate on what it has sold', pct(m['winrate']))
