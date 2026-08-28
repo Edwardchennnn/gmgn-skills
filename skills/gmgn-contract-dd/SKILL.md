@@ -88,15 +88,18 @@ gmgn-cli market kline   --chain sol --address Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11Mc
 
 ## Relationship to the neighbouring skills
 
-The holder section (0.35) and the price section (0.20) are deliberately coarse: they exist to move one verdict number, not to explain a chip structure or a chart. When the user wants the explanation rather than the verdict, hand off:
+Four skills take a token address. They answer different questions and must not be substituted for each other:
 
 | The user wants | Skill |
 |---|---|
+| **one number** — 打个分, 尽调, CA 尽调, 这个币安全吗, 能不能买, rug check, score this contract | **this one** |
+| the raw fields — check this token, research this token, what's the liquidity, who holds this, the pool and trader lists | `gmgn-token` |
 | the chip breakdown — distribution, entry cost, whale / dev / KOL behaviour, risk wallets | `gmgn-holder-analysis` |
 | a read of the chart — the pattern named, with its own 0-100 | `gmgn-kline-pattern` |
-| the raw security / pool / holder / trader fields | `gmgn-token` |
 
-Those skills read the same raw fields on different thresholds and different weights, so their numbers will not match this composite, and neither number is a correction of the other. Never substitute one of their scores for a section score here, and never place two of these numbers side by side without saying they measure different things.
+A bare address with no question attached is a verdict ask: score it here, then offer the raw fields afterwards. Step 0 resolves token vs wallet before any of that — a bare base58 address is equally a wallet, and `token info` returns the same empty block either way — so a wallet goes to `gmgn-wallet-analysis` for the dossier, or `gmgn-portfolio` when the raw holdings, P&L and activity are what is wanted.
+
+The holder section (0.35) and the price section (0.20) are deliberately coarse: they exist to move one verdict number, not to explain a chip structure or a chart. Those three skills read the same raw fields on different thresholds and different weights, so their numbers will not match this composite, and neither number is a correction of the other. Never substitute one of their scores for a section score here, and never place two of these numbers side by side without saying they measure different things.
 
 ## Step 0 — Does GMGN have a record for this address at all?
 
