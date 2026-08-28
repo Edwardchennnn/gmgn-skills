@@ -42,6 +42,8 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "⚠️ Its last trade was {0} ago — every figure here describes a wallet that has since gone quiet.": "⚠️ 它最后一笔成交在 {0}前 —— 这里所有数字描述的都是一个已经安静下来的钱包。",
+    "Last trade {0} ago.": "最后一笔成交在 {0}前。",
     "⚠️ A track record is past behaviour. It is not a forecast, and none of this is advice — size it yourself.": "⚠️ 战绩只反映已经发生的操作，不代表未来收益。仓位自己定，风险自己担。",
     "only {0:,} lost more than half": "亏超一半的只有 {0:,} 个",
     "{0:,} of {1:,} coins in profit": "{1:,} 个币里 {0:,} 个在赚",
@@ -1416,7 +1418,8 @@ def compute(d, latency_s, my_size):
     #                    silent about which it is.
     m["native_balance"] = f(s7.get("native_balance"))
     last_ts = f(s7.get("last_timestamp"))
-    m["idle_s"] = max(0.0, time.time() - last_ts) if last_ts > 0 else None
+    ref_now = f(d.get("_now")) or time.time()
+    m["idle_s"] = max(0.0, ref_now - last_ts) if last_ts > 0 else None
     m["stale"] = m["idle_s"] is not None and m["idle_s"] > 48 * 3600
 
     m["net_per_sell"] = safe_div(m["realized_7d"], m["sell"]) if m["sell"] >= 5 else 0.0
@@ -2440,6 +2443,11 @@ def card(m, g, wallet, chain):
                        + (T(', bought at {0} mcap', mc(mc_)) if mc_ else ""))
         out.append("")
 
+    if m["idle_s"] is not None:
+        out += [(T('⚠️ Its last trade was {0} ago — every figure here describes a wallet that '
+                   'has since gone quiet.', dur(m["idle_s"])) if m["stale"]
+                 else T('Last trade {0} ago.', dur(m["idle_s"]))), ""]
+
     if m["open_value"] and m["open_book"]:
         top = m["open_book"][0]
         # "Not a wallet that only churns" was a defence against a churn accusation. Now that
@@ -2633,7 +2641,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
     pe, pl = m["posture"]
     out += ["## " + T('🔄 WHAT IT IS DOING NOW'), "",
             T('{0} **{1}** · 24h bought {2} / sold {3}', pe, pl, usd(m['buy_usd_24h']), usd(m['sell_usd_24h']))]
-    if m["idle_s"] is not None:
+    if m["idle_s"] is not None and blocked:
         out.append((("> ⚠️ " + T('last trade {0} ago — every figure here describes a wallet that '
                                  'has since gone quiet', dur(m["idle_s"]))) if m["stale"]
                     else T('last trade {0} ago', dur(m["idle_s"]))))
