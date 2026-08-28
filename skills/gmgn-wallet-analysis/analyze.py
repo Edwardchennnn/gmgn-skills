@@ -2438,9 +2438,6 @@ def card(m, g, wallet, chain):
                        + (T(', bought at {0} mcap', mc(mc_)) if mc_ else ""))
         out.append("")
 
-    out += ["> " + T('⚠️ A track record is past behaviour. It is not a forecast, and none of '
-                     'this is advice — size it yourself.'), ""]
-
     if m["open_value"] and m["open_book"]:
         top = m["open_book"][0]
         # "Not a wallet that only churns" was a defence against a churn accusation. Now that
@@ -2448,6 +2445,8 @@ def card(m, g, wallet, chain):
         # reader never saw -- and it was editorial either way. The facts stand alone.
         out += [T('It is still holding {0} coins worth {1} — biggest is {2} at {3}.',
                   m["holdings_n"], usd(m["open_value"]), top["sym"], usd(top["usd"])), ""]
+    out += ["> " + T('⚠️ A track record is past behaviour. It is not a forecast, and none of '
+                     'this is advice — size it yourself.'), ""]
     return out
 
 
