@@ -42,6 +42,9 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    " — sparse: {0} rows stretched over {1:.0f} days": " —— 稀疏：{0} 条记录摊在 {1:.0f} 天里",
+    "measured across {0:.0f} days of its trades, not just this week": "这个窗口是拿它 {0:.0f} 天的交易算出来的，远不止报告的 7 天窗口",
+    " (these buys span {0:.0f} days, so this is its habit, not this week)": "（这些买入横跨 {0:.0f} 天，远超报告的 7 天窗口，是它一贯的习惯）",
     "holdings refused: the private key IS configured, but its signature was rejected: {0} — check GMGN_PRIVATE_KEY holds the full PEM (BEGIN/END lines included, no stray whitespace) and that it is the key paired with this GMGN_API_KEY. Adding the variable again will not help. Profit concentration falls back to bucket inference; live book and honeypot check missing": "holdings 被拒：私钥**已经配了**，但签名没通过：{0} —— 检查 GMGN_PRIVATE_KEY 里是不是完整 PEM（含 BEGIN/END 两行、没有多余空格），以及它是否和这个 GMGN_API_KEY 配对。再加一遍这个变量没有用。利润集中度改用盈亏桶推断，当前持仓与蜜罐检查缺失",
     "the money is spread across many coins (top 3 = {0}), so no single copy decides it": "钱摊在很多币上（前 3 个只占 {0}），单独跟中哪一笔都不决定结果",
     "{0} of the money came from just 3 coins — copying it randomly mostly misses them": "{0} 的钱只来自 3 个币 —— 随机跟单大概率跟不到这几个",
@@ -1068,6 +1071,11 @@ def compute(d, latency_s, my_size):
     m["sampled"] = len(trade_rows)
     ts = [f(a.get("timestamp")) for a in trade_rows if f(a.get("timestamp")) > 0]
     m["span_h"] = (max(ts) - min(ts)) / 3600 if len(ts) >= 2 else 0.0
+    # The report's window is 7 days. A sample that reaches beyond it is describing a season
+    # while sitting next to 7d figures, and the reader cannot see that from the numbers.
+    # (72h was the first cut and was wrong: it flagged on-window samples, printing
+    # "measured across 7 days, not just this week" -- a contradiction.)
+    m["span_stale"] = m["span_h"] > 24 * 8
     m["hit_limit"] = len(acts) >= 300
 
     mcaps, gas, buy_costs = [], [], []
@@ -1581,6 +1589,8 @@ def gates(m):
         if m["entry_p50"] > 0 and m["entry_p50"] < 30_000:
             reasons_fail.append(
                 T('median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost. {1} of its entries are under $100k', mc(m['entry_p50']), pct(m['entry_sub100k']))
+                + (T(' (these buys span {0:.0f} days, so this is its habit, not this week)',
+                     m['span_h'] / 24) if m["span_stale"] else "")
             )
         else:
             reasons_ok.append(
@@ -2286,8 +2296,13 @@ def card(m, g, wallet, chain):
         if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
             heads.append(T('get your order in within'))
             cells.append("**" + T('{0} of its buy', dur(m["copy_window_s"])) + "**")
+            if m["span_stale"]:
+                stale_note = T('measured across {0:.0f} days of its trades, not just this week',
+                               m['span_h'] / 24)
         if cells:
             out += md_table(heads, [cells]) + [""]
+            if m["span_stale"] and m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
+                out += [stale_note, ""]
         if m["size_ratio"]:
             out += [(T('the {0} you asked about is {1:.1f}x its own clip of {2} — at that '
                        'size your fills are worse than the ones this record was built on',
@@ -2541,7 +2556,9 @@ def report(wallet, chain, m, g, gaps, brief=False):
     out += [f"- {a}" for a in actions(m, g, card_shown=not blocked)] + [""]
 
     out += ["---", ""]
-    cap = T(' (hit page cap — busiest slice only)') if m["hit_limit"] else ""
+    cap = (T(' (hit page cap — busiest slice only)') if m["hit_limit"]
+           else (T(' — sparse: {0} rows stretched over {1:.0f} days', m['sampled'], m['span_h'] / 24)
+                 if m["span_stale"] else ""))
     out.append("`" + T('sample  {0:,} activity rows / {1} tokens · spans {2:.1f}h{3}',
                        m['sampled'], m['distinct_tokens_sampled'], m['span_h'], cap) + "`")
     if gaps:
