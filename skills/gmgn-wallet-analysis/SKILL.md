@@ -206,7 +206,7 @@ not hold advertises an internal heuristic and undermines it in the same breath. 
 |--------------------|----|-------------|
 | ≥ 50% | not vetoed | `98.4% of realized gains came from size positions like … that netted more than their own cost basis` — the tag is not shown at all |
 | < 50% | ❌ | `only 12% of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume` |
-| unmeasurable (`holdings` unavailable) | ⚪ — **not ❌, not ✅** | `where the profit came from cannot be checked` → verdict 🟡 HOLD OFF, and tell the user to configure `GMGN_PRIVATE_KEY` |
+| unmeasurable (`holdings` unavailable) | ⚪ — **not ❌, not ✅** | `where the profit came from cannot be checked` → verdict 🟡 HOLD OFF, and give the remedy the gap line names — not always "configure `GMGN_PRIVATE_KEY`" |
 
 An unverifiable accusation is not a finding: never manufacture a 🔴 out of a tag you could not
 check. **This rule binds your own prose too** — do not reintroduce the label in your reply when
@@ -365,7 +365,12 @@ a closing summary — the report already leads with the verdict.
 Two things you *should* add after the report, when they apply:
 
 1. If the report's WHAT TO DO NEXT section names tokens the wallet bought in the last 24h, and the user seems ready to act, offer to look at those tokens' holder structure and contract safety. Do not run those unprompted — each is more rate-limit budget.
-2. If a gate came back ⚪, say in one sentence what would make it measurable (usually: configure `GMGN_PRIVATE_KEY` so `portfolio holdings` works).
+2. If a gate came back ⚪, say in one sentence what would make it measurable — **and read the
+   gap line before you say it.** The remedy differs by cause and the report already names it:
+   a missing key needs `GMGN_PRIVATE_KEY` configured; `AUTH_SIGNATURE_INVALID` means the key
+   is already there and was rejected, so telling that reader to add the variable sends them
+   to do something they have done. A `429` needs neither — it needs the reset time. Never
+   append generic auth advice on top of a gap line that says something else.
 
 ## Data plan and rate limits
 

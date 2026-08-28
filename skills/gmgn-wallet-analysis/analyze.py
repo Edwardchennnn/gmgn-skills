@@ -42,6 +42,7 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "holdings refused: the private key IS configured, but its signature was rejected: {0} — check GMGN_PRIVATE_KEY holds the full PEM (BEGIN/END lines included, no stray whitespace) and that it is the key paired with this GMGN_API_KEY. Adding the variable again will not help. Profit concentration falls back to bucket inference; live book and honeypot check missing": "holdings 被拒：私钥**已经配了**，但签名没通过：{0} —— 检查 GMGN_PRIVATE_KEY 里是不是完整 PEM（含 BEGIN/END 两行、没有多余空格），以及它是否和这个 GMGN_API_KEY 配对。再加一遍这个变量没有用。利润集中度改用盈亏桶推断，当前持仓与蜜罐检查缺失",
     "the money is spread across many coins (top 3 = {0}), so no single copy decides it": "钱摊在很多币上（前 3 个只占 {0}），单独跟中哪一笔都不决定结果",
     "{0} of the money came from just 3 coins — copying it randomly mostly misses them": "{0} 的钱只来自 3 个币 —— 随机跟单大概率跟不到这几个",
     "wide enough to place by hand, if you are watching": "这个窗口手动下单来得及，前提是你在盯",
@@ -869,7 +870,16 @@ def collect(chain, wallet, gaps):
             gaps.append(
                 T('holdings refused by the rate limiter (not an auth problem): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing. Re-run once the limit resets.', e)
             )
-        elif "PRIVATE_KEY" in txt or "signature" in txt.lower() or "401" in txt or "403" in txt:
+        elif "SIGNATURE_INVALID" in txt or "signature invalid" in txt.lower():
+            gaps.append(
+                T('holdings refused: the private key IS configured, but its signature was '
+                  'rejected: {0} — check GMGN_PRIVATE_KEY holds the full PEM (BEGIN/END lines '
+                  'included, no stray whitespace) and that it is the key paired with this '
+                  'GMGN_API_KEY. Adding the variable again will not help. Profit '
+                  'concentration falls back to bucket inference; live book and honeypot '
+                  'check missing', e)
+            )
+        elif "PRIVATE_KEY" in txt or "401" in txt or "403" in txt:
             gaps.append(
                 T('holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
             )
