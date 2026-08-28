@@ -1,11 +1,11 @@
 # 💪 seriously good　anonymous address
 
-**19 of the 34 coins it traded are in profit, and only 5 lost more than half — $460.0K banked**
+**$460.0K banked so far — 19 of the 34 coins it traded are in profit, and only 5 lost more than half**
 SOL · wallet is 723 days old · 26 trades a day
 
-> **7-day backtest: $1,000 following it → $1,346 (34.6% in one week)**
+> **It banked $14.2K this week**
 >
-> it made $14.2K itself this week, 🔥 heating up
+> as a copy that is $1,000 → $1,346 (34.6%), 🔥 heating up
 
 ## 🟢 COPYABLE AT SMALL SIZE · all four pass
 
@@ -19,7 +19,7 @@ its 3 best coins made 71.8% of the money · usually enters around $688K
 
 past that, let it go — its cost is lower than yours, and entering late means buying what it is selling
 
-✅ **record is real**　✅ **earning now**　✅ **you can keep up**　✅ **it cuts losses**
+`✅ record is real · ✅ earning now · ✅ you can keep up · ✅ it cuts losses`
 
 ## BOUGHT IN THE LAST 24H
 
@@ -41,7 +41,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — ⚔️ **active winner** · 🐇 intraday (< 24h)
+- **style** — ⚔️ **active winner**，🐇intraday，持仓通常 < 24h
   busy hands that keep the money
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 723-day-old wallet · funded from Binance $12.0K

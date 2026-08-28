@@ -1,11 +1,11 @@
 # 💪 seriously good　@Mirro7777　`📣 KOL`
 
-**162 of the 183 coins it traded are in profit, and only 8 lost more than half — $458.6K banked**
+**$458.6K banked so far — 162 of the 183 coins it traded are in profit, and only 8 lost more than half**
 BSC · wallet is 751 days old · 41,071 followers · 15 trades a day
 
-> **7-day backtest: $1,000 following it → $1,675 (67.5% in one week)**
+> **It banked $161.2K this week**
 >
-> it made $161.2K itself this week, 🔥 heating up — about 12x its long-run pace
+> as a copy that is $1,000 → $1,675 (67.5%), 🔥 heating up — about 12x its long-run pace
 
 ## 🟢 COPYABLE AT SMALL SIZE · all four pass
 
@@ -19,7 +19,7 @@ its 3 best coins made 94.7% of the money · usually enters around $34.7M
 
 past that, let it go — its cost is lower than yours, and entering late means buying what it is selling
 
-✅ **record is real**　✅ **earning now**　✅ **you can keep up**　✅ **it cuts losses**
+`✅ record is real · ✅ earning now · ✅ you can keep up · ✅ it cuts losses`
 
 > ⚠️ a caller — you are probably not the first one in
 
@@ -43,7 +43,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — 🌾 **harvester** · 🐇 intraday (< 24h)
+- **style** — 🌾 **harvester**，🐇intraday，持仓通常 < 24h
   high frequency and strongly profitable — the strongest cell (7d 67.5% + only 4.4% heavy losses)
 - **account** — x.com/Mirro7777
 - **provenance** — ❔ `app_smart_money` · 🔧 GMGN user · 751-day-old wallet · funded from Binance: Hot Wallet 11 $120

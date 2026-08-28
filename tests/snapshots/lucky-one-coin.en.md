@@ -12,7 +12,9 @@ usually enters around $391K
 
 Come back when it has done it again on other tokens.
 
-❌ **record may be faked**　✅ **earning now**　✅ **you can keep up**　❌ **it does not cut losses**
+❌ **record may be faked**　❌ **it does not cut losses**
+
+`✅ earning now · ✅ you can keep up`
 
 ## BOUGHT IN THE LAST 24H
 
@@ -30,7 +32,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — 📈 **steady hand** · 🐇 intraday (< 24h)
+- **style** — 📈 **steady hand**，🐇intraday，持仓通常 < 24h
   normal cadence, positive return, no glaring weakness
 - **account** — no X account bound and no traceable funding source — an anonymous address
 - **provenance** — 533-day-old wallet

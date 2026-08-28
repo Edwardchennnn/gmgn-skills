@@ -12,7 +12,9 @@ usually enters around $68K
 
 Treat its P&L as if it were not there. Watch what it buys; do not use these numbers.
 
-❌ **record may be faked**　✅ **earning now**　❌ **you cannot keep up**　❌ **it does not cut losses**
+❌ **record may be faked**　❌ **you cannot keep up**　❌ **it does not cut losses**
+
+`✅ earning now`
 
 > ⚠️ P&L may be self-dealt, not market-earned
 
@@ -36,7 +38,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — ⚙️ **full-auto grinder** · 🐇 intraday (< 24h)
+- **style** — ⚙️ **full-auto grinder**，🐇intraday，持仓通常 < 24h
   thin margins, huge volume
 - **account** — x.com/aa_AFeng
 - **provenance** — 🔧 GMGN user · 793-day-old wallet · funded from Binance $50.0K

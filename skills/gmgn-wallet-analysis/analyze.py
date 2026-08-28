@@ -42,6 +42,12 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "{0} banked so far — ": "累计落袋 {0} —— ",
+    "as a copy that is {0} → {1}": "折算成跟单是 {0} → {1}",
+    "{0} over the last 7 days": "近 7 天 {0}",
+    "It lost {0} this week": "这一周它亏掉 {0}",
+    "It banked {0} this week": "这一周它落袋 {0}",
+    "，{0}{1}，持仓通常 {2}": "，{0}{1}，持仓通常 {2}",
     "no open position is in profit, so concentration says nothing here": "当前持仓没有一个是赚的，集中度在这里说明不了什么",
     "current book is {0} concentrated ({1} open of {2:,} traded, so this says nothing about the closed record)": "当前持仓集中度 {0}（{1} 个在手 / 共打过 {2:,} 个，说明不了已平仓的部分）",
     "See the first gate below for what failed.": "具体没过哪一条，看下面第一道闸门。",
@@ -1696,6 +1702,10 @@ def verdict(m, g):
 
     # G3 and G4 are independent problems. Reporting only the first one silently drops the
     # other — a wallet you cannot get filled on AND that never cuts needs both sentences.
+    if p["G1"] is None:
+        return ("🟡",
+                T('HOLD OFF · a wash-trading flag we cannot check'),
+                T('Configure GMGN_PRIVATE_KEY and re-run. Do not size off this record first.'))
     if p["G3"] is False and p["G4"] is False:
         return ("🟡",
                 T('WATCH, DO NOT COPY · you cannot get its fills, and it never cuts'),
@@ -1709,10 +1719,6 @@ def verdict(m, g):
                 T('COPY THE BUYS, NOT THE EXITS · it does not cut losses'),
                 T('Take its entries and keep your own stop. Do not wait for it to sell first.'))
 
-    if p["G1"] is None:
-        return ("🟡",
-                T('HOLD OFF · a wash-trading flag we cannot check'),
-                T('Configure GMGN_PRIVATE_KEY and re-run. Do not size off this record first.'))
     if p["G3"] is None or p["G4"] is None:
         return ("🟡",
                 T('HOLD OFF · one of the four was not measured'),
@@ -2196,7 +2202,7 @@ def card(m, g, wallet, chain):
             line = T('{0} of the {1:,} coins it traded are in profit, and only {2} lost more than half',
                      f'{m["winners"]:,}', m["token_num"], f'{m["buckets"]["lt_n50"]:,}')
             if m["realized_all"]:
-                line += T(' — {0} banked', usd(m["realized_all"]))
+                line = T('{0} banked so far — ', usd(m["realized_all"])) + line
         out += [f"**{line}**"]
 
     # ── line 3: what kind of operator, so the record above has a shape.
@@ -2220,11 +2226,17 @@ def card(m, g, wallet, chain):
                           T('it lost {0} itself this week', usd(abs(m["realized_7d"]))))
         second.append(T('{0} {1} — about {2:.0f}x its long-run pace', emo, label, m["pace_x"])
                       if m["pace_x"] else f"{emo} {label}")
-        out += ["> **" + T('7-day backtest: {0} following it → {1} ({2} in one week)',
-                           usd_exact(m["story_stake"]), usd_exact(m["story_out"]),
-                           pct(m["roi_7d"])) + "**",
-                ">", "> " + joinclause(second),
-                ""]
+        conv = T('as a copy that is {0} → {1}', usd_exact(m["story_stake"]),
+                 usd_exact(m["story_out"]))
+        if m["realized_7d"]:
+            lead = (T('It banked {0} this week', usd(abs(m["realized_7d"])))
+                    if m["realized_7d"] > 0 else
+                    T('It lost {0} this week', usd(abs(m["realized_7d"]))))
+            tail = [conv + T(' ({0})', pct(m["roi_7d"])), second[-1]]
+        else:
+            lead = T('{0} over the last 7 days', pct(m["roi_7d"]))
+            tail = [conv, second[-1]]
+        out += ["> **" + lead + "**", ">", "> " + joinclause(tail), ""]
 
     # ── line 5: the verdict. It is the turn, not the opening -- and it is never optional.
     out += [f"## {emoji} {headline}", ""]
@@ -2266,9 +2278,12 @@ def card(m, g, wallet, chain):
     # Read the gates. These were hardcoded to "✓" in the first cut, which put
     # "✓ the record is real" on a card whose verdict was DO NOT COPY *because* that check
     # failed — the card asserting the opposite of its own headline.
-    out += ["　".join(("✅ " + f"**{T(GATE_PLAIN[k][0])}**") if g[k][0]
-                      else ("❌ " + f"**{T(GATE_PLAIN_NEG[k])}**")
-                      for k in ("G1", "G2", "G3", "G4")), ""]
+    bad = [k for k in ("G1", "G2", "G3", "G4") if g[k][0] is False]
+    ok = [k for k in ("G1", "G2", "G3", "G4") if g[k][0] is True]
+    if bad:
+        out += ["　".join("❌ **" + T(GATE_PLAIN_NEG[k]) + "**" for k in bad), ""]
+    if ok:
+        out += ["`" + " · ".join("✅ " + T(GATE_PLAIN[k][0]) for k in ok) + "`", ""]
 
     if flags:
         out += ["> ⚠️ " + flags[0]["meaning"], ""]
@@ -2352,7 +2367,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
     if st:
         head = f"{st[0]} **{st[1]}**"
         if sp:
-            head += f" · {sp[0]} {sp[1]}" + T(" ({0})", sp[2])
+            head += T('，{0}{1}，持仓通常 {2}', sp[0], sp[1], sp[2])
         rows_id.append((T('style'), [head, st[2]]))
 
     if m["twitter_name"] or m["twitter"]:

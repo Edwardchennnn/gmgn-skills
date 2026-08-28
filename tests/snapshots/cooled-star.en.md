@@ -1,11 +1,11 @@
 # 📉 was good, not any more　anonymous address
 
-**6 of the 21 coins it traded are in profit, and only 6 lost more than half — $2.40M banked**
+**$2.40M banked so far — 6 of the 21 coins it traded are in profit, and only 6 lost more than half**
 SOL · wallet is 943 days old · 14 trades a day
 
-> **7-day backtest: $1,000 following it → $730 (-27.0% in one week)**
+> **It lost $12.4K this week**
 >
-> it lost $12.4K itself this week, 💀 broken down
+> as a copy that is $1,000 → $730 (-27.0%), 💀 broken down
 
 ## 🔴 DO NOT COPY · it has stopped making money
 
@@ -15,7 +15,9 @@ usually enters around $1.2M
 
 Re-run in 7 days to see whether it recovers or keeps sliding.
 
-✅ **record is real**　❌ **not earning now**　✅ **you can keep up**　✅ **it cuts losses**
+❌ **not earning now**
+
+`✅ record is real · ✅ you can keep up · ✅ it cuts losses`
 
 ## BOUGHT IN THE LAST 24H
 
@@ -37,7 +39,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — 💸 **fee donor** · 🐇 intraday (< 24h)
+- **style** — 💸 **fee donor**，🐇intraday，持仓通常 < 24h
   real volume, and the money went on-chain
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 943-day-old wallet

@@ -1,11 +1,11 @@
 # 😐 unremarkable　anonymous address　`🎯 sniper`
 
-**30 of the 74 coins it traded are in profit, and only 30 lost more than half — $410.0K banked**
+**$410.0K banked so far — 30 of the 74 coins it traded are in profit, and only 30 lost more than half**
 BSC · wallet is 513 days old · 22,400 followers · 159 trades a day
 
-> **7-day backtest: $1,000 following it → $1,296 (29.6% in one week)**
+> **It banked $28.4K this week**
 >
-> it made $28.4K itself this week, 🔥 heating up
+> as a copy that is $1,000 → $1,296 (29.6%), 🔥 heating up
 
 ## 🟡 WATCH, DO NOT COPY · you cannot get its fills, and it never cuts
 
@@ -19,7 +19,9 @@ its 3 best coins made 99.9% of the money · usually enters around $63K
 
 past that, let it go — its cost is lower than yours, and entering late means buying what it is selling
 
-✅ **record is real**　✅ **earning now**　❌ **you cannot keep up**　❌ **it does not cut losses**
+❌ **you cannot keep up**　❌ **it does not cut losses**
+
+`✅ record is real · ✅ earning now`
 
 > ⚠️ enters far too early for you to match its price
 
@@ -43,7 +45,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — ⚙️ **full-auto grinder** · ⚡ flash flipper (< 60s)
+- **style** — ⚙️ **full-auto grinder**，⚡flash flipper，持仓通常 < 60s
   thin margins, huge volume
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 513-day-old wallet · funded from Bybit $1.2K

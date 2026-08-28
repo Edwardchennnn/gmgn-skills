@@ -12,7 +12,7 @@
 
 ## 👤 WHO IT IS
 
-- **style** — 🌾 **harvester** · 🐇 intraday (< 24h)
+- **style** — 🌾 **harvester**，🐇intraday，持仓通常 < 24h
   high frequency and strongly profitable — the strongest cell (7d 387.0% + 78.0% hit rate)
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 363-day-old wallet · funded from 0xfeed… · launched 37 tokens (5 graduated · 13.5%)

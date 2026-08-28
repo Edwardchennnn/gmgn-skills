@@ -1,11 +1,11 @@
 # 💪 seriously good　anonymous address
 
-**225 of the 410 coins it traded are in profit, and only 55 lost more than half — $1.90M banked**
+**$1.90M banked so far — 225 of the 410 coins it traded are in profit, and only 55 lost more than half**
 SOL · wallet is 413 days old · 683 trades a day
 
-> **7-day backtest: $1,000 following it → $1,340 (34.0% in one week)**
+> **It banked $61.0K this week**
 >
-> it made $61.0K itself this week, 🔥 heating up
+> as a copy that is $1,000 → $1,340 (34.0%), 🔥 heating up
 
 ## 🟡 WATCH, DO NOT COPY · you cannot get its fills
 
@@ -19,7 +19,9 @@ usually enters around $20K
 
 past that, let it go — its cost is lower than yours, and entering late means buying what it is selling
 
-✅ **record is real**　✅ **earning now**　❌ **you cannot keep up**　✅ **it cuts losses**
+❌ **you cannot keep up**
+
+`✅ record is real · ✅ earning now · ✅ it cuts losses`
 
 ## BOUGHT IN THE LAST 24H
 
@@ -39,7 +41,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — ⚙️ **full-auto grinder** · ⚡ flash flipper (< 60s)
+- **style** — ⚙️ **full-auto grinder**，⚡flash flipper，持仓通常 < 60s
   thin margins, huge volume
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 413-day-old wallet · funded from Unknown

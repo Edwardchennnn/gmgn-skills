@@ -1,11 +1,11 @@
 # 😐 unremarkable　anonymous address
 
-**11 of the 26 coins it traded are in profit, and only 12 lost more than half — $210.0K banked**
+**$210.0K banked so far — 11 of the 26 coins it traded are in profit, and only 12 lost more than half**
 SOL · wallet is 623 days old · 11 trades a day
 
-> **7-day backtest: $1,000 following it → $1,210 (21.0% in one week)**
+> **It banked $6.4K this week**
 >
-> it made $6.4K itself this week, ➡️ steady
+> as a copy that is $1,000 → $1,210 (21.0%), ➡️ steady
 
 ## 🟡 COPY THE BUYS, NOT THE EXITS · it does not cut losses
 
@@ -19,7 +19,9 @@ its 3 best coins made 89.6% of the money · usually enters around $610K
 
 past that, let it go — its cost is lower than yours, and entering late means buying what it is selling
 
-✅ **record is real**　✅ **earning now**　✅ **you can keep up**　❌ **it does not cut losses**
+❌ **it does not cut losses**
+
+`✅ record is real · ✅ earning now · ✅ you can keep up`
 
 It is still holding 9 coins worth $29.8K — biggest is WIN1 at $14.0K.
 
@@ -35,7 +37,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — ⚔️ **active winner** · 🧭 swing (1–7 days)
+- **style** — ⚔️ **active winner**，🧭swing，持仓通常 1–7 days
   busy hands that keep the money
 - **account** — no X account bound and no traceable funding source — an anonymous address
 - **provenance** — 623-day-old wallet

@@ -12,7 +12,7 @@
 
 ## 👤 WHO IT IS
 
-- **style** — ⚔️ **active winner** · 🐇 intraday (< 24h)
+- **style** — ⚔️ **active winner**，🐇intraday，持仓通常 < 24h
   busy hands that keep the money
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 🔧 GMGN user · 583-day-old wallet · funded from OKX $3.0K
