@@ -41,23 +41,515 @@ import time
 # Templates use positional placeholders (`{0}`, `{1}`) rather than named ones, because the
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
-LANG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lang")
+ZH = {
+    "and ": "而且",
+    "but ": "但",
+    " · {0}": " · {0}",
+    "it lost {0} itself": "它自己这周亏掉 {0}",
+    "it banked {0} itself": "它自己这周落袋 {0}",
+    "{0} in one week: {1} following it becomes {2}": "一周 {0}：{1} 跟着它走会变成 {2}",
+    "Read the data gap below and fix what it names, then re-run.": "看下面的数据缺口，按它写的原因处理，然后重跑。",
+    "Its activity sample is too thin to judge reachability — this wallet barely trades, so there is nothing to fix. Watch it until it does.": "它的交易记录太少，判断不了你能不能吃到 —— 这个钱包几乎不交易，没什么可补的。等它动起来再看。",
+    " — sparse: {0} rows stretched over {1:.0f} days": " —— 稀疏：{0} 条记录摊在 {1:.0f} 天里",
+    "measured across {0:.0f} days of its trades, not just this week": "这个窗口是拿它 {0:.0f} 天的交易算出来的，远不止报告的 7 天窗口",
+    " (these buys span {0:.0f} days, so this is its habit, not this week)": "（这些买入横跨 {0:.0f} 天，远超报告的 7 天窗口，是它一贯的习惯）",
+    "holdings refused: the private key IS configured, but its signature was rejected: {0} — check GMGN_PRIVATE_KEY holds the full PEM (BEGIN/END lines included, no stray whitespace) and that it is the key paired with this GMGN_API_KEY. Adding the variable again will not help. Profit concentration falls back to bucket inference; live book and honeypot check missing": "holdings 被拒：私钥**已经配了**，但签名没通过：{0} —— 检查 GMGN_PRIVATE_KEY 里是不是完整 PEM（含 BEGIN/END 两行、没有多余空格），以及它是否和这个 GMGN_API_KEY 配对。再加一遍这个变量没有用。利润集中度改用盈亏桶推断，当前持仓与蜜罐检查缺失",
+    "the money is spread across many coins (top 3 = {0}), so no single copy decides it": "钱摊在很多币上（前 3 个只占 {0}），单独跟中哪一笔都不决定结果",
+    "{0} of the money came from just 3 coins — copying it randomly mostly misses them": "{0} 的钱只来自 3 个币 —— 随机跟单大概率跟不到这几个",
+    "wide enough to place by hand, if you are watching": "这个窗口手动下单来得及，前提是你在盯",
+    "under a minute — you need automated copy-trading for this; clicking by hand you will not make it": "不到一分钟 —— 这个节奏得用自动跟单，手点是赶不上的",
+    ", bought at {0} mcap": "，买在市值 {0}",
+    "{0} banked so far — ": "累计落袋 {0} —— ",
+    "as a copy that is {0} → {1}": "折算成跟单是 {0} → {1}",
+    "{0} over the last 7 days": "近 7 天 {0}",
+    "It lost {0} this week": "这一周它亏掉 {0}",
+    "It banked {0} this week": "这一周它落袋 {0}",
+    ", {0}{1}, holds for {2} typically": "，{0}{1}，持仓通常 {2}",
+    "no open position is in profit, so concentration says nothing here": "当前持仓没有一个是赚的，集中度在这里说明不了什么",
+    "current book is {0} concentrated ({1} open of {2:,} traded, so this says nothing about the closed record)": "当前持仓集中度 {0}（{1} 个在手 / 共打过 {2:,} 个，说明不了已平仓的部分）",
+    "See the first gate below for what failed.": "具体没过哪一条，看下面第一道闸门。",
+    "NO READ · the track record did not check out": "看不出来 · 战绩没通过核验",
+    "DO NOT COPY · one position carried the whole result": "别跟 · 全靠一个仓位撑起来的",
+    "{0} of the {1:,} coins it traded are in profit, and only {2} lost more than half": "它打过的 {1:,} 个币里，{0} 个现在是赚的，只有 {2} 个亏超一半",
+    "{0:,} tokens, {1:,} in profit, {2}, {3}": "{0:,} 币 · {1:,} 个在赚 · {2} · {3}",
+    " ({0:,} bought and not yet sold, so they have no realized result)": "（其中 {0:,} 个买了还没卖，没有已实现结果）",
+    "{0} win rate on what it has sold": "卖掉的部分胜率 {0}",
+    "wallet is {0:.0f} days old": "钱包开了 {0:.0f} 天",
+    "it does not cut losses": "它不砍仓",
+    "you cannot keep up": "你跟不上",
+    "not earning now": "现在不赚了",
+    "record may be faked": "战绩可能是刷的",
+    "was good, not any more": "以前很强，现在不行了",
+    "it lost {0} itself this week": "它自己这周亏了 {0}",
+    "7-day backtest: {0} following it → {1} ({2} in one week)": "近 7 天回测：{0} 跟着它走 → {1}（一周 {2}）",
+    " — {0} banked": " —— 累计落袋 {0}",
+    "{0} of the {1:,} coins it traded made money, and only {2} lost more than half": "它打过的 {1:,} 个币里，{0} 个赚钱，只有 {2} 个亏超一半",
+    "{0} traded, {1} of them lost money — {2} gone in total": "打了 {0}，其中 {1} 个是亏的 —— 总共亏掉 {2}",
+    "{0:,} coins": "{0:,} 个币",
+    "anonymous address": "匿名地址",
+    "unremarkable": "平平无奇",
+    "solid": "稳",
+    "seriously good": "真高手",
+    "top-tier record": "顶级战绩",
+    "loses money": "亏钱的号",
+    "record unreadable": "战绩读不出来",
+    "{0:,} tokens, {1} profitable ({2}), {3}": "{0:,} 币 · {1} 盈利（{2}）· {3}",
+    "{0} realized all-time — ": "累计落袋 {0} —— ",
+    "it has traded {0:,} coins, {1} of them profitably": "交易过 {0:,} 个币，{1} 是赚钱的",
+    "Data pull failed, no verdict possible: {0}\nCheck `gmgn-cli config --check` first; on 429 wait for the stated reset; on 401/403 with valid credentials check IPv6 (gmgn-cli is IPv4 only).": "取数失败，无法出结论：{0}\n先确认 gmgn-cli config --check 通过；429 请按提示的 reset 时间再试；401/403 且凭证正确时先排查 IPv6（gmgn-cli 只走 IPv4）。",
+    "  BOUGHT IN THE LAST 24H": "  它 24 小时内刚买了",
+    "  HOW TO FOLLOW": "  怎么跟",
+    "  WHAT TO DO": "  怎么办",
+    "  bought in 24h: ": "  24h 买入：",
+    "  live book: unavailable (see data gaps)": "  持仓：未取到（见数据缺口）",
+    "  profit concentration {0} (largest winner's share of all gains)": "  利润集中度 {0}（最大盈利仓位占全部盈利）",
+    "  {0} positions · {1} total": "  持仓 {0} 个 · 合计 {1}",
+    "  {0} {1} · 24h bought {2} / sold {3}": "  {0} {1} · 24h 买 {2} / 卖 {3}",
+    " (hit page cap — busiest slice only)": "（触到分页上限，只覆盖最活跃的一段）",
+    " ({0})": "（{0}）",
+    " over {0}": "，历时 {0}",
+    " · fees {0} = {1} of profit": " · 手续费 {0}（{1}）",
+    " · your {0} = {1:.1f}x its clip": " · 你的 {0} = 它单笔的 {1:.1f} 倍",
+    " · {0} on paper": " · 浮盈 {0}",
+    " — {0} realized all-time": " —— 累计落袋 {0}",
+    " ≈ {0} of profit": " ≈ 吃掉利润 {0}",
+    " ≈ {0} of profit (estimated)": " · 手续费约 {0}（估算）",
+    ", ": "、",
+    "1d {0} · 7d {1} · 30d {2} · all {3}": "1d {0} · 7d {1} · 30d {2} · 全期 {3}",
+    "1–7 days": "1 – 7 天",
+    "7-day backtest: {0} following it → {1}": "近 7 天回测：{0} 跟着它走 → {1}",
+    "7d {0}": "7d {0}",
+    "7d {0} + {1}": "7d {0} + {1}",
+    "< 24h": "< 24 小时",
+    "< 60s": "< 60 秒",
+    "> 7 days": "> 7 天",
+    "AUTHENTICITY": "真实性",
+    "Are the contracts on {0} safe — honeypot, liquidity, mint authority?": "{0} 的合约安全吗 —— 有没有貔貅、流动性够不够、增发权限在谁手上？",
+    "BullX user": "BullX 用户",
+    "CLEARED": "已排除",
+    "COPY THE BUYS, NOT THE EXITS · it does not cut losses": "跟买可以，跟卖不行 · 它不砍仓",
+    "COPYABLE AT SMALL SIZE · all four pass": "可以小仓跟 · 四项全过",
+    "CURRENCY": "时效性",
+    "Check back in a week to see whether it is still running this hot?": "一周后再看一次，它还这么热吗？",
+    "Check the chips on these coins yourself before following. All of this measures behaviour that already happened — not a prediction, not advice.": "跟单前请自己查一遍这几个币的筹码。以上全部是已发生行为的度量，不是预测，也不是投资建议。",
+    "Come back when it has done it again on other tokens.": "等它在更多币上再赚一次，再回来看。",
+    "Configure GMGN_PRIVATE_KEY and re-run. Do not size off this record first.": "配好 GMGN_PRIVATE_KEY 再跑一次。核验前别按这份战绩下注。",
+    "Confirm the chain: base58 → sol, 0x → bsc/base/eth.": "确认链选对了：base58 → sol，0x → bsc/base/eth。",
+    "Confirm this is a wallet, not a token contract — a contract queries fine and returns zeros everywhere, which looks like an answer and is not one.": "确认这是钱包地址而不是代币合约（代币合约也能查通，但每项都返回 0，看起来像答案，其实不是）。",
+    "Confirm this is a wallet, not a token contract. If it is a wallet, wait for real trades.": "先确认你给的是钱包地址而不是代币合约；如果确实是钱包，等它有真实买卖记录再看。",
+    "Copying it is a race on latency, not on judgement": "跟单要拼手速，人手做不到",
+    "DATA GAPS (unevaluated ≠ passed):": "数据缺口（未评估 ≠ 通过）：",
+    "DATA GAPS:": "数据缺口：",
+    "DO NOT COPY · it has stopped making money": "别跟 · 它最近已经不赚了",
+    "DO NOT COPY · it is a launcher trading its own tokens": "别跟 · 它是发币方，赚的是自己发的币",
+    "DO NOT COPY · one token made all the money": "别跟 · 全靠一个币赚钱，复制不了",
+    "DO NOT COPY · the profit is self-dealt": "别跟 · 它的盈利是自己刷出来的",
+    "DO THIS  ": "怎么办  ",
+    "Do not mirror it. Treat it as a signal source: note what and at what mcap, then enter on your own terms.": "别抄单。把它当信号源：它买什么、在什么市值买，自己二次筛选后按自己的节奏进。",
+    "Do not read its trading — what matters is how many of the tokens it launched survived. Want me to look at its launch record?": "别看它的交易能力 —— 关键是它发过的币活下来几个。需要我帮你查它的发盘记录吗？",
+    "Do not read its trading. Check how many of its launches survived (gmgn-wallet-score).": "别看它的交易能力，去查它发的币活下来几个（gmgn-wallet-score）。",
+    "EVIDENCE": "判断依据",
+    "Every claim above is backed by a number. Below: what each of the four checks tested, and the number that decided it.": "上面每一个结论都有数据支撑。下面是四项检查各自查了什么，以及决定它的那个数。",
+    "Every claim above is backed by a number. The evidence is below: what each of the four checks actually tested, and the raw figures.": "上面每一个结论都有数据支撑。判断依据在下面：四项检查各自查了什么，以及全部原始数字。",
+    "Everything above measures behaviour that already happened. Not a prediction, not advice.": "以上全部是已发生行为的度量，不是预测，也不是投资建议。",
+    "Fill in the missing data first — usually by configuring GMGN_PRIVATE_KEY.": "先补数据（通常是配置 GMGN_PRIVATE_KEY），再决定。",
+    "First confirm this is a wallet, not a token contract. Three checks below.": "先确认这是钱包地址，不是代币合约。下面有三步检查。",
+    "For 0-100 scores and a latency/slippage backtest, use gmgn-wallet-score.": "要 0–100 评分和延迟/滑点回测，接 gmgn-wallet-score",
+    "GMGN flags it as {0} — {1}": "GMGN 标记「{0}」—— {1}",
+    "GMGN flags this wallet as {0}, and it cannot be checked (holdings unavailable) — the {1} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run": "GMGN 标记「{0}」，但无法核验（holdings 不可用）—— 这 7 天 {1} 的盈亏既没被证伪也没被证实，配好 GMGN_PRIVATE_KEY 后重跑",
+    "GMGN flags this wallet as {0}, and the local check agrees: only {1} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume. The {2} realized P&L cannot be taken at face value": "GMGN 标记「{0}」，且本地核验支持它：只有 {1} 的已实现盈利来自净赚超过自身成本的仓位，其余是来回对敲的量。这 7 天 {2} 的已实现盈亏不可采信",
+    "GMGN user": "GMGN 用户",
+    "GMGN's label, refuted locally: {0} of realized gains came from positions netting more than their own cost basis — self-dealing cannot produce that": "GMGN 的标记，核验不成立：{0} 的盈利来自净赚超过自身成本的仓位",
+    "GMGN's own positive marker": "GMGN 官方正向标记",
+    "Get a live quote before sending — want me to price it?": "下单前先看实时报价 —— 需要我帮你查吗？",
+    "HOLD OFF · a wash-trading flag we cannot check": "先别动 · 有刷量嫌疑，但查不了",
+    "HOLD OFF · one of the four was not measured": "先别动 · 四项里有一项没测到",
+    "If it is a wallet, check whether it only ever received transfers or airdrops rather than trading. Want me to look at what it holds?": "如果确实是钱包，要看它是不是只收过转账/空投而没真交易过。需要我帮你看它持有什么吗？",
+    "If it is a wallet, use gmgn-portfolio holdings to see whether it only ever received transfers or airdrops.": "确认是钱包后，用 gmgn-portfolio holdings 看它是否只收过转账/空投。",
+    "If you copy it, your order must land within {0} of its buy — otherwise skip the trade.": "如果要跟，你的下单要落在它买入后 {0}以内，否则不要进。",
+    "If you had followed it with {0} seven days ago": "如果 7 天前跟了它 {0}",
+    "If you want this scored 0-100 with your own latency and slippage modelled in, want me to run that backtest?": "想要 0–100 打分、并把你自己的延迟和滑点算进去，需要我帮你跑一遍回测吗？",
+    "Is this address a wallet at all, or a token contract?": "这个地址到底是钱包还是代币合约？",
+    "It bought {0} in the last 24h — run gmgn-token / gmgn-holder-analysis on those before following it in.": "先用 gmgn-token / gmgn-holder-analysis 查 {0} 的筹码，别只因为它买了就买",
+    "It bought {0} in the last 24h. Worth checking the holder structure on those first — who is holding, at what cost, and whether the contract is safe. Want me to analyse them?": "它 24 小时内买了 {0}。建议先看这几个币的筹码结构 —— 谁在持有、成本多少、合约是否安全。需要我帮你分析吗？",
+    "It holds {0} coins — list the whole book with costs?": "它持有 {0} 个币，把完整持仓和成本列出来看看？",
+    "It is still holding {0} coins worth {1} — biggest is {2} at {3}.": "它手上还压着 {0} 个币、共 {1} —— 最大一笔 {2} {3}。",
+    "It is still holding {0} coins worth {1} — biggest is {2} at {3}. Not a wallet that only churns.": "它手上还压着 {0} 个币、共 {1} —— 最大一笔 {2} {3}。不是只刷量的号。",
+    "It is still holding {0} coins — which of those has it not sold yet?": "它还持有 {0} 个币，哪些是还没卖的？",
+    "It launched {0} tokens — how many of them are still alive?": "它发盘情况怎么样 —— 发过 {0} 个币，现在还活着几个？",
+    "Its money is historical. Re-run this in 7 days to see whether form recovers or keeps sliding.": "它的钱是过去赚的。7 天后再跑一次这份分析，看是回暖还是继续退。",
+    "Its profit figures are not trustworthy — treat the track record as unknown": "它的盈利数字不可采信 —— 把这份战绩当作未知",
+    "KOL": "KOL",
+    "MEV bot": "MEV 机器人",
+    "Maestro bot user": "Maestro 用户",
+    "NEXT": "下一步",
+    "NO CARD  ": "无决策卡  ",
+    "NO READ · no trades in 7 days": "看不出来 · 这 7 天没有交易",
+    "NO READ · only {0} tokens traded": "看不出来 · 只交易过 {0} 个币",
+    "Note what it buys and at what market cap, then enter on your own terms.": "看它买什么、在什么市值买，然后按你自己的节奏进。",
+    "P&L": "盈亏",
+    "P&L may be self-dealt, not market-earned": "盈亏可能来自自我对敲，不是市场收益",
+    "PepeBoost user": "PepeBoost 用户",
+    "Photon user": "Photon 用户",
+    "Quote through gmgn-swap before sending.": "下单前先用 gmgn-swap 看报价。",
+    "REACHABILITY": "可及性",
+    "Re-run in 7 days to see whether it recovers or keeps sliding.": "7 天后再跑一次，看是回暖还是继续掉。",
+    "SURVIVABILITY": "生存性",
+    "Score it 0-100 with my own latency and slippage modelled in?": "跟单评分：给它打个 0–100 分，把我自己的延迟和滑点算进去？",
+    "Set your own stop — it does not cut, and riding it to the end means riding it to zero.": "自己设止损 —— 它不砍仓，你跟到底就是陪它归零。",
+    "Start at ≤ {0} (it averages {1} per buy; above its own size your slippage is worse than its). Quote through gmgn-swap before sending.": "起步规模 ≤ {0}（它自己单笔均 {1}；超过它的单笔规模，你的滑点会比它差）。下单前用 gmgn-swap 看报价。",
+    "Start at ≤ {0}, landing within {1} of its buy.": "起步 ≤ {0}，下单要在它买入后 {1}以内。",
+    "Start at ≤ {0}.": "起步 ≤ {0}。",
+    "THE FOUR GATES": "四道闸门",
+    "Take its entries and keep your own stop. Do not wait for it to sell first.": "跟它进场，止损用你自己的。别等它先卖。",
+    "The 0-200% band is not a win count. It holds {0} tokens while the win rate implies about {1} winners — the other {2} were bought and have no realized result yet, so they sit at 0% inside that band. Read the win rate for how often it wins, and this chart only for the shape of the tail.": "0–200% 这一档不是「赢了多少个」。它装了 {0} 个币，而胜率隐含的赢家只有约 {1} 个 —— 另外 {2} 个是买了还没卖、没有已实现结果，所以停在这一档的 0% 边缘。想知道它多久赢一次看胜率，这张图只看尾部形状。",
+    "The sample is too small for any ratio to hold. Watchlist it until it has traded 5.": "样本太小，任何比率都不成立。加观察名单，满 5 个币再看。",
+    "This is a launcher, so its trading record is partly self-authored. What matters is how many of its own tokens survived and how they behaved. Want me to look at its launch record?": "这是个发币方钱包，它的战绩有一部分是自己写的。关键是它发的币活下来几个、表现如何。需要我帮你查它的发盘记录吗？",
+    "This is a launcher. Do not score its trading — check its launch survival and security record (gmgn-wallet-score, Dev angle).": "这是发币方。别评估它的“交易能力”，去查它历史发币的毕业率和安全性（gmgn-wallet-score 的 Dev 角度）。",
+    "Treat its P&L as if it were not there. Watch what it buys; do not use these numbers.": "当它的盈亏数字不存在。想看它买什么可以，别拿这个当依据。",
+    "Use it only as a signal of what to look at. If you enter, set your own stop.": "只当信号源看它买什么。真要自己进，止损必须你自己设。",
+    "WATCH, DO NOT COPY · you cannot get its fills": "能看不能抄 · 你抢不到它的价",
+    "WATCH, DO NOT COPY · you cannot get its fills, and it never cuts": "能看不能抄 · 你抢不到它的价，它也不砍仓",
+    "What do the chips look like on {0} — who is holding, and at what cost?": "{0} 的筹码分析 —— 谁在持有、成本多少？",
+    "What shape is {0} in right now — still climbing, or already breaking down?": "{0} 的走势和形态怎么样 —— 还在涨，还是已经开始崩？",
+    "Whatever size you use, keep it at or under {0} — half of the {1} this wallet puts on a buy. Past its own size your fill is worse than the ones its record was built on, so its numbers stop describing you.": "无论你打算下多大，都压在 {0} 以内 —— 那是它单笔 {1} 的一半。超过它自己的规模，你的成交价就比撑起这份战绩的那些差，它的数字对你不再成立。",
+    "Which coins actually made this week's money?": "这一周的钱到底是哪几个币赚的？",
+    "Who else is buying {0} — any smart money or KOLs in there?": "还有谁在买 {0} —— 里面有聪明钱或 KOL 吗？",
+    "You would need to land inside {0} — not achievable by hand": "你要在 {0}内落单才可能吃到，人手做不到",
+    "__clause_separator__": "，",
+    "__list_separator__": "、",
+    "a caller — you are probably not the first one in": "它在公开喊单，你大概不是第一个进的",
+    "a public identity with {0:,} followers trading small caps — copy flow has already moved the price before your order": "公开身份 {0:,} 粉丝且主打小市值 —— 跟单盘在你之前就已经推过价",
+    "account": "账号",
+    "accumulating": "在建仓",
+    "active winner": "P小将",
+    "active, but it has not turned into anything": "有在做，但没做出结果",
+    "activity empty — copy window, entry band and scale-in/out shape were not evaluated": "activity 为空 —— 可跟窗口、入场市值带、加仓/出货姿势本次均未评估",
+    "activity sample too thin — reachability not evaluated": "activity 样本不足，可及性未评估",
+    "all time": "全期",
+    "all {0}": "全期 {0}",
+    "almost never trades, and lands it when it does": "极少出手，出手就中",
+    "also bought in 24h": "24 小时内还买了",
+    "an information edge you cannot replicate": "信息优势不可复制",
+    "average buy {0} — thin enough that fees and slippage eat the edge": "平均单笔买入 {0} —— 边际薄到手续费和滑点就吃掉了",
+    "badly down": "重伤",
+    "band": "区间",
+    "bleeding out": "连败突击兵",
+    "blue-verified": "蓝V",
+    "bluechip holder": "蓝筹持有者",
+    "bot-tier, unfollowable": "机器级，跟不动",
+    "both 7d and 30d are negative ({0} / {1})": "近 7d 和 30d 都是负的（{0} / {1}）",
+    "bought in 24h": "24 小时内买入",
+    "broken down": "崩坏",
+    "builds its position in the launch block": "与发币方同区块建仓",
+    "bundler": "打包买入",
+    "busy hands that keep the money": "手勤、赚得住，典型的活跃盈利户",
+    "bystander": "观望者",
+    "cadence": "节奏",
+    "can you get filled": "你吃得到吗",
+    "cannot tell": "无法判断",
+    "charging in fast with a heavy tail of big losses": "高频硬冲，重亏占比高",
+    "conclusion": "结论",
+    "cooling off": "退潮",
+    "copy flow already moved the price; your slippage is worse": "跟单盘已推过价，你的滑点更差",
+    "copy window {0}": "可跟窗口 {0}",
+    "copy window {0} (your latency budget {1})": "可跟窗口 {0}（延迟预算 {1}）",
+    "cost": "成本",
+    "cost {0} · {1} sells": "成本 {0} · 卖 {1} 次",
+    "cuts losses": "会砍仓",
+    "d": " 天",
+    "deep underwater": "深套户",
+    "distributing": "在出货",
+    "does it cut losses": "它会砍仓吗",
+    "does not cut": "不砍仓",
+    "earning now": "现在在赚",
+    "engine": "利润引擎",
+    "enters far too early for you to match its price": "极早入场，你拿不到同价",
+    "entry": "入场",
+    "entry mcap p25/p50/p75 = {0}/{1}/{2}": "入场市值 p25/p50/p75 = {0}/{1}/{2}",
+    "entry mcap p25/p50/p75 = {0}/{1}/{2} · {3} of entries under $100k": "入场市值 p25/p50/p75 = {0}/{1}/{2} · {3} 的入场在 $100K 以下",
+    "entry {0}": "入场 {0}",
+    "fee donor": "手续费贡献者",
+    "fees took {0} of the profit ({1} paid vs {2} realized), leaving {3} net per trade — no room for your slippage": "手续费吃掉了利润的 {0}（实付 {1} vs 已实现 {2}），单笔只剩 {3} —— 你的滑点没有空间",
+    "flash flipper": "秒杀流",
+    "flat": "打平",
+    "form": "手感",
+    "fresh wallet": "新钱包",
+    "friction": "摩擦",
+    "friction eats the bulk": "摩擦吃掉大头",
+    "friction manageable": "摩擦可控",
+    "full-auto grinder": "全自动P机",
+    "funded from {0}": "启动资金来自 {0}",
+    "gas burner": "烧Gas机",
+    "gas is an estimated {0} of the profit ({1:,} trades × {2} ≈ {3} vs {4} realized), leaving {5} net per trade — no room for your slippage": "估算 gas 吃掉利润的 {0}（{1:,} 笔 × 均 {2} ≈ {3} vs 已实现 {4}），单笔净赚只有 {5} —— 你的滑点没有空间",
+    "get your order in within": "下单要在它买入后",
+    "get your order in within {0} of its buy": "下单要在它买入后 {0}以内",
+    "h": " 小时",
+    "harvester": "收割机",
+    "has held assets that survived": "持有过存活下来的资产",
+    "heating up": "升温",
+    "heavily followed": "被大量跟单",
+    "heavy-loss share {0} ({1:,}/{2:,} down >50%)": "重亏 {0}（{1:,}/{2:,} 亏超 50%）",
+    "high freq, needs tooling": "高频，需脚本",
+    "high frequency and strongly profitable — the strongest cell": "高频且强盈，这一格最强",
+    "high frequency, high friction; the loss is mostly cost": "高频高摩擦，净亏主要亏在成本",
+    "holding": "持仓",
+    "holdings came back empty — live book, profit concentration and the honeypot check were all skipped": "holdings 返回空 —— 当前持仓、利润集中度、蜜罐检查均未评估",
+    "holdings failed: {0} — profit concentration falls back to bucket inference; live book and honeypot check missing": "holdings 取数失败：{0} —— 利润集中度改用盈亏桶推断，当前持仓与蜜罐检查缺失",
+    "holdings refused by the rate limiter (not an auth problem): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing. Re-run once the limit resets.": "holdings 被限流拒绝（不是鉴权问题）：{0} —— 利润集中度改用盈亏桶推断，当前持仓与蜜罐检查缺失，等限流恢复后重跑即可",
+    "holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing": "holdings 不可用（需要 GMGN_PRIVATE_KEY 的 critical auth）：{0} —— 利润集中度改用盈亏桶推断，当前持仓与蜜罐检查缺失",
+    "honeypot flag checked on {0} positions, none hit": "查了 {0} 个持仓的蜜罐标记，无命中",
+    "honeypot flag checked on {0} positions: {1} hit ({2}) but each is refuted by its own fill history — one has {3:,} completed sells, and a honeypot cannot be sold. These are transfer-restricted tokenised-stock / RWA contracts — false positives": "已检查 {0} 个持仓的蜜罐标记：{1} 个命中（{2}）但都被自己的成交记录否掉 —— 其中一个已卖出 {3:,} 次，蜜罐是卖不出去的，这批是转账受限的代币化股票/RWA，误报",
+    "hunts on {0}": "打 {0}",
+    "identity keeps churning; past reputation does not carry": "身份在洗，历史声誉不可延续",
+    "insider": "内幕关联",
+    "intraday": "日内流",
+    "is it still earning now": "现在还在赚吗",
+    "is the data trustworthy": "数据可信吗",
+    "it cuts losses": "它会砍仓",
+    "it does not ride positions to zero": "不会拿着亏损仓位到归零",
+    "it has traded {0} coins, {1} of them profitably": "它交易过 {0} 个币，{1} 是赚钱的",
+    "it made {0} itself this week": "它自己这周赚了 {0}",
+    "its 3 best coins made {0} of the money": "最赚的 3 个币赚走了 {0} 的钱",
+    "its fills are reachable at your speed": "它的价位你抢得到",
+    "its profit comes from sandwiching orders like yours": "它的收益来自夹你这类订单",
+    "key numbers": "关键数字",
+    "large cap, deep": "大市值，容量足",
+    "last trade {0} ago": "最后一笔在 {0}前",
+    "last trade {0} ago — every figure here describes a wallet that has since gone quiet": "最后一笔在 {0}前 —— 上面所有数字描述的是一个此后已经安静下来的钱包",
+    "launched {0} tokens": "发过 {0} 币",
+    "launched {0} tokens ({1} graduated · {2})": "发过 {0} 币（毕业 {1} · {2}）",
+    "launcher wallet — this measures its handling of its own token, so it does not apply": "发币方钱包，该项衡量的是它对自己代币的操作，不成立",
+    "launcher wallet: created {0} vs traded {1} — its win rate and entry timing are self-authored, not a market read": "发币方钱包：自己发了 {0} 个币 / 交易过 {1} 个 —— 胜率和入场时机是自己写的，不是市场读出来的",
+    "live book: unavailable (see data gaps)": "持仓：未取到（见数据缺口）",
+    "long hold": "长持流",
+    "low freq, slow evidence": "低频，样本慢",
+    "lukewarm": "温吞户",
+    "m": " 分",
+    "machine cadence and still strongly profitable": "机器级频次还能稳定强盈，跟不上，只能看",
+    "machine cadence plus broad heavy losses": "机器级频次配大面积重亏，策略已失效",
+    "made {0} in that week": "这一周赚了 {0}",
+    "market value": "市值",
+    "marks": "特征",
+    "mean is usable": "均值可用",
+    "mean {0} · median copy window {1} ({2} round trips)": "均 {0} · 窗口中位 {1}（{2} 回合）",
+    "meaningful friction": "摩擦不小",
+    "median copy window {0} against your {1} latency — under 3x margin, it is likely already selling when you land": "可跟窗口中位 {0}，你的延迟 {1} —— 余量不足 3 倍，你买进去的时候它大概已经在卖了",
+    "median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost": "它一般在市值 {0} 就进了 —— 币还没上公开池，你能买到的时候价格已经是它成本的 5–10 倍",
+    "median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost. {1} of its entries are under $100k": "它一般在市值 {0} 就进了 —— 币还没上公开池，你能买到的时候价格已经是它成本的 5–10 倍；它 {1} 的买入都在 $100K 以下",
+    "median entry {0}": "入场中位 {0}",
+    "metric": "维度",
+    "mid cap, copyable": "中市值，可跟",
+    "money printer": "印钞机",
+    "most of its coins are down more than 50%": "半数以上币亏超 50%",
+    "net negative": "净亏",
+    "net positive": "净盈",
+    "never worked": "长期亏",
+    "no 7d return — the headline figure cannot be computed": "拿不到 7 天收益，头条数字算不出来",
+    "no X account bound (no public identity on GMGN)": "没有绑定 X 账号（GMGN 上查不到公开身份）",
+    "no X account bound and no traceable funding source — an anonymous address": "没有绑定 X 账号，也没有可查的资金来源 —— 匿名地址",
+    "no buys or sells in 7 days — nothing to evaluate": "7 天内没有买卖记录，无从评估",
+    "no high-severity flags": "无高危旗标",
+    "no high-severity flags — but honeypots and the live book were not checked": "无高危旗标，但蜜罐与当前持仓未检查（holdings 不可用）",
+    "no history to check": "没有可供检验的历史",
+    "no reachability obstacle found": "未发现可及性障碍",
+    "no single profit engine — following it means following the whole book, not any one trade": "没有单一利润引擎，跟它等于跟它的整个组合，不是跟某一笔",
+    "no trades in the window": "数据区间内没有交易",
+    "normal cadence, positive return, no glaring weakness": "常规频次、正收益，无明显短板",
+    "normal, hand-tradeable": "常规，可手动",
+    "not computable": "无法计算",
+    "not enough gas data to evaluate": "gas 数据不足，未评估",
+    "not living off an old run": "不是靠很久以前的战绩撑着",
+    "not measured": "未测",
+    "of {0} tokens only {1} cleared 2x while {2} lost money, yet the wallet is up {3} — the profit came from that one token": "{0} 个币里只有 {1} 个翻过 2 倍，{2} 个亏损，却整体盈利 {3} —— 利润几乎只来自那一个币",
+    "old hunter": "老猎手",
+    "one or two swings, wiped out": "单次或极少次数直接打光",
+    "one-shot": "一击必杀",
+    "only {0} down more than half": "亏超一半的只有 {0}",
+    "only {0} heavy losses": "重亏占比仅 {0}",
+    "only {0} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume, so the {1} realized P&L cannot be taken at face value": "只有 {0} 的已实现盈利来自净赚超过自身成本的仓位，其余是来回对倒的量 —— 这 {1} 的已实现盈亏不能按面值看",
+    "only {0} tokens — no ratio computed on this is meaningful": "样本只有 {0} 个币，任何比率都不成立",
+    "operates at a size that does not transfer to you": "规模远超你，行为不可照搬",
+    "order channel": "下单渠道",
+    "ordinary trading wallet, no distinguishing marks": "普通交易钱包，无特征标记",
+    "p25/p50/p75 {0}/{1}/{2} ({3} measurable)": "p25/50/75 {0}/{1}/{2}（{3} 笔）",
+    "past that, let it go — its cost is lower than yours, and entering late means buying what it is selling": "超时就别追 —— 它的成本比你低，晚进场等于替它接盘",
+    "pre-graduation, you pay up": "它买在你买不到的价位",
+    "profit comes from ordering power, not token selection": "收益来自排序权，不是选币",
+    "profit concentration not measured (holdings unavailable)": "利润集中度未测（holdings 不可用）",
+    "profit concentration {0}": "集中度 {0}",
+    "profit concentration {0} (across {1} positions) — one coin carried the record": "利润集中度 {0}（{1} 个仓位口径）—— 一个币扛起了整份战绩，复制不了",
+    "profit concentration {0} (largest winner's share of all gains)": "利润集中度 {0}（最大盈利仓位占全部盈利）",
+    "profit concentration {0} (only {1} positions — too thin to rely on)": "利润集中度 {0}（仅 {1} 个仓位，样本太薄，未作为判据）",
+    "profit from": "利润来自",
+    "provenance": "来路",
+    "quiet for 24h": "24h 静默",
+    "rat trader": "老鼠仓",
+    "real volume, and the money went on-chain": "交易量不小，钱流去了链上",
+    "record is real": "战绩是真的",
+    "renamed repeatedly": "多次改名",
+    "retail loser": "亏损散户",
+    "rotating": "对冲/换仓",
+    "s": " 秒",
+    "sample  {0:,} activity rows / {1} tokens · spans {2:.1f}h{3}": "样本  activity {0:,} 条 / {1} 个币 · 覆盖 {2:.1f} 小时{3}",
+    "sample too thin": "样本不足",
+    "sample too thin — survivability not evaluated": "样本不足，生存性未评估",
+    "sandwich bot": "三明治夹子",
+    "self-destruct": "自毁装置",
+    "sells": "卖出",
+    "size": "规模",
+    "small cap, heavy slippage": "小市值，滑点大",
+    "smart money": "聪明钱",
+    "sniper": "狙击",
+    "sniper range, no match": "狙击位，拿不到同价",
+    "spinning fast, going nowhere": "转得快但原地踏步",
+    "spinning top": "陀螺",
+    "start at ≤ {0}": "跟单起步 ≤ {0}",
+    "start no larger than": "起步别超过",
+    "start no larger than {0}": "起步别超过 {0}",
+    "steady": "持平",
+    "steady hand": "稳步选手",
+    "strongly profitable": "强盈",
+    "style": "风格",
+    "swing": "波段流",
+    "swings rarely, earns well — the most copyable rhythm": "出手不多，收益强，节奏可复制",
+    "the API's average hold is {0}, but the median first-buy→first-sell in the live sample is {1} — the mean is dragged up by bags it never sold. Read the median, not the mean": "接口均值 {0}，但首买→首卖中位只有 {1} —— 均值被没卖的仓位拖高，看中位",
+    "the gain came from picks, not from working the trades": "赢在选得对，不是赢在操作",
+    "the most common cell on the board": "最常见的一档",
+    "the profit comes from picking right and then sizing up, not from speed — this is the kind you can follow a step behind": "利润来自选对标的然后加到重仓，不是来自手速 —— 这类是可以慢一步跟的",
+    "the profit comes from volume of attempts times a few hits, not from picking well. {0}": "利润来自出手次数×少数命中，不是来自选得准。{0}",
+    "the profit is volume, and each exit is too thin to survive your slippage and fees": "利润来自成交量，单笔太薄，你的滑点和手续费会直接吃掉它",
+    "the track record is genuine, not manufactured": "战绩是真的，不是刷出来的",
+    "the {0} you asked about is within that": "你问的 {0} 在这个范围内",
+    "the {0} you asked about is {1:.1f}x its own clip of {2} — at that size your fills are worse than the ones this record was built on": "你问的 {0} 是它单笔 {2} 的 {1:.1f} 倍 —— 这个规模下你的成交价会比撑起这份战绩的那些差",
+    "thin margins, huge volume": "薄利多销，单笔小、总量大",
+    "toe in the water": "试水亏损",
+    "token": "代币",
+    "token creator": "发币方",
+    "tokens": "币数",
+    "too small a sample to mean much": "样本太少，标签仅供参考",
+    "top 3 winners = {0}": "前 3 个赢家占 {0}",
+    "top risk": "最大风险",
+    "trades through GMGN — no risk meaning": "通过 GMGN 下单，无风险含义",
+    "trades tokens it launched itself": "自己发币自己交易",
+    "tried a few times, none worked": "试了几次，没成",
+    "typically front-runs launches it is close to": "常见于提前埋伏自己人的盘",
+    "unknown": "未知",
+    "unrecognised tag, shown verbatim, not used in any gate": "未知标签，原样显示，未参与判定",
+    "usually enters around {0}": "大多在市值 {0} 附近进场",
+    "value": "数值",
+    "value ": "市值",
+    "wash trader": "刷量/对敲交易者",
+    "whale": "巨鲸",
+    "what it is": "定性",
+    "whatever it earns, fees and slippage take back": "交易赚的被手续费和滑点磨平",
+    "where the profit came from cannot be checked (holdings unavailable) — the {0} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run": "盈利来源无法核验（持仓数据取不到）—— 本窗口这 {0} 既没被证实也没被排除。配置 GMGN_PRIVATE_KEY 后重跑",
+    "win rate": "胜率",
+    "win {0}": "胜率 {0}",
+    "wiped out": "一把归零",
+    "worn down": "磨损户",
+    "you can keep up": "你跟得上",
+    "your normal size": "你自己的常规仓位",
+    "zen winner": "佛系赢家",
+    "{0:,.0f} trades a day": "每天 {0:,.0f} 笔",
+    "{0:,.0f} trades/day": "{0:,.0f} 笔/日",
+    "{0:,.0f} trades/day at {1} a clip, and the top 3 winners carry {2} of the profit": "{0:,.0f} 笔/日、单笔均买 {1} 大量试错，前 3 个赢家扛起 {2} 的利润",
+    "{0:,.0f} trades/day is not fast; {1} of gains came from positions netting more than their own cost, top 3 winners = {2}": "{0:,.0f} 笔/日不算快，{1} 的利润来自净赚超过自身成本的重仓，前 3 个赢家占 {2}",
+    "{0:,.0f} trades/day with profit spread thin (top 3 = {1}), median {2} net per winning exit": "{0:,.0f} 笔/日，利润摊在很多仓位上（前 3 个只占 {1}），单笔中位净赚 {2}",
+    "{0:,.0f} trades/day — bot cadence, no hand can keep pace": "{0:,.0f} 笔/日 —— 机器节奏，人手跟不动",
+    "{0:,.0f} trades/day, gains neither concentrated (top 3 = {1}) nor speed-driven, median {2} per winning exit": "{0:,.0f} 笔/日，利润既不集中（前 3 个 {1}）也不靠手速，单笔中位净赚 {2}",
+    "{0:,.0f}/day": "{0:,.0f}/日",
+    "{0:,.1f} {1} on hand": "钱包里还有 {0:,.1f} {1}",
+    "{0:,} followers": "{0:,} 粉丝",
+    "{0:,} trades ({1:,} buy / {2:,} sell) = {3:,.0f}/day": "{0:,} 笔 · {1:,}买/{2:,}卖 · {3:,.0f}/日",
+    "{0:.0f}-day-old wallet": "{0:.0f} 天",
+    "{0} (refuted)": "{0}（核验不成立）",
+    "{0} **{1}** · 24h bought {2} / sold {3}": "{0} **{1}** · 24h 买 {2} / 卖 {3}",
+    "{0} from size positions": "重仓贡献 {0}",
+    "{0} hit rate": "胜率 {0}",
+    "{0} honeypots in its live book, {1} unsellable — its own screening fails too": "持仓里 {0} 个蜜罐，{1} 卖不出来 —— 它自己也会踩雷",
+    "{0} live positions are honeypots ({1}, {2} that cannot be sold) — its own screening did not catch them, and copying it walks into the same ones": "当前持仓里 {0} 个是蜜罐（{1}，合计 {2} 卖不出来）—— 它自己的风控就没挡住，你照抄会踩同样的坑",
+    "{0} net per exit · {1} avg gas": "净赚 {0}/笔 · gas {1}",
+    "{0} net vs {1} gas": "单笔净赚 {0} vs gas {1}",
+    "{0} not measured — the card has no way to show an unmeasured check": "{0} 未测出 —— 决策卡没有地方放「未评估」这个状态",
+    "{0} of its buy": "{0}以内",
+    "{0} of its tokens are down >50% ({1:,}/{2:,}) — it does not cut": "{0} 的币亏超 50%（{1:,}/{2:,}）—— 不砍仓",
+    "{0} of realized gains came from size positions like {1} that netted more than their own cost basis — the profit is priced in, not churned": "{0} 的已实现盈利来自 {1} 这类净赚超过自身成本的重仓 —— 利润来自持仓本身，不是来自换手",
+    "{0} of tokens down >50% — it does not cut": "{0} 的币亏超 50% —— 它不砍仓",
+    "{0} on {1} cost = {2}": "{0} / 成本 {1} = {2}",
+    "{0} over 7 days": "7 天 {0}",
+    "{0} over {1} tokens · {2} heavy losses": "{0} 于 {1} 币 · 重亏 {2}",
+    "{0} per buy": "{0}/笔",
+    "{0} positions down 90%+ with zero sells — riding to zero is the habit": "{0} 个仓位亏 90%+ 且一次没卖 —— 抱到归零是常态",
+    "{0} positions · {1} total": "持仓 {0} 个 · 合计 {1}",
+    "{0} realized": "已实现 {0}",
+    "{0} ridden to zero (down 90%+ with zero sells)": "抱到归零 {0} 个（亏 90%+ 零卖出）",
+    "{0} tokens, {1} profitable ({2}), {3}": "{0} 币 · {1} 盈利（{2}）· {3}",
+    "{0} tokens, {1} profitable, {2}": "{0} 币 · {1} 盈利 · {2}",
+    "{0} {1} — about {2:.0f}x its long-run pace": "{0} {1} —— 比长期均速快 {2:.0f} 倍",
+    "{0} {1} — about {2:.0f}x its own long-run pace": "{0} {1} —— 比它一直以来的平均水平快 {2:.0f} 倍",
+    "{0} {1}: 7d {2} vs all-time {3}": "{0} {1}：7d {2} vs 全期 {3}",
+    "{0} · cadence×P&L {1}": "{0} · 频次×盈亏 {1}",
+    "{0} · {1} · window 7d (all-time from profits --period all)": "{0} · {1} · 7d 窗口（全期来自 profits all）",
+    "{0} — about {1} of {2} tokens have a realized win · {3} heavy losses": "{0}（{2} 币里约 {1} 个已实现盈利）· 重亏 {3}",
+    "⚙️ turnover grind": "⚙️ 周转磨利",
+    "⚠️ last trade {0} ago — every figure here describes a wallet that has since gone quiet": "⚠️ 最后一笔在 {0}前 —— 上面所有数字描述的是一个此后已经安静下来的钱包",
+    "⚠️ read the median": "⚠️ 看中位",
+    "⚡ 5-second flipper on {0} of round trips": "⚡ 秒抛 {0} 的回合 5 秒内出",
+    "⚡ SPEED READ": "⚡ 速读",
+    "⚪ honeypot NOT checked (holdings unavailable) — this pass covers loss-cutting only, not honeypots": "⚪ 蜜罐未检查（holdings 不可用）—— 本项通过仅基于砍仓行为，不含蜜罐",
+    "✂️ scales out, {0:.1f} sells/token": "✂️ 分批止盈 {0:.1f} 卖/币",
+    "✅ NO RISK FLAGS": "✅ 无风险旗标",
+    "✅ WHAT TO DO NEXT": "✅ 下一步",
+    "✅ honeypot flag checked on {0} positions, none hit": "✅ 已检查 {0} 个持仓的蜜罐标记，无命中",
+    "✅ {0} honeypot flags ({1}) refuted by fill history — the busiest has {2:,} completed sells; transfer-restricted tokenised stocks, not honeypots": "✅ 蜜罐标记 {0} 个命中（{1}）已被成交记录否掉 —— 最多的一个卖出过 {2:,} 次，是转账受限的代币化股票，不是蜜罐",
+    "🆕 new wallet, {0:.0f} days old": "🆕 新号 {0:.0f} 天",
+    "🌙 fixed hours, {0} of trades inside one 6-hour window": "🌙 固定时段 {0} 挤在 6 小时内",
+    "🍯 {0} honeypot positions ({1}) · {2} unsellable": "🍯 蜜罐持仓 {0} 个（{1}）· {2} 卖不出来",
+    "🎯 pick-and-size": "🎯 选币重仓",
+    "🎯 sniper, median entry {0}": "🎯 狙击 中位 {0}",
+    "🎰 lottery profile, {0} hit rate but {1} tokens above 5x": "🎰 彩票型 胜率 {0} 但 {1} 币过 5 倍",
+    "🏦 size-position trader, largest holding {0}": "🏦 重仓 最大 {0}",
+    "🏭 launcher (marks its own homework)": "🏭 发币方（自导自演）",
+    "🐋 whale, {0} per buy": "🐋 巨鲸 单笔均 {0}",
+    "👤 WHO IT IS": "👤 它是谁",
+    "💣 dumps in one go on {0} of exits": "💣 一把清 {0}",
+    "📉 OUTCOME DISTRIBUTION ({0} tokens — counts tokens, not dollars)": "📉 盈亏分布（{0} 个币，计币不计钱）",
+    "📊 NUMBERS (the conclusion is on the right)": "📊 原始数字",
+    "📦 concentrated bets, top 3 tokens are {0} of buy spend": "📦 集中押注 前3占买入额 {0}",
+    "🔄 WHAT IT IS DOING NOW": "🔄 它现在在干嘛",
+    "🕸️ spray-and-hit": "🕸️ 撒网命中",
+    "🚦 THE FOUR GATES    {0}": "🚦 四道闸门    {0}",
+    "🚩 RISK FLAGS ({0})": "🚩 风险旗标（{0}）",
+    "🤖 bot-tier {0:,.0f} trades/day": "🤖 机器级 {0:,.0f}/日",
+    "🧩 diffuse accumulation": "🧩 分散积累",
+    "🧱 ladders its size positions, median {0:,} buys each": "🧱 分批建仓 中位 {0:,} 笔/仓",
+    "🧱 scales in, {0:.1f} buys/token": "🧱 分批建仓 {0:.1f} 买/币",
+}
+
 LANG_TABLE = {}
 
 
 def load_lang(code):
-    """Populate LANG_TABLE for `code`. Absent or unreadable table => English throughout."""
+    """Populate LANG_TABLE for `code`. Unknown code => English throughout.
+
+    The table used to live in `lang/<code>.json` beside this file, which cost the skill a
+    third shipped file and a whole class of bug that only appeared in one language: a
+    reworded string silently fell back to English, a shorter key silently overwrote a
+    longer one, and an AST scan that could not see strings reaching T() through a variable
+    deleted live entries. Inlining it means the table ships with the code that uses it and
+    cannot drift from it -- which is also how gmgn-wallet-score and gmgn-kline-pattern do it.
+    """
     LANG_TABLE.clear()
-    if code == "en":
-        return
-    path = os.path.join(LANG_DIR, f"{code}.json")
-    try:
-        with open(path, encoding="utf-8") as fh:
-            data = json.load(fh)
-    except (OSError, ValueError):
-        return
-    if isinstance(data, dict):
-        LANG_TABLE.update({k: v for k, v in data.items() if isinstance(v, str)})
+    if code == "zh":
+        LANG_TABLE.update(ZH)
+
+
+def joinclause(parts):
+    """Join clauses with the locale's clause separator — a full-width comma in Chinese,
+    a comma-space in English. Keyed explicitly rather than inferred, for the same reason
+    `joinsym` is: probing a translation to guess the locale reads as a coincidence."""
+    return LANG_TABLE.get("__clause_separator__", ", ").join(parts)
 
 
 def joinsym(items):
@@ -197,102 +689,17 @@ def cwidth(cp):
     return 1
 
 
-def is_emoji_cp(cp):
-    """Part of an emoji glyph — used to keep a wrap from splitting a glyph from its label."""
-    return (cp in WIDE_SYMBOLS
-            or 0x1F000 <= cp <= 0x1FAFF
-            or 0x2600 <= cp <= 0x27BF
-            or 0x2B00 <= cp <= 0x2BFF)
+NATIVE = {"sol": "SOL", "bsc": "BNB", "eth": "ETH", "base": "ETH", "arc": "ARC"}
 
 
-def dwidth(s):
-    """Display width in terminal columns.
+def usd_exact(v):
+    """Whole dollars with separators — no K/M abbreviation.
 
-    A base character followed by U+FE0F is an emoji-presentation sequence and renders two
-    columns wide whatever the base would measure alone — that is what the selector means, so
-    handling it here removes the need to enumerate `⚙ ⚔ ✂ ✈ ...` one by one. U+FE0E is the
-    opposite request (text presentation) and stays narrow.
+    The card's headline exists because "$1,000 -> $1,621" needs no conversion to land.
+    Run it through usd() and it becomes "$1.0K -> $1.6K", which is both a rounding of the
+    thing being demonstrated and a return to the abstraction the card was built to avoid.
     """
-    total, i, n = 0, 0, len(s)
-    while i < n:
-        cp = ord(s[i])
-        nxt = ord(s[i + 1]) if i + 1 < n else 0
-        if nxt == 0xFE0F:
-            total += 2
-            i += 2
-            continue
-        if nxt == 0xFE0E:
-            total += 1
-            i += 2
-            continue
-        total += cwidth(cp)
-        i += 1
-    return total
-
-
-def wpad(s, width):
-    return s + " " * max(0, width - dwidth(s))
-
-
-COL = 76           # every emitted line stays inside this display width
-BREAK_AFTER = set(" ·，、；。）)]}")
-
-
-def wrap(text, width):
-    """Greedy wrap by display width, breaking after a separator where possible.
-
-    Written by hand rather than with textwrap because textwrap counts characters, and a
-    line of CJK is twice as wide as its length — the reason the G3 reason line rendered
-    at 231 columns before this existed.
-    """
-    lines, cur, curw, brk = [], "", 0, -1
-    after_emoji = False
-    prev_w = 0
-    for ch in text:
-        cp = ord(ch)
-        # Same emoji-presentation rule as dwidth(): U+FE0F promotes the glyph before it to a
-        # full two columns. Measuring it as zero here is what let a line reach 78 columns.
-        w = max(0, 2 - prev_w) if cp == 0xFE0F else cwidth(cp)
-        prev_w = w if cp != 0xFE0F else 2
-        if curw + w > width and cur:
-            if 0 <= brk < len(cur) - 1:
-                lines.append(cur[:brk + 1].rstrip())
-                cur = cur[brk + 1:]
-                curw = dwidth(cur)
-            else:
-                lines.append(cur)
-                cur, curw = "", 0
-            brk = -1
-        cur += ch
-        curw += w
-        if ch in BREAK_AFTER:
-            # A space directly after an emoji is NOT a break opportunity: the glyph labels
-            # the phrase that follows it, and breaking there left lines ending in a bare
-            # "✂️" with its name orphaned on the next line. Falling through leaves the
-            # previous "·" as the break point, which is the one a reader wants.
-            # Tracked as a flag rather than inspected from `cur`, because an emoji sequence
-            # can end in a zero-width selector and its base char may not be wide on its own.
-            if not (ch == " " and after_emoji):
-                brk = len(cur) - 1
-        if cp == 0xFE0F or is_emoji_cp(cp):
-            after_emoji = True
-        elif cp != 0x200D:
-            after_emoji = False
-    if cur:
-        lines.append(cur)
-    return lines or [""]
-
-
-def put(out, prefix, text, hang=None):
-    """Append `prefix + text`, wrapped, with continuation lines hanging under the text."""
-    ind = " " * (dwidth(prefix) if hang is None else hang)
-    # Budget for the WIDER of the two indents. A `hang` larger than the prefix would
-    # otherwise push every continuation line past COL — the one way a caller could break
-    # the width rule while still going through put().
-    body = wrap(str(text), COL - max(dwidth(prefix), len(ind)))
-    out.append(prefix + body[0])
-    for extra in body[1:]:
-        out.append(ind + extra)
+    return f"${v:,.0f}"
 
 
 def quantile(xs, q):
@@ -413,45 +820,44 @@ def first_row(resp):
 
 
 def collect(chain, wallet, gaps):
-    """Tiered pull. Tier 1 is mandatory; everything else degrades into `gaps`."""
+    """Tiered pull, ordered by how much each call decides.
+
+    One full dossier costs weight 26-28 against a rate-limit bucket of 20, so on a
+    cold-ish bucket SOMETHING is refused — the only question is what. The old order spent
+    its budget on the two curve-shape windows first and issued `holdings` last, at
+    cumulative weight 26, which made the single most decisive call the guaranteed
+    casualty: without it G1 cannot corroborate a `wash_trader` tag (the verdict falls to
+    HOLD OFF), G4's honeypot half never runs, and the profit engine is dropped. Observed
+    live five runs in a row. Meanwhile `stats_30d` and `profits_1d` only add depth to
+    readings that already exist.
+
+    So the gate-critical set goes first and fits inside one bucket:
+
+      stats_7d(3) -> profits_all(3) -> holdings(5) = 11   <- verdict decidable here
+      activity(3 x 3 = 9)                          = 20   <- copy window, entry band
+      stats_30d(3), profits_1d(3)                  = 26   <- depth only, best-effort
+      created-tokens(2), conditional
+
+    Nothing about WHAT is asked changed — same routes, parameters and page count. Only the
+    sequence moved, so no threshold, formula or verdict row is affected.
+    """
     d = {}
 
-    # Tier 1 — 4 calls, weight 12. The verdict cannot be issued without these.
+    # ── Tier 1: the verdict cannot be issued without these. Weight 11, inside one bucket.
     d["stats_7d"] = first_row(
         cli(["portfolio", "stats", "--chain", chain, "--wallet", wallet, "--period", "7d"])
     )
-    for key, args in (
-        ("stats_30d", ["portfolio", "stats", "--period", "30d"]),
-        ("profits_1d", ["portfolio", "profits", "--period", "1d"]),
-        ("profits_all", ["portfolio", "profits", "--period", "all"]),
-    ):
-        try:
-            d[key] = first_row(cli(args[:2] + ["--chain", chain, "--wallet", wallet] + args[2:]))
-        except Gap as e:
-            d[key] = {}
-            gaps.append(f"{key}: {e}")
 
-    # Tier 2 — behaviour. activity is the only source of copy-window and entry band.
-    acts, cursor = [], None
-    for _page in range(3):
-        args = ["portfolio", "activity", "--chain", chain, "--wallet", wallet, "--limit", "100"]
-        if cursor:
-            args += ["--cursor", str(cursor)]
-        try:
-            raw = unwrap(cli(args))
-        except Gap as e:
-            gaps.append(f"activity: {e}")
-            break
-        page = raw.get("activities") or []
-        acts += page
-        cursor = raw.get("next")
-        if not page or not cursor:
-            break
-    d["activity"] = acts
-    if not acts:
-        gaps.append(
-            T('activity empty — copy window, entry band and scale-in/out shape were not evaluated')
+    # profits_all is a G2 input: losing it makes G2 unevaluable, so it outranks the two
+    # windows that only add depth.
+    try:
+        d["profits_all"] = first_row(
+            cli(["portfolio", "profits", "--chain", chain, "--wallet", wallet, "--period", "all"])
         )
+    except Gap as e:
+        d["profits_all"] = {}
+        gaps.append(f"profits_all: {e}")
+
 
     # holdings is CRITICAL auth (needs GMGN_PRIVATE_KEY). Absent key is the normal case.
     # `--sell-out` is documented but rejected by gmgn-cli 1.5.8 ("unknown option"), so it
@@ -475,7 +881,16 @@ def collect(chain, wallet, gaps):
             gaps.append(
                 T('holdings refused by the rate limiter (not an auth problem): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing. Re-run once the limit resets.', e)
             )
-        elif "PRIVATE_KEY" in txt or "signature" in txt.lower() or "401" in txt or "403" in txt:
+        elif "SIGNATURE_INVALID" in txt or "signature invalid" in txt.lower():
+            gaps.append(
+                T('holdings refused: the private key IS configured, but its signature was '
+                  'rejected: {0} — check GMGN_PRIVATE_KEY holds the full PEM (BEGIN/END lines '
+                  'included, no stray whitespace) and that it is the key paired with this '
+                  'GMGN_API_KEY. Adding the variable again will not help. Profit '
+                  'concentration falls back to bucket inference; live book and honeypot '
+                  'check missing', e)
+            )
+        elif "PRIVATE_KEY" in txt or "401" in txt or "403" in txt:
             gaps.append(
                 T('holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
             )
@@ -484,7 +899,43 @@ def collect(chain, wallet, gaps):
                 T('holdings failed: {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
             )
 
-    # Tier 3 — only when the wallet looks like a launcher.
+    # ── Tier 2: behaviour. activity is the only source of the copy window and the entry
+    # band, and the page count stays at 3 — trimming it would move G3's entry p50 and
+    # starve the sample gates, which changes what is measured, not how fast.
+    acts, cursor = [], None
+    for _page in range(3):
+        args = ["portfolio", "activity", "--chain", chain, "--wallet", wallet, "--limit", "100"]
+        if cursor:
+            args += ["--cursor", str(cursor)]
+        try:
+            raw = unwrap(cli(args))
+        except Gap as e:
+            gaps.append(f"activity: {e}")
+            break
+        page = raw.get("activities") or []
+        acts += page
+        cursor = raw.get("next")
+        if not page or not cursor:
+            break
+    d["activity"] = acts
+    if not acts:
+        gaps.append(
+            T('activity empty — copy window, entry band and scale-in/out shape were not evaluated')
+        )
+
+    # ── Tier 3: depth only. Both windows enrich readings that already exist above, so
+    # they are the correct things to lose when the bucket runs dry.
+    for key, args in (
+        ("stats_30d", ["portfolio", "stats", "--period", "30d"]),
+        ("profits_1d", ["portfolio", "profits", "--period", "1d"]),
+    ):
+        try:
+            d[key] = first_row(cli(args[:2] + ["--chain", chain, "--wallet", wallet] + args[2:]))
+        except Gap as e:
+            d[key] = {}
+            gaps.append(f"{key}: {e}")
+
+    # ── Tier 4 — only when the wallet looks like a launcher.
     common = d["stats_7d"].get("common") or {}
     pnl = d["stats_7d"].get("pnl_stat") or {}
     created = i(common.get("created_token_count"))
@@ -555,6 +1006,19 @@ def compute(d, latency_s, my_size):
         "lt_n50": i(pnl.get("pnl_lt_nd5_num")),
     }
     m["lt50_share"] = safe_div(m["buckets"]["lt_n50"], max(1, m["token_num"]))
+    # The 0-200% bucket and the win rate disagree, and the report used to print both without
+    # saying so. A live wallet showed 188 of 209 tokens in that bucket next to a 23.9% win
+    # rate: 188 would imply 90%. Only one reading satisfies both numbers — the band absorbs
+    # every token with no realized result yet (bought, not yet sold => realized ROI 0, which
+    # sits on that band's lower edge), so its size is not a count of wins. `unsettled` is
+    # that difference, and it is stated rather than left for the reader to notice.
+    m["implied_winners"] = round(m["winrate"] * m["token_num"])
+    m["unsettled"] = max(0, m["buckets"]["x0_2"] - m["implied_winners"])
+    m["dist_gap"] = (
+        m["token_num"] >= 20
+        and m["buckets"]["x0_2"] > 0
+        and m["unsettled"] >= 0.25 * m["buckets"]["x0_2"]
+    )
     m["winners"] = m["buckets"]["gt5"] + m["buckets"]["x2_5"] + m["buckets"]["x0_2"]
 
     # identity
@@ -615,6 +1079,11 @@ def compute(d, latency_s, my_size):
     m["sampled"] = len(trade_rows)
     ts = [f(a.get("timestamp")) for a in trade_rows if f(a.get("timestamp")) > 0]
     m["span_h"] = (max(ts) - min(ts)) / 3600 if len(ts) >= 2 else 0.0
+    # The report's window is 7 days. A sample that reaches beyond it is describing a season
+    # while sitting next to 7d figures, and the reader cannot see that from the numbers.
+    # (72h was the first cut and was wrong: it flagged on-window samples, printing
+    # "measured across 7 days, not just this week" -- a contradiction.)
+    m["span_stale"] = m["span_h"] > 24 * 8
     m["hit_limit"] = len(acts) >= 300
 
     mcaps, gas, buy_costs = [], [], []
@@ -633,7 +1102,7 @@ def compute(d, latency_s, my_size):
                 mcaps.append(px * sup)
             if f(a.get("cost_usd")) > 0:
                 buy_costs.append(f(a.get("cost_usd")))
-    m["avg_gas_usd"] = safe_div(sum(gas), len(gas))
+    m["avg_gas_usd"] = safe_div(sum(gas), len(gas)) if len(gas) >= 10 else 0.0
     m["median_buy_usd"] = med(buy_costs)
     # gas as a share of trade size — the number that says whether the edge survives friction
     denom = m["median_buy_usd"] or m["avg_buy_usd"]
@@ -643,6 +1112,7 @@ def compute(d, latency_s, my_size):
     m["entry_p75"] = quantile(mcaps, 0.75)
     m["entry_n"] = len(mcaps)
     m["entry_sub100k"] = safe_div(sum(1 for x in mcaps if x < 100_000), len(mcaps))
+    m["entry_n_thin"] = len(mcaps) < 8
 
     copy_windows, accum_windows, buys_per_tok, sells_per_tok, flip5 = [], [], [], [], 0
     round_trips = 0
@@ -672,9 +1142,14 @@ def compute(d, latency_s, my_size):
     m["copy_window_n"] = len(copy_windows)
     m["accum_window_s"] = med(accum_windows)
     m["avg_buys_per_token"] = safe_div(sum(buys_per_tok), len(buys_per_tok))
-    m["avg_sells_per_token"] = safe_div(sum(sells_per_tok), len(sells_per_tok))
-    m["flip5_rate"] = safe_div(flip5, round_trips)
-    m["dump_share"] = safe_div(dump_shape, max(1, sum(1 for v in sells_per_tok if v)))
+    # ✂️ scales-out needs more than a couple of tokens before "2.0 sells/token" means
+    # anything; on one token it is that token, not a habit.
+    m["avg_sells_per_token"] = (safe_div(sum(sells_per_tok), len(sells_per_tok))
+                                if len(sells_per_tok) >= 5 else 0.0)
+    # ⚡ 5-second flipper: with 2 round trips this is 0%, 50% or 100% by arithmetic.
+    m["flip5_rate"] = safe_div(flip5, round_trips) if round_trips >= 10 else 0.0
+    _sellers = sum(1 for v in sells_per_tok if v)
+    m["dump_share"] = safe_div(dump_shape, _sellers) if _sellers >= 10 else 0.0
     m["distinct_tokens_sampled"] = len(by_tok)
 
     # Concentration of buy spend across tokens, and clustering in the day. Both are
@@ -710,11 +1185,15 @@ def compute(d, latency_s, my_size):
         if ev_type(a) == "buy":
             b24 += c
             sym = (a.get("token") or {}).get("symbol") or (tok_addr(a) or "?")[:6]
-            recent_buys[sym] = recent_buys.get(sym, 0.0) + c
+            prev = recent_buys.get(sym, (0.0, 0.0))
+            sup = f((a.get("token") or {}).get("total_supply"))
+            px = f(a.get("price_usd"))
+            recent_buys[sym] = (prev[0] + c, (px * sup) if (sup > 0 and px > 0) else prev[1])
         else:
             s24 += c
     m["buy_usd_24h"], m["sell_usd_24h"] = b24, s24
-    m["recent_buys"] = sorted(recent_buys.items(), key=lambda kv: -kv[1])[:5]
+    m["recent_buys"] = [(k, v[0], v[1]) for k, v in
+                        sorted(recent_buys.items(), key=lambda kv: -kv[1][0])[:5]]
     if b24 + s24 <= 0:
         m["posture"] = ("😴", T('quiet for 24h'))
     elif s24 > 2 * b24:
@@ -730,6 +1209,7 @@ def compute(d, latency_s, my_size):
     m["pcr"] = None
     m["pcr_source"] = None
     m["pcr_trusted"] = False
+    m["pcr_represents_record"] = False
     m["one_coin_note"] = None
     if h:
         profits = sorted((f(x.get("total_profit")) for x in h), reverse=True)  # confirmed name
@@ -741,6 +1221,11 @@ def compute(d, latency_s, my_size):
             # 3+ winners and 8+ positions is what stops this vetoing every small sample:
             # with one winner in the page, PCR is 100% by definition.
             m["pcr_trusted"] = len(pos) >= 3 and len(h) >= 8
+            # ...and the open book has to be most of what it ever traded before its
+            # concentration may speak for the record.
+            m["pcr_represents_record"] = (
+                m["pcr_trusted"] and len(h) >= 0.5 * max(1, m["token_num"])
+            )
         m["hold_to_zero"] = sum(
             1
             for x in h
@@ -814,7 +1299,7 @@ def compute(d, latency_s, my_size):
     m["conviction_share"] = None
     m["conviction_top"] = []
     if h:
-        gains, conv, conv_syms = 0.0, 0.0, []
+        gains, conv, conv_syms, gainers = 0.0, 0.0, [], 0
         for x in h:
             # `realized_profit` is the right numerator — a wash trader's closed loops are
             # what the tag is about. Fall back to `total_profit` only when the row omits it.
@@ -822,6 +1307,7 @@ def compute(d, latency_s, my_size):
             if rp <= 0:
                 continue
             gains += rp
+            gainers += 1
             cost = f(h_get(x, "accu_cost", "cost", "history_bought_cost"))
             sells = i(h_get(x, "history_total_sells", "sell_tx_count"))
             per_exit = safe_div(rp, sells) if sells > 0 else rp
@@ -829,7 +1315,8 @@ def compute(d, latency_s, my_size):
                 conv += rp
                 conv_syms.append(((x.get("token") or {}).get("symbol") or "?", rp))
         if gains > 0:
-            m["conviction_share"] = conv / gains
+            if gainers >= 3:
+                m["conviction_share"] = conv / gains
             m["conviction_top"] = sorted(conv_syms, key=lambda kv: -kv[1])[:3]
 
     # ── where the money came from ───────────────────────────────────────────────
@@ -850,11 +1337,14 @@ def compute(d, latency_s, my_size):
             sells = i(h_get(x, "history_total_sells", "sell_tx_count"))
             wins.append((rp, safe_div(rp, sells) if sells > 0 else rp))
         if wins:
-            tot = sum(w[0] for w in wins)
-            top3 = sum(sorted((w[0] for w in wins), reverse=True)[:3])
-            m["gain_top3_share"] = safe_div(top3, tot)
             pe = sorted(w[1] for w in wins)
             m["med_gain_per_exit"] = pe[len(pe) // 2]
+            # A top-3 share over 3 or fewer winners is 100% by definition. Same guard as
+            # pcr_trusted, and for the same reason: it is arithmetic, not evidence.
+            if len(wins) > 3:
+                tot = sum(w[0] for w in wins)
+                top3 = sum(sorted((w[0] for w in wins), reverse=True)[:3])
+                m["gain_top3_share"] = safe_div(top3, tot)
 
     # If a wash-trading tag is present but the gains demonstrably come from positions with
     # a real net edge, demote the tag in place: it stays visible as a warning with the
@@ -866,13 +1356,11 @@ def compute(d, latency_s, my_size):
         for t in m["tag_info"]:
             if t["sev"] == "veto_g1":
                 m["wash_refuted"] = {"share": cs, "tag": t["name"]}
-                t["sev"] = "warn"
-                # A ✅-adjacent glyph would be wrong (the label is real, and it is telling
-                # you something about the wallet's churn) but so is 🚩 next to a sentence
-                # saying the flag does not hold. ❔ is the honest one.
-                t["emoji"] = "❔"
-                t["name"] = T('{0} (refuted)', t['name'])
-                t["meaning"] = T("GMGN's label, refuted locally: {0} of realized gains came from positions netting more than their own cost basis — self-dealing cannot produce that", pct(cs))
+                # "hidden" renders nowhere: every display site selects an explicit severity.
+                # The tag is not shown at all rather than shown struck through — G1 prints
+                # where the profit came from instead, which is the fact behind the decision.
+                t["sev"] = "hidden"
+                t["refuted"] = True
 
     # ── dev record ──
     ct = d.get("created_tokens") or {}
@@ -893,8 +1381,32 @@ def compute(d, latency_s, my_size):
     # Per-trade net is the yardstick everything else is measured against. A wallet netting
     # $26 a trade while paying $4 of gas has already given a third of its edge away, and
     # your slippage comes out of what is left.
-    m["net_per_sell"] = safe_div(m["realized_7d"], m["sell"])
-    if m["avg_gas_usd"] > 0 and m["trades"] > 0 and m["realized_7d"] > 0:
+    # Fields `portfolio stats` returns that nothing read. Each answers a question a reader
+    # asks out loud and the report could not previously answer.
+    #   native_balance — the dry powder. GMGN's own leaderboard puts it in column two.
+    #   last_timestamp — freshness. A wallet last active three days ago is not the same
+    #                    wallet as one trading right now, and every other figure here is
+    #                    silent about which it is.
+    m["native_balance"] = f(s7.get("native_balance"))
+    last_ts = f(s7.get("last_timestamp"))
+    m["idle_s"] = max(0.0, time.time() - last_ts) if last_ts > 0 else None
+    m["stale"] = m["idle_s"] is not None and m["idle_s"] > 48 * 3600
+
+    m["net_per_sell"] = safe_div(m["realized_7d"], m["sell"]) if m["sell"] >= 5 else 0.0
+
+    # `portfolio stats` reports the fees actually paid in the window — `bought_fee` and
+    # `sold_fee` — and this used to ignore both, estimating friction instead from the gas
+    # median of a 300-row activity sample times the trade count. On a live wallet the
+    # estimate said gas ate 0.0% of the profit while the real fees were $4,408 against
+    # $167,237 realized, i.e. 2.6%. Two orders of magnitude, and the exact figure was in a
+    # response already in hand. The estimate stays as the fallback for chains or versions
+    # that omit the fee fields, and the report says which one it is showing.
+    m["fee_total"] = f(s7.get("bought_fee")) + f(s7.get("sold_fee"))
+    m["fee_exact"] = m["fee_total"] > 0
+    if m["fee_exact"] and m["realized_7d"] > 0:
+        m["gas_drag"] = m["fee_total"] / m["realized_7d"]
+        m["gas_total_est"] = m["fee_total"]
+    elif m["avg_gas_usd"] > 0 and m["trades"] > 0 and m["realized_7d"] > 0:
         m["gas_total_est"] = m["avg_gas_usd"] * m["trades"]
         m["gas_drag"] = m["gas_total_est"] / m["realized_7d"]
     else:
@@ -946,8 +1458,27 @@ def compute(d, latency_s, my_size):
             lp[str(name)] = lp.get(str(name), 0) + 1
     m["launchpads"] = sorted(lp.items(), key=lambda kv: -kv[1])[:3]
 
+    # ── the decision card's numbers ──────────────────────────────────────────────
+    # "+62.1%" is a ratio a reader has to convert before it means anything. The same fact
+    # told as money needs no conversion: $1,000 -> $1,621. Nothing new is fetched; this is
+    # roi_7d wearing clothes a newcomer already owns.
+    m["story_stake"] = 1000.0
+    m["story_out"] = (1000.0 * (1.0 + m["roi_7d"])) if m["roi_7d"] is not None else None
+    # How much hotter than its own baseline. Only meaningful when the baseline is positive:
+    # against a negative or ~zero all-time ROI the ratio is noise, so it is dropped rather
+    # than printed as a huge multiple that means nothing.
+    m["pace_x"] = None
+    if m["roi_7d"] is not None and m["roi_all"] is not None and m["roi_all"] >= 0.02:
+        r = m["roi_7d"] / m["roi_all"]
+        if r >= 1.5:
+            m["pace_x"] = r
+
     # size guidance
+    # The size the reader intends, checked against the wallet's own clip. Above the wallet's
+    # own size your slippage is worse than its, so its results stop describing you — which
+    # is the whole reason size_cap exists. Stating the multiple makes that concrete.
     m["my_size"] = my_size
+    m["size_ratio"] = (my_size / m["avg_buy_usd"]) if (my_size and m["avg_buy_usd"] > 0) else None
     m["size_cap"] = m["avg_buy_usd"] * 0.5 if m["avg_buy_usd"] > 0 else None
     m["latency_s"] = latency_s
     return m
@@ -974,16 +1505,14 @@ def gates(m):
     if wash and m["conviction_share"] is None:
         # Tag present and uncheckable. This is exactly the ⚪ case: "we could not verify" is
         # not "confirmed fake", and it is not "fine" either. Do not manufacture a ❌.
-        names = joinsym(t["name"] for t in wash)
         g["G1"] = (
             None,
-            T('GMGN flags this wallet as {0}, and it cannot be checked (holdings unavailable) — the {1} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run', names, usd(m['realized_7d'])),
+            T('where the profit came from cannot be checked (holdings unavailable) — the {0} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run', usd(m['realized_7d'])),
         )
     elif wash:
-        names = joinsym(t["name"] for t in wash)
         g["G1"] = (
             False,
-            T('GMGN flags this wallet as {0}, and the local check agrees: only {1} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume. The {2} realized P&L cannot be taken at face value', names, pct(m['conviction_share']), usd(m['realized_7d'])),
+            T('only {0} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume, so the {1} realized P&L cannot be taken at face value', pct(m['conviction_share']), usd(m['realized_7d'])),
         )
     elif m["is_dev"]:
         g["G1"] = (
@@ -997,22 +1526,34 @@ def gates(m):
         )
     elif m["one_coin_note"]:
         g["G1"] = (False, m["one_coin_note"])
-    elif m["pcr_trusted"] and m["pcr"] >= 0.75:
+    elif m["pcr_represents_record"] and m["pcr"] >= 0.75:
         g["G1"] = (
             False,
             T('profit concentration {0} (across {1} positions) — one coin carried the record', pct(m['pcr']), m['holdings_n']),
         )
     else:
-        if m["pcr_trusted"]:
+        if m["pcr_represents_record"]:
             pcr_txt = T('profit concentration {0}', pct(m['pcr']))
+        elif m["pcr_trusted"]:
+            pcr_txt = T('current book is {0} concentrated ({1} open of {2:,} traded, so this '
+                        'says nothing about the closed record)',
+                        pct(m['pcr']), m['holdings_n'], m['token_num'])
         elif m["pcr"] is not None:
             pcr_txt = T('profit concentration {0} (only {1} positions — too thin to rely on)', pct(m['pcr']), m['holdings_n'])
+        elif m["holdings_n"]:
+            pcr_txt = T('no open position is in profit, so concentration says nothing here')
         else:
             pcr_txt = T('profit concentration not measured (holdings unavailable)')
-        detail = [T('{0} tokens, {1} profitable, {2}', m['token_num'], m['winners'], pcr_txt)]
+        wr_txt = T('{0} win rate on what it has sold', pct(m['winrate']))
+        if m["dist_gap"]:
+            wr_txt += T(' ({0:,} bought and not yet sold, so they have no realized result)',
+                        m['unsettled'])
+        detail = [T('{0:,} tokens, {1:,} in profit, {2}, {3}',
+                     m['token_num'], m['winners'], wr_txt, pcr_txt)]
         if m["wash_refuted"]:
             top = joinsym(sym for sym, _v in m["conviction_top"])
-            detail.append(T('GMGN carries a "{0}" flag; the local check refutes it: {1} of realized gains came from size positions like {2} that netted more than their own cost basis. Self-dealing cannot produce that — the flag is downgraded to a caution, not a veto', m['wash_refuted']['tag'], pct(m['wash_refuted']['share']), top))
+            detail.append(T('{0} of realized gains came from size positions like {1} that netted more than their own cost basis — the profit is priced in, not churned',
+                            pct(m['wash_refuted']['share']), top))
         g["G1"] = (True, detail)
 
     # G2 CURRENCY
@@ -1055,11 +1596,17 @@ def gates(m):
     if m["entry_n"] >= 5:
         if m["entry_p50"] > 0 and m["entry_p50"] < 30_000:
             reasons_fail.append(
-                T('median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost', mc(m['entry_p50']))
+                T('median entry mcap {0} — sniper/pre-graduation territory; you enter at 5–10x its cost. {1} of its entries are under $100k', mc(m['entry_p50']), pct(m['entry_sub100k']))
+                + (T(' (these buys span {0:.0f} days, so this is its habit, not this week)',
+                     m['span_h'] / 24) if m["span_stale"] else "")
             )
         else:
             reasons_ok.append(
-                T('entry mcap p25/p50/p75 = {0}/{1}/{2}', mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']))
+                (T('entry mcap p25/p50/p75 = {0}/{1}/{2} · {3} of entries under $100k',
+                   mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']), pct(m['entry_sub100k']))
+                 if m['entry_sub100k'] > 0 else
+                 T('entry mcap p25/p50/p75 = {0}/{1}/{2}',
+                   mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75'])))
             )
     for t in m["tag_info"]:
         if t["sev"] == "veto_g3":
@@ -1071,6 +1618,8 @@ def gates(m):
     # Gas that eats a large share of the per-trade net leaves nothing for your slippage.
     if m["gas_drag"] is not None and m["gas_drag"] >= 0.25:
         reasons_fail.append(
+            T('fees took {0} of the profit ({1} paid vs {2} realized), leaving {3} net per trade — no room for your slippage', pct(m['gas_drag']), usd(m['gas_total_est']), usd(m['realized_7d']), usd(m['net_per_sell']))
+            if m["fee_exact"] else
             T('gas is an estimated {0} of the profit ({1:,} trades × {2} ≈ {3} vs {4} realized), leaving {5} net per trade — no room for your slippage', pct(m['gas_drag']), m['trades'], usd(m['avg_gas_usd']), usd(m['gas_total_est']), usd(m['realized_7d']), usd(m['net_per_sell']))
         )
     if m["avg_buy_usd"] > 0 and m["avg_buy_usd"] < 50:
@@ -1103,7 +1652,7 @@ def gates(m):
     elif m["lt50_share"] >= 0.35:
         g["G4"] = (
             False,
-            T('{0} of its tokens are down >50% ({1}/{2}) — it does not cut', pct(m['lt50_share']), m['buckets']['lt_n50'], m['token_num']),
+            T('{0} of its tokens are down >50% ({1:,}/{2:,}) — it does not cut', pct(m['lt50_share']), m['buckets']['lt_n50'], m['token_num']),
         )
     elif m["hold_to_zero"] is not None and m["hold_to_zero"] >= 3:
         g["G4"] = (
@@ -1112,7 +1661,7 @@ def gates(m):
         )
     else:
         reasons = [
-            T('heavy-loss share {0} ({1}/{2} down >50%)', pct(m['lt50_share']), m['buckets']['lt_n50'], m['token_num'])
+            T('heavy-loss share {0} ({1:,}/{2:,} down >50%)', pct(m['lt50_share']), m['buckets']['lt_n50'], m['token_num'])
         ]
         if m["hold_to_zero"] is not None:
             reasons.append(T('{0} ridden to zero (down 90%+ with zero sells)', m['hold_to_zero']))
@@ -1162,15 +1711,26 @@ def verdict(m, g):
         if m["is_dev"]:
             return ("🔴",
                     T('DO NOT COPY · it is a launcher trading its own tokens'),
-                    T('Do not read its trading. Check how many of its launches survived (gmgn-wallet-score).'))
+                    T('Do not read its trading — what matters is how many of the tokens it '
+                      'launched survived. Want me to look at its launch record?'))
         if m["one_coin_note"]:
             return ("🔴",
                     T('DO NOT COPY · one token made all the money'),
                     T('Come back when it has done it again on other tokens.'))
+        if m["pcr_represents_record"] and m["pcr"] is not None and m["pcr"] >= 0.75:
+            return ("🔴",
+                    T('DO NOT COPY · one position carried the whole result'),
+                    T('Come back when it has done it again on other tokens.'))
         # Too thin to measure is ⚪, not 🔴. Nothing bad was found — nothing was found.
+        # Only claim a thin sample when it IS one: this used to be the catch-all, so any
+        # G1 failure the branches above did not name printed a false token count.
+        if m["token_num"] < 5:
+            return ("⚪",
+                    T('NO READ · only {0} tokens traded', m['token_num']),
+                    T('The sample is too small for any ratio to hold. Watchlist it until it has traded 5.'))
         return ("⚪",
-                T('NO READ · only {0} tokens traded', m['token_num']),
-                T('The sample is too small for any ratio to hold. Watchlist it until it has traded 5.'))
+                T('NO READ · the track record did not check out'),
+                T('See the first gate below for what failed.'))
 
     if p["G2"] is False:
         return ("🔴",
@@ -1179,6 +1739,10 @@ def verdict(m, g):
 
     # G3 and G4 are independent problems. Reporting only the first one silently drops the
     # other — a wallet you cannot get filled on AND that never cuts needs both sentences.
+    if p["G1"] is None:
+        return ("🟡",
+                T('HOLD OFF · a wash-trading flag we cannot check'),
+                T('Configure GMGN_PRIVATE_KEY and re-run. Do not size off this record first.'))
     if p["G3"] is False and p["G4"] is False:
         return ("🟡",
                 T('WATCH, DO NOT COPY · you cannot get its fills, and it never cuts'),
@@ -1192,14 +1756,13 @@ def verdict(m, g):
                 T('COPY THE BUYS, NOT THE EXITS · it does not cut losses'),
                 T('Take its entries and keep your own stop. Do not wait for it to sell first.'))
 
-    if p["G1"] is None:
-        return ("🟡",
-                T('HOLD OFF · a wash-trading flag we cannot check'),
-                T('Configure GMGN_PRIVATE_KEY and re-run. Do not size off this record first.'))
     if p["G3"] is None or p["G4"] is None:
         return ("🟡",
                 T('HOLD OFF · one of the four was not measured'),
-                T('Fill in the missing data first — usually by configuring GMGN_PRIVATE_KEY.'))
+                (T('Its activity sample is too thin to judge reachability — this wallet barely '
+                   'trades, so there is nothing to fix. Watch it until it does.')
+                 if p["G3"] is None and m["sampled"] < 10 else
+                 T('Read the data gap below and fix what it names, then re-run.')))
 
     size = usd(m["size_cap"]) if m["size_cap"] else T('your normal size')
     win = dur(m["copy_window_s"]) if m["copy_window_s"] > 0 else None
@@ -1226,6 +1789,29 @@ GATE_GLOSS = {
     "G2": "is it still earning now",
     "G3": "can you get filled",
     "G4": "does it cut losses",
+}
+
+
+# The card states each gate as an outcome in words a newcomer already uses. The gate's own
+# name ("AUTHENTICITY") and the number behind it stay on the evidence layer: naming the
+# test invites the question "how did you test it", which is exactly what the card defers.
+GATE_PLAIN = {
+    "G1": ("record is real", "the track record is genuine, not manufactured"),
+    "G2": ("earning now", "not living off an old run"),
+    "G3": ("you can keep up", "its fills are reachable at your speed"),
+    # Keyed "it cuts losses", not "cuts losses": that shorter string is already the
+    # numbers panel's win-rate chip, and a table keyed on English text has exactly one slot
+    # per string. Reusing it silently rewrote that chip in eight fixtures.
+    "G4": ("it cuts losses", "it does not ride positions to zero"),
+}
+
+# The failing form of each chip. An ❌ in front of "you can keep up" flips the icon but not
+# the sentence, so the row read as four contradictions instead of four statements.
+GATE_PLAIN_NEG = {
+    "G1": "record may be faked",
+    "G2": "not earning now",
+    "G3": "you cannot keep up",
+    "G4": "it does not cut losses",
 }
 
 
@@ -1423,7 +2009,8 @@ def archetype(m):
     if m["top_pos_usd"] and m["top_pos_usd"] >= 10_000:
         tags.append(T('🏦 size-position trader, largest holding {0}', usd(m['top_pos_usd'])))
     if m["med_buys_per_pos"] and m["med_buys_per_pos"] >= 10:
-        tags.append(T('🧱 ladders its size positions, median {0:,} buys each', m['med_buys_per_pos']))
+        tags.append(T('🧱 ladders its size positions, median {0:,} buys each', m['med_buys_per_pos'])
+                    + (T(' over {0}', dur(m['accum_window_s'])) if m['accum_window_s'] > 0 else ""))
     elif m["avg_buys_per_token"] >= 3:
         tags.append(T('🧱 scales in, {0:.1f} buys/token', m['avg_buys_per_token']))
     # 🎰 low hit rate carried by one or two outsized wins — a different animal from a
@@ -1435,10 +2022,6 @@ def archetype(m):
     # Both of the next two are None unless the sample can carry them — see the metric.
     if m["top3_buy_share"] is not None and m["top3_buy_share"] >= 0.7:
         tags.append(T('📦 concentrated bets, top 3 tokens are {0} of buy spend', pct(m['top3_buy_share'])))
-    if m["hour_peak_share"] is not None and m["hour_peak_share"] >= 0.7:
-        tags.append(T('🌙 fixed hours, {0} of trades inside one 6-hour window', pct(m['hour_peak_share'])))
-    if m["dump_share"] >= 0.7 and m["sampled"] >= 20:
-        tags.append(T('💣 dumps in one go on {0} of exits', pct(m['dump_share'])))
     return tags
 
 
@@ -1546,61 +2129,314 @@ def speed_read(m, g, why):
     return rows
 
 
-def report(wallet, chain, m, g, gaps):
+def card_blocked(m, g):
+    """Why the card cannot be shown, or None.
+
+    The card's whole premise is that the reasoning is hidden, so it has nowhere to put a ⚪.
+    A card with a missing tick reads as a complete verdict with one fewer reason — which is
+    worse than no card, because the reader cannot see that something was not measured. So
+    when the inputs are not all there, the card is withheld and the evidence layer (which
+    CAN say ⚪) carries the whole answer.
+    """
+    if m["trades"] == 0:
+        return T('no trades in the window')
+    unmeasured = [k for k in ("G1", "G2", "G3", "G4") if g[k][0] is None]
+    if unmeasured:
+        return T('{0} not measured — the card has no way to show an unmeasured check',
+                 ", ".join(T(GATE_PLAIN[k][0]) for k in unmeasured))
+    if m["roi_7d"] is None:
+        return T('no 7d return — the headline figure cannot be computed')
+    return None
+
+
+
+def esc(v):
+    """Escape a pipe so a value can never break out of a markdown table cell."""
+    return str(v).replace("|", "\\|")
+
+
+def md_table(head, rows, align=None):
+    """A markdown table. `head` may be a list of blanks for a two-column key/value block."""
+    n = len(rows[0]) if rows else len(head)
+    align = align or ["---"] * n
+    out = ["| " + " | ".join(esc(h) for h in head) + " |",
+           "|" + "|".join(align) + "|"]
+    for r in rows:
+        out.append("| " + " | ".join(esc(c) for c in r) + " |")
+    return out
+
+
+def caliber(m, g):
+    """(emoji, label) for how good this trader is — a separate question from copyability.
+
+    The card already answers "can you get its fills"; it did not answer "is this person any
+    good", and a reader who pastes an address wants that in the first glance. Without it the
+    opening was a list of ratios that a newcomer cannot rank: 69.3% and 1.2% mean nothing
+    until you know whether they are excellent or ordinary. The grade puts the ranking in the
+    heading so smart money reads as smart money and a losing wallet reads as one, instantly.
+
+    It is computed from the track record ONLY — realized money, win rate, heavy-loss share,
+    sample size. Reachability and loss-cutting are deliberately excluded: an unreachable
+    wallet can still be an excellent trader, and collapsing the two is what a single blended
+    score does wrong.
+    """
+    if g["G1"][0] is False or m["token_num"] < 5:
+        return ("⚪", T('record unreadable'))
+    ra, wr, hl, n = m["realized_all"], m["winrate"], m["lt50_share"], m["token_num"]
+    if ra is not None and ra < 0:
+        return ("🚮", T('loses money'))
+    if g["G2"][0] is False:
+        return ("📉", T('was good, not any more'))
+    if ra is None:
+        return ("⚪", T('record unreadable'))
+    if ra >= 500_000 and wr >= 0.55 and hl <= 0.10 and n >= 50:
+        return ("🏆", T('top-tier record'))
+    if ra >= 100_000 and (wr >= 0.50 or hl <= 0.15) and n >= 20:
+        return ("💪", T('seriously good'))
+    if hl <= 0.20 and wr >= 0.40:
+        return ("✅", T('solid'))
+    return ("😐", T('unremarkable'))
+
+
+def _qualifier(m, chain):
+    """Chain, age and following, as a tail on the record line rather than a line of its own."""
+    q = [chain.upper()]
+    if m["age_days"] is not None and m["age_days"] >= 180:
+        q.append(T('wallet is {0:.0f} days old', m["age_days"]))
+    if m["followers"] >= 10_000:
+        q.append(T('{0:,} followers', m["followers"]))
+    return T(' · {0}', " · ".join(q))
+
+
+def card(m, g, wallet, chain):
+    """Layer one: the decision and the action, with every 'how do you know' deferred.
+
+    The opening is three lines and they carry the whole report. An earlier version led with
+    "If you had followed it with $1,000 seven days ago" above the verdict, and the first
+    reaction it drew was the right one: that sentence is a completed counterfactual, so it
+    reads as an opportunity already missed. It also put identity fourth, meaning the first
+    three lines never said why this trader was worth a reader's attention.
+
+    So the order is now: who this is -> what their record is, in the present tense -> the
+    7-day window as a *backtest that proves the trader*, not as a trade the reader failed to
+    place -> and only then the verdict, which lands as the twist rather than the premise.
+    """
+    out = []
+    emoji, headline, why = verdict(m, g)
+    flags = [t for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3")] or \
+            [t for t in m["tag_info"] if t["sev"] == "warn"]
+    ident = m["twitter_name"] or (f"@{m['twitter']}" if m["twitter"] else None)
+
+    # ── line 1: who. An anonymous address has no hook to lead with, so the verdict keeps
+    #    the H1 there and the whole opening collapses by one level.
+    cal_e, cal_l = caliber(m, g)
+    head = (f"# {cal_e} {cal_l}　{ident}" if ident
+            else f"# {cal_e} {cal_l}　{T('anonymous address')}")
+    if flags:
+        head += f"　`{flags[0]['emoji']} {flags[0]['name']}`"
+        # Recorded so the evidence layer's flag list can skip the one the card already
+        # showed, in the H1 chip and again as the card's single warning line.
+        m["card_flag_name"] = flags[0]["name"]
+    out += [head, ""]
+
+    # ── line 2: the record, present tense. This is the hook: what it has actually done,
+    #    stated as a standing fact rather than as a return the reader could have captured.
+    if g["G1"][0] is False:
+        out += ["> " + T('Its profit figures are not trustworthy — treat the track record as unknown'),
+                "", _qualifier(m, chain).lstrip(" ·　").strip()]
+    else:
+        if m["realized_all"] and m["realized_all"] < 0:
+            line = T('{0} traded, {1} of them lost money — {2} gone in total',
+                     T('{0:,} coins', m["token_num"]), f'{m["token_num"] - m["winners"]:,}',
+                     usd(abs(m["realized_all"])))
+        else:
+            line = T('{0} of the {1:,} coins it traded are in profit, and only {2} lost more than half',
+                     f'{m["winners"]:,}', m["token_num"], f'{m["buckets"]["lt_n50"]:,}')
+            if m["realized_all"]:
+                line = T('{0} banked so far — ', usd(m["realized_all"])) + line
+        out += [f"**{line}**" + _qualifier(m, chain)]
+
+    # ── line 3 is gone: the provenance rides on the record line above, so the 7-day figure
+    #    lands on line 3 instead of line 5.
+    out.append("")
+
+    # ── line 4: the 7-day window, framed as a backtest of the trader -- present tense,
+    #    and paired with what the wallet itself made so the figure reads as evidence of
+    #    skill rather than as a missed entry.
+    if g["G1"][0] is not False and m["roi_7d"] is not None:
+        emo, label = m["form"]
+        second = []
+        if m["realized_7d"]:
+            second.append(T('it made {0} itself this week', usd(m["realized_7d"]))
+                          if m["realized_7d"] > 0 else
+                          T('it lost {0} itself this week', usd(abs(m["realized_7d"]))))
+        second.append(T('{0} {1} — about {2:.0f}x its long-run pace', emo, label, m["pace_x"])
+                      if m["pace_x"] else f"{emo} {label}")
+        lead = T('{0} in one week: {1} following it becomes {2}',
+                 pct(m["roi_7d"]), usd_exact(m["story_stake"]), usd_exact(m["story_out"]))
+        tail = []
+        if m["realized_7d"]:
+            tail.append(T('it banked {0} itself', usd(abs(m["realized_7d"])))
+                        if m["realized_7d"] > 0 else
+                        T('it lost {0} itself', usd(abs(m["realized_7d"]))))
+        tail.append(second[-1])
+        out += ["> **" + lead + "**", ">", "> " + joinclause(tail), ""]
+
+    # ── line 5: the verdict. It is the turn, not the opening -- and it is never optional.
+    #    Only the contrast is worth a word. An agreement connective added nothing, and in
+    #    the 📉 + 🔴 case it restated: "was good, not any more" and "it has stopped making
+    #    money" are one finding from one gate, so "and" made them read as two. A neutral
+    #    grade establishes no direction to agree or disagree with, and an unknown one
+    #    nothing at all -- both take no connective.
+    CAL_GOOD = ("🏆", "💪", "✅")
+    link = (T('but ') if cal_e != "⚪" and emoji != "⚪"
+            and (cal_e in CAL_GOOD) != (emoji == "🟢") else "")
+    out += [f"## {emoji} {link}{headline}", ""]
+    persona = []
+    if m["gain_top3_share"] is not None and g["G1"][0] is not False:
+        persona.append(T('{0} of the money came from just 3 coins — copying it randomly '
+                         'mostly misses them', pct(m["gain_top3_share"]))
+                       if m["gain_top3_share"] >= 0.5 else
+                       T('the money is spread across many coins (top 3 = {0}), so no single '
+                         'copy decides it', pct(m["gain_top3_share"])))
+    if m["entry_p50"] > 0:
+        persona.append(T('usually enters around {0}', mc(m["entry_p50"])))
+    if persona:
+        out += [" · ".join(persona), ""]
+
+    # ── the action ──
+    # A red verdict gets the verdict's own instruction, never a sizing and a copy window:
+    # those are directions for FOLLOWING, and printing them under DO NOT COPY is the card
+    # telling the reader to do the thing its own headline just told them not to.
+    if emoji == "🔴":
+        out += ["## " + T('  WHAT TO DO').strip(), "", why, ""]
+    else:
+        out += ["## " + T('  HOW TO FOLLOW').strip(), ""]
+        cells, heads = [], []
+        if m["size_cap"]:
+            heads.append(T('start no larger than'))
+            cells.append(f"**{usd_exact(m['size_cap'])}**")
+        if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
+            heads.append(T('get your order in within'))
+            cells.append("**" + T('{0} of its buy', dur(m["copy_window_s"])) + "**")
+            if m["span_stale"]:
+                stale_note = T('measured across {0:.0f} days of its trades, not just this week',
+                               m['span_h'] / 24)
+        if cells:
+            out += md_table(heads, [cells]) + [""]
+            if m["span_stale"] and m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
+                out += [stale_note, ""]
+        if m["size_ratio"]:
+            out += [(T('the {0} you asked about is {1:.1f}x its own clip of {2} — at that '
+                       'size your fills are worse than the ones this record was built on',
+                       usd_exact(m["my_size"]), m["size_ratio"], usd_exact(m["avg_buy_usd"]))
+                     if m["my_size"] > m["size_cap"] else
+                     T('the {0} you asked about is within that', usd_exact(m["my_size"]))), ""]
+        if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
+            out += [(T('under a minute — you need automated copy-trading for this; clicking '
+                       'by hand you will not make it')
+                     if m["copy_window_s"] < 60 else
+                     T('wide enough to place by hand, if you are watching')), ""]
+            out += [T('past that, let it go — its cost is lower than yours, and entering '
+                      'late means buying what it is selling'), ""]
+
+    # Read the gates. These were hardcoded to "✓" in the first cut, which put
+    # "✓ the record is real" on a card whose verdict was DO NOT COPY *because* that check
+    # failed — the card asserting the opposite of its own headline.
+    bad = [k for k in ("G1", "G2", "G3", "G4") if g[k][0] is False]
+    ok = [k for k in ("G1", "G2", "G3", "G4") if g[k][0] is True]
+    if bad:
+        out += ["　".join("❌ **" + T(GATE_PLAIN_NEG[k]) + "**" for k in bad), ""]
+    if ok:
+        out += ["`" + " · ".join("✅ " + T(GATE_PLAIN[k][0]) for k in ok) + "`", ""]
+
+    if flags:
+        out += ["> ⚠️ " + flags[0]["meaning"], ""]
+
+    if m["recent_buys"]:
+        out += ["## " + T('  BOUGHT IN THE LAST 24H').strip(), ""]
+        for sym_, v_, mc_ in m["recent_buys"][:3]:
+            out.append(f"- {sym_} **{usd(v_)}**"
+                       + (T(', bought at {0} mcap', mc(mc_)) if mc_ else ""))
+        out.append("")
+
+    if m["open_value"] and m["open_book"]:
+        top = m["open_book"][0]
+        # "Not a wallet that only churns" was a defence against a churn accusation. Now that
+        # the report never puts that accusation on the page, the defence answers a charge the
+        # reader never saw -- and it was editorial either way. The facts stand alone.
+        out += [T('It is still holding {0} coins worth {1} — biggest is {2} at {3}.',
+                  m["holdings_n"], usd(m["open_value"]), top["sym"], usd(top["usd"])), ""]
+    return out
+
+
+def report(wallet, chain, m, g, gaps, brief=False):
+    """Two layers of native markdown, in reading order.
+
+    Layer one is the decision: verdict, the return told as money, who this is, what to do.
+    Layer two is the evidence behind every one of those claims. The split exists because
+    the two audiences are different and were fighting over the same screen — a newcomer
+    needs to stop reading after the card, and whoever is checking the work needs every
+    number.
+
+    The output is markdown rather than column-aligned terminal text, because the places it
+    is actually read — chat, an agent pipeline, a doc — do not render in a monospace grid,
+    and a hand-built column of spaces shears the moment they do not. Tables align
+    themselves; nothing here depends on a 76-column assumption.
+    """
     out = []
     w = wallet if len(wallet) <= 14 else f"{wallet[:6]}…{wallet[-4:]}"
     emoji, headline, why = verdict(m, g)
-    BAR = "━" * 66
 
-    # ── verdict: the only thing on the first screen ──
-    out.append(BAR)
-    out.append(f"{emoji} {headline}")
-    out.append(BAR)
-    put(out, T('DO THIS  '), why)
-    out.append("")
-    out.append(
-        T('{0} · {1} · window 7d (all-time from profits --period all)', w, chain)
-    )
-    out.append("")
+    blocked = card_blocked(m, g)
+    if not blocked:
+        out += card(m, g, wallet, chain)
+        out += ["---", ""]
+        if brief:
+            # Nothing follows in brief mode, so the "below:" signpost would point at an
+            # empty page. The footer is the only line that still applies.
+            out += [T('Everything above measures behaviour that already happened. Not a prediction, not advice.')]
+            return "\n".join(out)
+        out += [T('Every claim above is backed by a number. Below: what each of the four '
+                  'checks tested, and the number that decided it.'), ""]
+        out += ["---", "", "# " + T('EVIDENCE'), ""]
+    elif brief:
+        # Asked for the card, cannot honestly produce one. Say why rather than emitting a
+        # card with a hole in it, and hand back the full report instead of nothing.
+        out += ["> **" + T('NO CARD  ').strip() + "** " + blocked, ""]
+
+    if blocked:
+        # No card was printed, so the verdict has not been stated yet — it leads here.
+        out += [f"# {emoji} {headline}", "",
+                f"**{T('DO THIS  ').strip()}** {why}", ""]
+    out += ["`" + T('{0} · {1} · window 7d (all-time from profits --period all)', w, chain) + "`",
+            ""]
 
     if m["trades"] == 0:
-        out.append(T('NEXT'))
+        out += ["## " + T('NEXT'), ""]
         for step in (
             T('Confirm this is a wallet, not a token contract — a contract queries fine and returns zeros everywhere, which looks like an answer and is not one.'),
             T('Confirm the chain: base58 → sol, 0x → bsc/base/eth.'),
-            T('If it is a wallet, use gmgn-portfolio holdings to see whether it only ever received transfers or airdrops.'),
+            T('If it is a wallet, check whether it only ever received transfers or airdrops '
+              'rather than trading. Want me to look at what it holds?'),
         ):
-            put(out, "  • ", step)
+            out.append(f"- {step}")
         if gaps:
-            out.append("")
-            out.append(T('DATA GAPS:'))
-            for gp in gaps:
-                out.append(f"  ⚪ {gp}")
+            out += ["", "## " + T('DATA GAPS:'), ""] + [f"- ⚪ {gp}" for gp in gaps]
         return "\n".join(out)
 
-    # ── speed read: finishes the decision without scrolling ──
-    # The label column is measured, not guessed. Hardcoding 10 left the widest label
-    # ("key numbers", 11 columns) unpadded, so that one row's value and every continuation
-    # line under it sat a column off from the rest of the block.
-    out.append(T('⚡ SPEED READ'))
-    sr = speed_read(m, g, why)
-    labw = max(dwidth(lab) for lab, _v in sr)
-    for lab, val in sr:
-        put(out, f"  {wpad(lab, labw)}  ", val, hang=labw + 4)
-    out.append("")
+    if blocked:
+        out += ["## " + T('⚡ SPEED READ'), ""]
+        out += [f"- **{lab}** — {val}" for lab, val in speed_read(m, g, why)] + [""]
 
     # ── identity ────────────────────────────────────────────────────────────────
-    # Built as (label, value) rows, not a flat list of lines. The block used to mix three
-    # indents — style at 10, its gloss at 13, identity and every badge at 2 — which read as
-    # a wall rather than a table, and the badges took one line each.
     rows_id = []
     st, sp = style_title(m), style_speed(m)
     if st:
-        head = f"{st[0]} {st[1]}"
+        head = f"{st[0]} **{st[1]}**"
         if sp:
-            head += f" · {sp[0]} {sp[1]}" + T(" ({0})", sp[2])
-        rows_id.append((T('style'), head))
-        rows_id.append(("", T('{0} · cadence×P&L {1}', st[2], st[3])))
+            head += T(', {0}{1}, holds for {2} typically', sp[0], sp[1], sp[2])
+        rows_id.append((T('style'), [head, st[2]]))
 
     if m["twitter_name"] or m["twitter"]:
         bits = [(f"{m['twitter_name'] or ''} @{m['twitter']}" if m["twitter"]
@@ -1609,11 +2445,15 @@ def report(wallet, chain, m, g, gaps):
             bits.append(T('blue-verified'))
         if m["followers"]:
             bits.append(T('{0:,} followers', m['followers']))
-        rows_id.append((T('account'), " · ".join(bits)))
+        acct = " · ".join(bits)
         # Spell the profile out. Someone who searched this address wants to know whose
         # account it is, and a bare @handle still leaves them to go and find it.
-        if m["twitter"]:
-            rows_id.append(("", f"x.com/{m['twitter']}"))
+        # The card carries the handle and follower count; only the profile URL is new here.
+        if blocked:
+            rows_id.append((T('account'),
+                            [acct] + ([f"x.com/{m['twitter']}"] if m["twitter"] else [])))
+        elif m["twitter"]:
+            rows_id.append((T('account'), f"x.com/{m['twitter']}"))
     elif not (m["tags"] or m["fund_from"] or m["fund_from_address"]):
         rows_id.append((T('account'),
                         T('no X account bound and no traceable funding source — an anonymous address')))
@@ -1623,13 +2463,12 @@ def report(wallet, chain, m, g, gaps):
     prov = [f"{t['emoji']} {t['name']}" for t in m["tag_info"] if t["sev"] == "neutral"]
     if m["age_days"] is not None:
         prov.append(T('{0:.0f}-day-old wallet', m['age_days']))
+    if m["native_balance"] > 0:
+        prov.append(T('{0:,.1f} {1} on hand', m["native_balance"], NATIVE.get(chain, chain.upper())))
     if m["fund_from"] or m["fund_from_address"]:
         src = m["fund_from"] or f"{m['fund_from_address'][:6]}…"
         prov.append(T('funded from {0}', src)
                     + (f" {usd(m['fund_amount'])}" if m["fund_amount"] else ""))
-    if m["launchpads"]:
-        mix = T(', ').join(f"{k}×{v}" for k, v in m["launchpads"])
-        prov.append(T('hunts on {0}', mix))
     if m["dev_total"]:
         prov.append(T('launched {0} tokens ({1} graduated · {2})', m['dev_total'], m['dev_open'], pct(m['dev_open_ratio'])))
     elif m["created_tokens_n"]:
@@ -1644,200 +2483,162 @@ def report(wallet, chain, m, g, gaps):
     eng = profit_engine(m)
     if eng:
         chip, detail, meaning = eng
-        rows_id.append((T('engine'), chip))
-        rows_id.append(("", detail))
-        rows_id.append(("", "\u2192 " + meaning, 2))
+        # The card states the chip and what it means for copying. Only the numbers behind it
+        # are new down here, so that is all this row carries when a card was printed.
+        rows_id.append((T('engine'), [f"**{chip}**", detail] if not blocked
+                                     else [f"**{chip}**", detail, f"→ {meaning}"]))
 
-    # ── who it is: straight after the speed read, ahead of the gates ──────────────
-    # A reader who searched this address wants to know WHOSE wallet it is before any
-    # judgement about it. Burying the bound X account below the gates and the risk flags
-    # made a newcomer scroll past four verdicts to reach the one fact they came for.
     if rows_id:
-        out.append(T('👤 WHO IT IS'))
-        labw = max(dwidth(r[0]) for r in rows_id)
-        for row in rows_id:
-            lab, val = row[0], row[1]
-            extra = row[2] if len(row) > 2 else 0
-            put(out, f"  {wpad(lab, labw)}  ", val, hang=labw + 4 + extra)
+        out += ["## " + T('👤 WHO IT IS'), ""]
+        for k, v in rows_id:
+            vals = v if isinstance(v, list) else [v]
+            out.append(f"- **{k}** — {vals[0]}")
+            # Two-space indent keeps a continuation line inside its list item instead of
+            # starting a new paragraph, which is what `<br>` was standing in for.
+            out += [f"  {extra}" for extra in vals[1:]]
         out.append("")
 
     # ── the four gates ──
-    strip = "  ".join(f"{mark(g[k][0])}{k}" for k in ("G1", "G2", "G3", "G4"))
-    out.append(T('🚦 THE FOUR GATES    {0}', strip))
+    out += [f"## 🚦 {T('THE FOUR GATES')}", ""]
     for k in ("G1", "G2", "G3", "G4"):
-        name = GATE_NAMES[k]
-        gloss_en = GATE_GLOSS[k]
-        gloss = T(" ({0})", T(gloss_en))
-        out.append(f"  {mark(g[k][0])} {k} {T(name)}{gloss}")
+        out += [f"### {mark(g[k][0])} {T(GATE_GLOSS[k])}", ""]
         detail = g[k][1]
         for item in (detail if isinstance(detail, list) else [detail]):
-            put(out, "     • ", item, hang=7)
-    out.append("")
-
-    # ── risk flags: binary facts, no paragraph to parse ──
-    risk = []
-    for t in m["tag_info"]:
-        if t["sev"] in ("veto_g1", "veto_g3", "warn"):
-            risk.append(f"{t['emoji']} {t['name']} · {t['meaning']}")
-    if m["honeypots"]:
-        syms = joinsym(x["sym"] for x in m["honeypots"])
-        risk.append(T('🍯 {0} honeypot positions ({1}) · {2} unsellable', len(m['honeypots']), syms, usd(m['honeypot_usd'])))
-    good = [f"{t['emoji']} {t['name']} · {t['meaning']}" for t in m["tag_info"] if t["sev"] == "good"]
-    # A clean screen is reassurance, not a risk — it must not inflate the risk count.
-    if not m["honeypots"] and m["security_checked"] and m.get("hp_refuted"):
-        syms = joinsym(x["sym"] for x in m["hp_refuted"])
-        mx = max(x["sells"] for x in m["hp_refuted"])
-        good.append(T('✅ {0} honeypot flags ({1}) refuted by fill history — the busiest has {2:,} completed sells; transfer-restricted tokenised stocks, not honeypots', len(m['hp_refuted']), syms, mx))
-    elif not m["honeypots"] and m["security_checked"]:
-        good.append(T('✅ honeypot flag checked on {0} positions, none hit', m['security_checked']))
-    if risk:
-        out.append(T('🚩 RISK FLAGS ({0})', len(risk)))
-        for r in risk:
-            put(out, "  ", r, hang=4)
-    else:
-        out.append(T('✅ NO RISK FLAGS'))
-    for gd in good:
-        put(out, "  ", gd, hang=4)
-    if risk or good:
+            out.append(f"- {item}")
         out.append("")
 
+    # ── risk flags: binary facts, no paragraph to parse ──
+    shown = m.get("card_flag_name") if not blocked else None
+    risk = [f"{t['emoji']} **{t['name']}** · {t['meaning']}"
+            for t in m["tag_info"] if t["sev"] in ("veto_g1", "veto_g3", "warn")
+            and t["name"] != shown]
+    if m["honeypots"]:
+        risk.append(T('🍯 {0} honeypot positions ({1}) · {2} unsellable',
+                      len(m['honeypots']), joinsym(x["sym"] for x in m["honeypots"]),
+                      usd(m['honeypot_usd'])))
+    good = [f"{t['emoji']} **{t['name']}** · {t['meaning']}"
+            for t in m["tag_info"] if t["sev"] == "good"]
+    # A clean screen is reassurance, not a risk — it must not inflate the risk count.
+    if not m["honeypots"] and m["security_checked"] and m.get("hp_refuted"):
+        good.append(T('✅ {0} honeypot flags ({1}) refuted by fill history — the busiest has {2:,} completed sells; transfer-restricted tokenised stocks, not honeypots',
+                      len(m['hp_refuted']), joinsym(x["sym"] for x in m["hp_refuted"]),
+                      max(x["sells"] for x in m["hp_refuted"])))
 
-    # ── numbers panel: every row carries its own conclusion ──
-    out.append(T('📊 NUMBERS (the conclusion is on the right)'))
-    rows = []
-    rows.append((T('P&L'),
-                 T('{0} on {1} cost = {2}', usd(m['realized_7d']), usd(m['cost_7d']), pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a'),
-                 roi_label(m["roi_7d"])))
-    rows.append((T('form'),
-                 T('1d {0} · 7d {1} · 30d {2} · all {3}', pct(m['roi_1d']) if m['roi_1d'] is not None else 'n/a', pct(m['roi_7d']) if m['roi_7d'] is not None else 'n/a', pct(m['roi_30d']) if m['roi_30d'] is not None else 'n/a', pct(m['roi_all']) if m['roi_all'] is not None else 'n/a'),
-                 f"{m['form'][0]} {m['form'][1]}"))
-    rows.append((T('cadence'),
-                 T('{0:,} trades ({1:,} buy / {2:,} sell) = {3:,.0f}/day', m['trades'], m['buy'], m['sell'], m['per_day']),
-                 cadence_label(m["per_day"])))
-    fr = T('{0} net per exit · {1} avg gas', usd(m['net_per_sell']), usd(m['avg_gas_usd']))
-    if m["gas_drag"] is not None:
-        fr += T(' ≈ {0} of profit', pct(m['gas_drag']))
-    rows.append((T('friction'), fr, friction_label(m)))
-    hold = T('mean {0} · median copy window {1} ({2} round trips)', dur(m['avg_hold_s']), dur(m['copy_window_s']), m['copy_window_n'])
-    rows.append((T('holding'), hold,
-                 T('⚠️ read the median')
-                 if m["hold_conflict"] else T('mean is usable')))
-    rows.append((T('entry'),
-                 T('p25/p50/p75 {0}/{1}/{2} ({3} measurable)', mc(m['entry_p25']), mc(m['entry_p50']), mc(m['entry_p75']), m['entry_n']),
-                 entry_label(m["entry_p50"])))
-    rows.append((T('size'),
-                 T('{0} per buy', usd(m['avg_buy_usd'])),
-                 T('start at ≤ {0}', usd(m['size_cap']))
-                 if m["size_cap"] else T('not computable')))
-    rows.append((T('win rate'),
-                 T('{0} over {1} tokens · {2} heavy losses', pct(m['winrate']), m['token_num'], pct(m['lt50_share'])),
-                 T('cuts losses') if m["lt50_share"] < 0.35 else T('does not cut')))
-    lab_w = max(dwidth(r[0]) for r in rows) + 2
-    concl_w = max(dwidth(r[2]) for r in rows)
-    # Reserve room for the conclusion column so the arrow stays alignable on every row.
-    mid_w = min(max(dwidth(r[1]) for r in rows) + 2, COL - 2 - lab_w - 2 - concl_w)
-    for lab, val, concl in rows:
-        head = f"  {wpad(lab, lab_w)}"
-        if dwidth(val) <= mid_w - 1:
-            out.append(f"{head}{wpad(val, mid_w)}→ {concl}")
-        else:
-            # Value too long to share the row: value first, conclusion on the next line,
-            # right-aligned under the same arrow column.
-            put(out, head, val, hang=2 + lab_w)
-            out.append(" " * (2 + lab_w + mid_w) + f"→ {concl}")
-    if m["hold_conflict"]:
-        put(out, "  ⚠️ ", m["hold_conflict"])
+    out += [("## " + T('🚩 RISK FLAGS ({0})', len(risk))) if risk
+            else ("## " + T('✅ NO RISK FLAGS')), ""]
+    out += [f"- {r}" for r in risk] + [""]
+    if good:
+        out += ["**" + T('CLEARED') + "**", ""] + [f"- {gd}" for gd in good] + [""]
+
+    # ── core figures: only on the blocked path, where no card printed them ──
+    # The full numbers panel and the outcome-distribution chart were deleted. Every figure
+    # that decides something is printed by the gate that decided it; the panel restated those
+    # and added eight rows of reference (all-time realized, fee share, entry quartiles, clip
+    # size, mean hold, bucket histogram) that a reader consults but never acts on. The
+    # mean-vs-median warning went with it -- its subject, the API's mean hold, is no longer
+    # printed anywhere, so there is no contradiction left to reconcile.
+    if blocked:
+        core = [T('7d {0}', pct(m['roi_7d'])) if m["roi_7d"] is not None else None,
+                T('all {0}', pct(m['roi_all'])) if m["roi_all"] is not None else None,
+                T('{0:,.0f}/day', m["per_day"]),
+                T('win {0}', pct(m['winrate'])),
+                T('entry {0}', mc(m['entry_p50'])) if m["entry_p50"] else None]
+        out += [" · ".join(c for c in core if c), ""]
     if m["one_coin_note"]:
-        put(out, "  ⚠️ ", m["one_coin_note"])
-    if m["pcr"] is not None and m["pcr_trusted"]:
-        out.append(T("  profit concentration {0} (largest winner's share of all gains)", pct(m['pcr'])))
-    out.append("")
-
-    # ── P&L distribution ──
-    b = m["buckets"]
-    peak = max(b.values()) or 1
-    out.append(T('📉 OUTCOME DISTRIBUTION ({0} tokens — counts tokens, not dollars)', m['token_num']))
-    for lab, k in ((">500%", "gt5"), ("200–500%", "x2_5"), ("0–200%", "x0_2"),
-                   ("−50–0%", "n50_0"), ("<−50%", "lt_n50")):
-        n = b[k]
-        out.append(f"  {lab:<10} {n:>5}  " + ("█" * max(1, int(round(30 * n / peak))) if n else ""))
-    out.append("")
+        out += [f"> ⚠️ {m['one_coin_note']}", ""]
 
     # ── what it is doing now ──
     pe, pl = m["posture"]
-    out.append(T('🔄 WHAT IT IS DOING NOW'))
-    out.append(T('  {0} {1} · 24h bought {2} / sold {3}', pe, pl, usd(m['buy_usd_24h']), usd(m['sell_usd_24h'])))
-    if m["recent_buys"]:
-        put(out, T('  bought in 24h: '),
-            ", ".join(f"{sym} {usd(v)}" for sym, v in m["recent_buys"]))
-    if m["open_book"]:
-        out.append(T('  {0} positions · {1} total', m['holdings_n'], usd(m['open_value'])))
-        hp_syms = {x["sym"] for x in m["honeypots"]}
-        for bk in m["open_book"]:
-            tag = " 🍯" if bk["sym"] in hp_syms else ""
-            out.append(f"    {wpad(bk['sym'] + tag, 14)}{usd(bk['usd']):>10}  {pct(bk['chg'], 0):>8}  "
-                       + T('cost {0} · {1} sells', usd(bk['cost']), bk['sells']))
-    else:
-        out.append(T('  live book: unavailable (see data gaps)'))
+    out += ["## " + T('🔄 WHAT IT IS DOING NOW'), "",
+            T('{0} **{1}** · 24h bought {2} / sold {3}', pe, pl, usd(m['buy_usd_24h']), usd(m['sell_usd_24h']))]
+    if m["idle_s"] is not None:
+        out.append((("> ⚠️ " + T('last trade {0} ago — every figure here describes a wallet that '
+                                 'has since gone quiet', dur(m["idle_s"]))) if m["stale"]
+                    else T('last trade {0} ago', dur(m["idle_s"]))))
     out.append("")
+    extra = m["recent_buys"] if blocked else []
+    if extra:
+        out += ["**" + (T('bought in 24h') if blocked
+                        else T('also bought in 24h')).strip() + "**", ""]
+        out += [f"- {sym} **{usd(v)}**" + (T(', bought at {0} mcap', mc(mc_)) if mc_ else "")
+                for sym, v, mc_ in extra] + [""]
+    if m["open_book"]:
+        if blocked:
+            out += ["**" + T('{0} positions · {1} total', m['holdings_n'], usd(m['open_value'])) + "**", ""]
+        hp_syms = {x["sym"] for x in m["honeypots"]}
+        out += md_table([T('token'), T('market value'), T('P&L'), T('sells')],
+                        [[bk["sym"] + (" 🍯" if bk["sym"] in hp_syms else ""),
+                          usd(bk["usd"]), pct(bk["chg"], 0), f"{bk['sells']:,}"]
+                         for bk in m["open_book"][:5 if blocked else 3]],
+                        ["---", "---:", "---:", "---:"]) + [""]
+    else:
+        out += [T('live book: unavailable (see data gaps)'), ""]
 
     # ── what to do next ──
-    out.append(T('✅ WHAT TO DO NEXT'))
-    for a in actions(m, g):
-        put(out, "  • ", a)
-    out.append("")
+    out += ["## " + T('✅ WHAT TO DO NEXT'), ""]
+    out += [f"- {a}" for a in actions(m, g, card_shown=not blocked)] + [""]
 
-    cap = T(' (hit page cap — busiest slice only)') if m["hit_limit"] else ""
-    put(out, "", T('sample  {0:,} activity rows / {1} tokens · spans {2:.1f}h{3}', m['sampled'], m['distinct_tokens_sampled'], m['span_h'], cap))
+    out += ["---", ""]
+    cap = (T(' (hit page cap — busiest slice only)') if m["hit_limit"]
+           else (T(' — sparse: {0} rows stretched over {1:.0f} days', m['sampled'], m['span_h'] / 24)
+                 if m["span_stale"] else ""))
+    out.append("`" + T('sample  {0:,} activity rows / {1} tokens · spans {2:.1f}h{3}',
+                       m['sampled'], m['distinct_tokens_sampled'], m['span_h'], cap) + "`")
     if gaps:
-        out.append(T('DATA GAPS (unevaluated ≠ passed):'))
-        for gp in gaps:
-            put(out, "  ⚪ ", gp)
-    out.append("")
-    put(out, "", T('Everything above measures behaviour that already happened. Not a prediction, not advice.'))
+        out += ["", "**" + T('DATA GAPS (unevaluated ≠ passed):') + "**", ""]
+        out += [f"- ⚪ {gp}" for gp in gaps]
+    out += ["", T('Everything above measures behaviour that already happened. Not a prediction, not advice.')]
     return "\n".join(out)
 
 
-def actions(m, g):
-    a = []
-    p = {k: v[0] for k, v in g.items()}
+
+def actions(m, g, card_shown=False):
+    """Three follow-up questions, in the reader's words.
+
+    This section used to be conditional advice — size caps, copy windows, "set your own
+    stop" — which duplicated the card and stacked several intents into one bullet. All of
+    that already has a home: the card gives the instructions, the gates give the reasoning.
+    What is missing at the end of a dossier is simply the next question, so this now prints
+    exactly three of them and nothing else. Each is one intent, phrased the way the reader
+    would ask it, so their own follow-up routes itself to whichever skill answers it.
+
+    Every candidate must be answerable by a skill that exists in GMGNAI/gmgn-skills. A
+    question with no skill behind it is worse than no question: the reader asks it, nothing
+    can answer, and the dossier has sent them into a wall. Two candidates were cut for
+    exactly that reason — "which coins made this week\'s money" (portfolio profits returns
+    one aggregate row per period, never a per-token breakdown) and "check back in a week"
+    (a reminder, not a query). The skill each surviving question routes to is named beside
+    it below; keep that mapping accurate when adding one.
+    """
     if m["trades"] == 0:
-        return [
-            T('Confirm this is a wallet, not a token contract. If it is a wallet, wait for real trades.')
-        ]
-    if m["recent_buys"]:
-        syms = ", ".join(s for s, _v in m["recent_buys"][:3])
-        a.append(
-            T('It bought {0} in the last 24h — run gmgn-token / gmgn-holder-analysis on those before following it in.', syms)
-        )
-    if p["G3"] is False:
-        a.append(
-            T('Do not mirror it. Treat it as a signal source: note what and at what mcap, then enter on your own terms.')
-        )
-    elif p["G3"] is True and m["size_cap"]:
-        a.append(
-            T('Start at ≤ {0} (it averages {1} per buy; above its own size your slippage is worse than its). Quote through gmgn-swap before sending.', usd(m['size_cap']), usd(m['avg_buy_usd']))
-        )
-    if p["G4"] is False:
-        a.append(
-            T('Set your own stop — it does not cut, and riding it to the end means riding it to zero.')
-        )
-    if m["copy_window_s"] > 0:
-        a.append(
-            T('If you copy it, your order must land within {0} of its buy — otherwise skip the trade.', dur(m['copy_window_s']))
-        )
-    if m["is_dev"]:
-        a.append(
-            T('This is a launcher. Do not score its trading — check its launch survival and security record (gmgn-wallet-score, Dev angle).')
-        )
-    if m["form"][1] in (T('cooling off'), T('broken down')):
-        a.append(
-            T('Its money is historical. Re-run this in 7 days to see whether form recovers or keeps sliding.')
-        )
-    a.append(
-        T('For 0-100 scores and a latency/slippage backtest, use gmgn-wallet-score.')
-    )
-    return a
+        # -> gmgn-token info: a contract address answers here, a wallet does not.
+        return [T('Is this address a wallet at all, or a token contract?')]
+
+    # Ordered by how much this particular wallet's data invites the question; first three win.
+    # The first three are deliberately three different skills.
+    pool = []
+    top_buy = m["recent_buys"][0][0] if m["recent_buys"] else ""
+    if top_buy:
+        # -> gmgn-holder-analysis
+        pool.append(T('What do the chips look like on {0} — who is holding, and at what cost?', top_buy))
+    # -> gmgn-wallet-score, copy-tradeability angle
+    pool.append(T('Score it 0-100 with my own latency and slippage modelled in?'))
+    if m["created_tokens_n"] > 0:
+        # -> gmgn-wallet-score, Dev-reputation angle
+        pool.append(T('It launched {0} tokens — how many of them are still alive?',
+                      f'{m["created_tokens_n"]:,}'))
+    if top_buy:
+        # -> gmgn-kline-pattern
+        pool.append(T('What shape is {0} in right now — still climbing, or already breaking down?',
+                      top_buy))
+        # -> gmgn-token security
+        pool.append(T('Are the contracts on {0} safe — honeypot, liquidity, mint authority?', top_buy))
+        # -> gmgn-token (smart-money / KOL positions) or gmgn-track
+        pool.append(T('Who else is buying {0} — any smart money or KOLs in there?', top_buy))
+    if m["holdings_n"]:
+        # -> gmgn-portfolio holdings
+        pool.append(T('It holds {0} coins — list the whole book with costs?', f'{m["holdings_n"]:,}'))
+    return pool[:3]
 
 
 # ─────────────────────────── entry ───────────────────────────
@@ -1845,7 +2646,7 @@ def actions(m, g):
 
 def main(argv):
     args = [a for a in argv[1:]]
-    latency_s, my_size, fixture = 3.0, None, None
+    latency_s, my_size, fixture, brief = 3.0, None, None, False
     rest = []
     k = 0
     while k < len(args):
@@ -1855,6 +2656,9 @@ def main(argv):
         elif args[k] == "--size" and k + 1 < len(args):
             my_size = f(args[k + 1])
             k += 2
+        elif args[k] == "--brief":
+            brief = True
+            k += 1
         elif args[k] == "--fixture" and k + 1 < len(args):
             fixture = args[k + 1]
             k += 2
@@ -1862,7 +2666,10 @@ def main(argv):
             rest.append(args[k])
             k += 1
 
-    lang = next((x for x in rest if x in ("zh", "en")), "zh")
+    # English is the default. Chinese is a deliberate choice the caller makes by passing `zh`
+    # -- SKILL.md tells the agent to pass it whenever the user wrote in Chinese -- so a bare
+    # invocation from a pipeline, a cron job or another skill comes out in English.
+    lang = next((x for x in rest if x in ("zh", "en")), "en")
     load_lang(lang)
     rest = [x for x in rest if x not in ("zh", "en")]
 
@@ -1888,7 +2695,7 @@ def main(argv):
 
     m = compute(d, latency_s, my_size)
     g = gates(m)
-    print(report(wallet, chain, m, g, gaps))
+    print(report(wallet, chain, m, g, gaps, brief))
     return 0
 
 
