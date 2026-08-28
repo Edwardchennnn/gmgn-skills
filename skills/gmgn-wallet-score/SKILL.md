@@ -224,13 +224,14 @@ if is_dev_wallet:
                     continue
                 checked += 1
                 bad = False
-                if str(sec.get('is_honeypot', '')).lower() == 'yes':
+                if _b(sec.get('is_honeypot')) or _b(sec.get('honeypot')):
                     bad = True
                 elif CHAIN == 'sol':
                     if not _b(sec.get('renounced_mint')) or not _b(sec.get('renounced_freeze_account')):
                         bad = True
                 else:
-                    if str(sec.get('open_source', '')).lower() == 'no':
+                    os_val = sec.get('is_open_source', sec.get('open_source'))
+                    if os_val is not None and not _b(os_val):
                         bad = True
                 if bad:
                     unsafe += 1
@@ -453,7 +454,7 @@ Fields the script reads, confirmed against `portfolio stats` / `portfolio activi
 | `portfolio activity` | `token.address`, `timestamp`, `price_usd` | Used for holding-duration and flip-rate detection |
 | `portfolio created-tokens` | `open_count`, `inner_count`, `open_ratio`, `creator_ath_info.ath_mc` | Dev launch-history survival stats |
 | `portfolio created-tokens` | `tokens[].is_open`, `tokens[].pool_liquidity`, `tokens[].create_timestamp`, `tokens[].token_address` | Per-launch alive/rugged classification |
-| `token security` | `is_honeypot`, `renounced_mint`, `renounced_freeze_account` (SOL), `open_source` (EVM) | Recent-launch security scan for Dev reputation |
+| `token security` | `is_honeypot` (boolean, `null` on SOL), `renounced_mint` / `renounced_freeze_account` (SOL), `is_open_source` (EVM boolean) | Recent-launch security scan for Dev reputation. Read through `_b()` — these are booleans with numeric aliases, never `"yes"` / `"no"` strings, and on SOL the aliases read `0` while the booleans are `null` |
 
 **Fields used defensively, not guaranteed present in every API response** — the script degrades gracefully (see [Notes](#notes)) rather than failing if these are absent:
 

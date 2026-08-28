@@ -306,15 +306,15 @@ Sell:         {input amount in human units} {input token symbol}
 Buy:          {output token symbol}
 Slippage:     {slippage}% (or "auto")
 Est. output:  ~{output_amount from quote} {output token symbol}
-Risk Level:   🟢 Low / 🟡 Medium / 🔴 High  (based on rug_ratio from security check)
+Risk Level:   🟢 Low / 🟡 Medium / 🔴 High  (from the security check: honeypot / open-source / renounced / sell_tax / LP)
 
 Reply "confirm" to proceed.
 ```
 
-**Note**: `Risk Level` is derived from the required security check:
-- 🟢 Low: `rug_ratio < 0.1`
-- 🟡 Medium: `rug_ratio 0.1–0.3`
-- 🔴 High: `rug_ratio > 0.3` (requires re-confirmation)
+**Note**: `Risk Level` is derived from the required security check. `rug_ratio` is **not** in a `token security` response — it is a `market trending` / `market trenches` row field — so grade on what the endpoint actually returns:
+- 🔴 High (requires re-confirmation): `is_honeypot === true`, or `is_open_source === false`, or `sell_tax` above `0.10` once parsed, or LP neither locked (`lock_summary.is_locked`) nor burned (`burn_status == "burn"`)
+- 🟡 Medium: one of those cannot be cleared because the value is unavailable — `null` on SOL, `""` unreported, or `top_10_holder_rate: "0"` meaning not populated
+- 🟢 Low: honeypot `false`, contract open-source, ownership renounced, taxes `"0"`, LP locked or burned
 
 If the user explicitly skipped the security check, omit the Risk Level line and add a note: "(Security check skipped by user)"
 
@@ -796,8 +796,9 @@ gmgn-cli token security --chain <chain> --address <output_token>
 ```
 
 Check the two critical fields:
-- **`is_honeypot`**: If `"yes"` → **abort immediately**. Display: "🚫 HONEYPOT DETECTED — swap aborted." Do NOT proceed.
-- **`rug_ratio`**: If `> 0.3` → display 🔴 High Risk warning and require explicit re-confirmation from the user before proceeding.
+- **`is_honeypot`**: If `=== true` → **abort immediately**. Display: "🚫 HONEYPOT DETECTED — swap aborted." Do NOT proceed. The field is a **boolean**, so comparing it against `"yes"` never fires and every honeypot would pass. On SOL it is `null` — not applicable, not cleared.
+- **`sell_tax` / LP status**: If `sell_tax` parses above `0.10`, or LP is neither locked nor burned, or `is_open_source === false` → display 🔴 High Risk warning and require explicit re-confirmation from the user before proceeding. Do **not** gate on `rug_ratio` here; this endpoint does not return it.
+- **First confirm the token exists**: an unknown address returns a security block full of struct defaults. Check `info.symbol != ""` before trusting a clean result.
 
 **User override**: The user may explicitly skip this check by saying "I already checked" or "skip security check". In that case, document that the check was skipped in the confirmation summary. This is the only valid override — do NOT skip the check silently.
 
