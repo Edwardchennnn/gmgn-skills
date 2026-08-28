@@ -40,7 +40,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — ⚔️ **active winner**，🧭swing，持仓通常 1–7 days
+- **style** — ⚔️ **active winner**, 🧭swing, holds for 1–7 days typically
   busy hands that keep the money
 - **account** — no X account bound and no traceable funding source — an anonymous address
 - **provenance** — 623-day-old wallet

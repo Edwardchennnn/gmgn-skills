@@ -20,9 +20,9 @@ Treat its P&L as if it were not there. Watch what it buys; do not use these numb
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME0 **$340**，买在市值 $28K
-- MEME1 **$340**，买在市值 $38K
-- MEME2 **$340**，买在市值 $48K
+- MEME0 **$340**, bought at $28K mcap
+- MEME1 **$340**, bought at $38K mcap
+- MEME2 **$340**, bought at $48K mcap
 
 It is still holding 9 coins worth $5.1K — biggest is WBNB at $3.7K.
 
@@ -38,7 +38,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — ⚙️ **full-auto grinder**，🐇intraday，持仓通常 < 24h
+- **style** — ⚙️ **full-auto grinder**, 🐇intraday, holds for < 24h typically
   thin margins, huge volume
 - **account** — x.com/aa_AFeng
 - **provenance** — 🔧 GMGN user · 793-day-old wallet · funded from Binance $50.0K

@@ -12,7 +12,7 @@
 
 ## 👤 WHO IT IS
 
-- **style** — 🌾 **harvester**，🐇intraday，持仓通常 < 24h
+- **style** — 🌾 **harvester**, 🐇intraday, holds for < 24h typically
   high frequency and strongly profitable — the strongest cell (7d 387.0% + 78.0% hit rate)
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 363-day-old wallet · funded from 0xfeed… · launched 37 tokens (5 graduated · 13.5%)
@@ -47,11 +47,11 @@
 
 **bought in 24h**
 
-- MEME2 **$600**，买在市值 $37K
-- MEME3 **$600**，买在市值 $45K
-- MEME4 **$600**，买在市值 $52K
-- MEME5 **$600**，买在市值 $60K
-- MEME6 **$600**，买在市值 $68K
+- MEME2 **$600**, bought at $37K mcap
+- MEME3 **$600**, bought at $45K mcap
+- MEME4 **$600**, bought at $52K mcap
+- MEME5 **$600**, bought at $60K mcap
+- MEME6 **$600**, bought at $68K mcap
 
 **1 positions · $2.1K total**
 

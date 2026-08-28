@@ -26,9 +26,9 @@ past that, let it go — its cost is lower than yours, and entering late means b
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME0 **$3.4K**，买在市值 $14.3M
-- MEME1 **$3.4K**，买在市值 $19.4M
-- MEME2 **$3.4K**，买在市值 $24.5M
+- MEME0 **$3.4K**, bought at $14.3M mcap
+- MEME1 **$3.4K**, bought at $19.4M mcap
+- MEME2 **$3.4K**, bought at $24.5M mcap
 
 It is still holding 13 coins worth $117.9K — biggest is LOBSTER at $54.3K.
 
@@ -44,7 +44,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — 🌾 **harvester**，🐇intraday，持仓通常 < 24h
+- **style** — 🌾 **harvester**, 🐇intraday, holds for < 24h typically
   high frequency and strongly profitable — the strongest cell (7d 67.5% + only 4.4% heavy losses)
 - **account** — x.com/Mirro7777
 - **provenance** — ❔ `app_smart_money` · 🔧 GMGN user · 751-day-old wallet · funded from Binance: Hot Wallet 11 $120

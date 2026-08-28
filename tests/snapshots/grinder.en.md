@@ -24,9 +24,9 @@ past that, let it go — its cost is lower than yours, and entering late means b
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME7 **$1.8K**，买在市值 $1.2M
-- MEME8 **$1.8K**，买在市值 $1.3M
-- MEME9 **$1.8K**，买在市值 $333K
+- MEME7 **$1.8K**, bought at $1.2M mcap
+- MEME8 **$1.8K**, bought at $1.3M mcap
+- MEME9 **$1.8K**, bought at $333K mcap
 
 It is still holding 9 coins worth $28.8K — biggest is PEPE2 at $9.4K.
 
@@ -42,7 +42,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — ⚔️ **active winner**，🐇intraday，持仓通常 < 24h
+- **style** — ⚔️ **active winner**, 🐇intraday, holds for < 24h typically
   busy hands that keep the money
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 723-day-old wallet · funded from Binance $12.0K

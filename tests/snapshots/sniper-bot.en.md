@@ -26,9 +26,9 @@ past that, let it go — its cost is lower than yours, and entering late means b
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME0 **$240**，买在市值 $8K
-- MEME1 **$240**，买在市值 $11K
-- MEME2 **$240**，买在市值 $14K
+- MEME0 **$240**, bought at $8K mcap
+- MEME1 **$240**, bought at $11K mcap
+- MEME2 **$240**, bought at $14K mcap
 
 ---
 
@@ -42,7 +42,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — ⚙️ **full-auto grinder**，⚡flash flipper，持仓通常 < 60s
+- **style** — ⚙️ **full-auto grinder**, ⚡flash flipper, holds for < 60s typically
   thin margins, huge volume
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 413-day-old wallet · funded from Unknown

@@ -20,9 +20,9 @@ Re-run in 7 days to see whether it recovers or keeps sliding.
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME10 **$2.6K**，买在市值 $671K
-- MEME11 **$2.6K**，买在市值 $847K
-- MEME12 **$2.6K**，买在市值 $1.0M
+- MEME10 **$2.6K**, bought at $671K mcap
+- MEME11 **$2.6K**, bought at $847K mcap
+- MEME12 **$2.6K**, bought at $1.0M mcap
 
 It is still holding 2 coins worth $16.1K — biggest is OLDMEME at $12.0K.
 
@@ -38,7 +38,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — 💸 **fee donor**，🐇intraday，持仓通常 < 24h
+- **style** — 💸 **fee donor**, 🐇intraday, holds for < 24h typically
   real volume, and the money went on-chain
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 943-day-old wallet

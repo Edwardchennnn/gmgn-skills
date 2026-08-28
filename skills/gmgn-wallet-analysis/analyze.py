@@ -58,13 +58,13 @@ ZH = {
     "{0} of the money came from just 3 coins — copying it randomly mostly misses them": "{0} 的钱只来自 3 个币 —— 随机跟单大概率跟不到这几个",
     "wide enough to place by hand, if you are watching": "这个窗口手动下单来得及，前提是你在盯",
     "under a minute — you need automated copy-trading for this; clicking by hand you will not make it": "不到一分钟 —— 这个节奏得用自动跟单，手点是赶不上的",
-    "，买在市值 {0}": "，买在市值 {0}",
+    ", bought at {0} mcap": "，买在市值 {0}",
     "{0} banked so far — ": "累计落袋 {0} —— ",
     "as a copy that is {0} → {1}": "折算成跟单是 {0} → {1}",
     "{0} over the last 7 days": "近 7 天 {0}",
     "It lost {0} this week": "这一周它亏掉 {0}",
     "It banked {0} this week": "这一周它落袋 {0}",
-    "，{0}{1}，持仓通常 {2}": "，{0}{1}，持仓通常 {2}",
+    ", {0}{1}, holds for {2} typically": "，{0}{1}，持仓通常 {2}",
     "no open position is in profit, so concentration says nothing here": "当前持仓没有一个是赚的，集中度在这里说明不了什么",
     "current book is {0} concentrated ({1} open of {2:,} traded, so this says nothing about the closed record)": "当前持仓集中度 {0}（{1} 个在手 / 共打过 {2:,} 个，说明不了已平仓的部分）",
     "See the first gate below for what failed.": "具体没过哪一条，看下面第一道闸门。",
@@ -2357,7 +2357,7 @@ def card(m, g, wallet, chain):
         out += ["## " + T('  BOUGHT IN THE LAST 24H').strip(), ""]
         for sym_, v_, mc_ in m["recent_buys"][:3]:
             out.append(f"- {sym_} **{usd(v_)}**"
-                       + (T('，买在市值 {0}', mc(mc_)) if mc_ else ""))
+                       + (T(', bought at {0} mcap', mc(mc_)) if mc_ else ""))
         out.append("")
 
     if m["open_value"] and m["open_book"]:
@@ -2435,7 +2435,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
     if st:
         head = f"{st[0]} **{st[1]}**"
         if sp:
-            head += T('，{0}{1}，持仓通常 {2}', sp[0], sp[1], sp[2])
+            head += T(', {0}{1}, holds for {2} typically', sp[0], sp[1], sp[2])
         rows_id.append((T('style'), [head, st[2]]))
 
     if m["twitter_name"] or m["twitter"]:
@@ -2560,7 +2560,7 @@ def report(wallet, chain, m, g, gaps, brief=False):
     if extra:
         out += ["**" + (T('bought in 24h') if blocked
                         else T('also bought in 24h')).strip() + "**", ""]
-        out += [f"- {sym} **{usd(v)}**" + (T('，买在市值 {0}', mc(mc_)) if mc_ else "")
+        out += [f"- {sym} **{usd(v)}**" + (T(', bought at {0} mcap', mc(mc_)) if mc_ else "")
                 for sym, v, mc_ in extra] + [""]
     if m["open_book"]:
         if blocked:
@@ -2666,7 +2666,10 @@ def main(argv):
             rest.append(args[k])
             k += 1
 
-    lang = next((x for x in rest if x in ("zh", "en")), "zh")
+    # English is the default. Chinese is a deliberate choice the caller makes by passing `zh`
+    # -- SKILL.md tells the agent to pass it whenever the user wrote in Chinese -- so a bare
+    # invocation from a pipeline, a cron job or another skill comes out in English.
+    lang = next((x for x in rest if x in ("zh", "en")), "en")
     load_lang(lang)
     rest = [x for x in rest if x not in ("zh", "en")]
 

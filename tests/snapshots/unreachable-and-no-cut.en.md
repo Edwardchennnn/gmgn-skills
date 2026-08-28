@@ -28,9 +28,9 @@ past that, let it go — its cost is lower than yours, and entering late means b
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME0 **$310**，买在市值 $26K
-- MEME1 **$310**，买在市值 $35K
-- MEME2 **$310**，买在市值 $45K
+- MEME0 **$310**, bought at $26K mcap
+- MEME1 **$310**, bought at $35K mcap
+- MEME2 **$310**, bought at $45K mcap
 
 It is still holding 8 coins worth $12.2K — biggest is WINNER at $9.4K.
 
@@ -46,7 +46,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — ⚙️ **full-auto grinder**，⚡flash flipper，持仓通常 < 60s
+- **style** — ⚙️ **full-auto grinder**, ⚡flash flipper, holds for < 60s typically
   thin margins, huge volume
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 513-day-old wallet · funded from Bybit $1.2K

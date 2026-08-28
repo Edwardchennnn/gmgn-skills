@@ -18,7 +18,7 @@ Come back when it has done it again on other tokens.
 
 ## BOUGHT IN THE LAST 24H
 
-- MEME10 **$2.2K**，买在市值 $256K
+- MEME10 **$2.2K**, bought at $256K mcap
 
 ---
 
@@ -32,7 +32,7 @@ Every claim above is backed by a number. Below: what each of the four checks tes
 
 ## 👤 WHO IT IS
 
-- **style** — 📈 **steady hand**，🐇intraday，持仓通常 < 24h
+- **style** — 📈 **steady hand**, 🐇intraday, holds for < 24h typically
   normal cadence, positive return, no glaring weakness
 - **account** — no X account bound and no traceable funding source — an anonymous address
 - **provenance** — 533-day-old wallet

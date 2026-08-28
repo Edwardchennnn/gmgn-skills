@@ -16,6 +16,11 @@ for f in tests/fixtures/*.json; do
     fi
     # A dossier that prints no decision is the failure this net exists to catch.
     printf '%s\n' "$out" | grep -qE '^#{1,2} (🔴|🟡|🟢|⚪)' || { echo "── NO VERDICT  $n.$lang"; fail=1; }
+    # A key written in Chinese falls back to itself, so the English report prints Chinese.
+    # Invisible while zh was the default; caught here now.
+    if [ "$lang" = en ] && printf '%s\n' "$out" | grep -qP '[\x{4e00}-\x{9fff}]'; then
+      echo "── CHINESE IN EN  $n"; printf '%s\n' "$out" | grep -nP '[\x{4e00}-\x{9fff}]' | head -3; fail=1
+    fi
   done
 done
 [ "${1:-}" = "--bless" ] && { echo "snapshots blessed"; exit 0; }

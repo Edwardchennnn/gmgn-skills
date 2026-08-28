@@ -45,10 +45,10 @@
 
 **bought in 24h**
 
-- MEME0 **$2.1K**，买在市值 $405K
-- MEME1 **$2.1K**，买在市值 $549K
-- MEME2 **$2.1K**，买在市值 $693K
-- MEME3 **$2.1K**，买在市值 $837K
+- MEME0 **$2.1K**, bought at $405K mcap
+- MEME1 **$2.1K**, bought at $549K mcap
+- MEME2 **$2.1K**, bought at $693K mcap
+- MEME3 **$2.1K**, bought at $837K mcap
 
 **1 positions · $4.2K total**
 

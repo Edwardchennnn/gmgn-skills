@@ -342,7 +342,9 @@ python3 ~/.claude/skills/gmgn-wallet-analysis/analyze.py <WALLET> <CHAIN> <LANG>
 ```
 
 - `<CHAIN>` — `sol` for base58 addresses; `bsc` for `0x…` unless the user names another chain
-- `<LANG>` — `zh` if the user wrote Chinese, `en` if English (default `zh`)
+- `<LANG>` — **`en` is the default.** Pass `zh` whenever the user wrote in Chinese; the
+  report is fully translated and reads natively in either. Omitting the argument gives
+  English, which is what a pipeline or another skill should get.
 - `--size <usd>` — the position size the user was going to take. The report says whether it
   still works on this wallet and, when it does not, how many times the wallet's own clip it
   is. Above the wallet's own size your fills are worse than the ones its record was built

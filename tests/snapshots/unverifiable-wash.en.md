@@ -12,7 +12,7 @@
 
 ## 👤 WHO IT IS
 
-- **style** — ⚔️ **active winner**，🐇intraday，持仓通常 < 24h
+- **style** — ⚔️ **active winner**, 🐇intraday, holds for < 24h typically
   busy hands that keep the money
 - **account** — no X account bound (no public identity on GMGN)
 - **provenance** — 🔧 GMGN user · 583-day-old wallet · funded from OKX $3.0K
@@ -49,11 +49,11 @@
 
 **bought in 24h**
 
-- MEME0 **$5.2K**，买在市值 $810K
-- MEME1 **$5.2K**，买在市值 $1.1M
-- MEME2 **$5.2K**，买在市值 $1.4M
-- MEME3 **$5.2K**，买在市值 $1.7M
-- MEME4 **$5.2K**，买在市值 $2.0M
+- MEME0 **$5.2K**, bought at $810K mcap
+- MEME1 **$5.2K**, bought at $1.1M mcap
+- MEME2 **$5.2K**, bought at $1.4M mcap
+- MEME3 **$5.2K**, bought at $1.7M mcap
+- MEME4 **$5.2K**, bought at $2.0M mcap
 
 live book: unavailable (see data gaps)
 
