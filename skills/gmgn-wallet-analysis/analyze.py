@@ -42,6 +42,10 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "{0} of the {1:,} coins it traded are in profit, and only {2} lost more than half": "它打过的 {1:,} 个币里，{0} 个现在是赚的，只有 {2} 个亏超一半",
+    "{0:,} tokens, {1:,} in profit, {2}, {3}": "{0:,} 币 · {1:,} 个在赚 · {2} · {3}",
+    " ({0:,} bought and not yet sold, so they have no realized result)": "（其中 {0:,} 个买了还没卖，没有已实现结果）",
+    "{0} win rate on what it has sold": "卖掉的部分胜率 {0}",
     "wallet is {0:.0f} days old": "钱包开了 {0:.0f} 天",
     "it does not cut losses": "它不砍仓",
     "you cannot keep up": "你跟不上",
@@ -1471,8 +1475,12 @@ def gates(m):
             pcr_txt = T('profit concentration {0} (only {1} positions — too thin to rely on)', pct(m['pcr']), m['holdings_n'])
         else:
             pcr_txt = T('profit concentration not measured (holdings unavailable)')
-        detail = [T('{0:,} tokens, {1} profitable ({2}), {3}',
-                     m['token_num'], m['winners'], pct(m['winrate']), pcr_txt)]
+        wr_txt = T('{0} win rate on what it has sold', pct(m['winrate']))
+        if m["dist_gap"]:
+            wr_txt += T(' ({0:,} bought and not yet sold, so they have no realized result)',
+                        m['unsettled'])
+        detail = [T('{0:,} tokens, {1:,} in profit, {2}, {3}',
+                     m['token_num'], m['winners'], wr_txt, pcr_txt)]
         if m["wash_refuted"]:
             top = joinsym(sym for sym, _v in m["conviction_top"])
             detail.append(T('{0} of realized gains came from size positions like {1} that netted more than their own cost basis — the profit is priced in, not churned',
@@ -2147,7 +2155,7 @@ def card(m, g, wallet, chain):
                      T('{0:,} coins', m["token_num"]), f'{m["token_num"] - m["winners"]:,}',
                      usd(abs(m["realized_all"])))
         else:
-            line = T('{0} of the {1:,} coins it traded made money, and only {2} lost more than half',
+            line = T('{0} of the {1:,} coins it traded are in profit, and only {2} lost more than half',
                      f'{m["winners"]:,}', m["token_num"], f'{m["buckets"]["lt_n50"]:,}')
             if m["realized_all"]:
                 line += T(' — {0} banked', usd(m["realized_all"]))
