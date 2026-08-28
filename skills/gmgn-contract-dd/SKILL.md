@@ -32,11 +32,11 @@ gmgn-cli token security --chain <chain> --address <token_address> --raw
 gmgn-cli market kline   --chain <chain> --address <token_address> --resolution 15m --raw
 ```
 
-Plus a **listing lookup** for Step 5B's rug-label cross-check, which is the only way to reach `rug_ratio` — stop as soon as the address is found:
+Plus a **listing lookup** for Step 5B's rug-label cross-check, which is the only way to reach `rug_ratio`. **These two must be filtered in the shell — never read their raw output** (Step 5B has the exact pipelines and the measured reason):
 
 ```
-gmgn-cli market trenches --chain <chain> --raw
-gmgn-cli market trending --chain <chain> --interval 24h --limit 100 --raw
+gmgn-cli market trenches --chain <chain> --raw   | <filter>
+gmgn-cli market trending --chain <chain> --interval 24h --limit 100 --raw | <filter>
 ```
 
 Plus one **conditional** call, made only when Step 0 finds `info.symbol` empty and has to tell a wallet apart from an address GMGN holds no record of:
@@ -311,10 +311,36 @@ So compute `vol_ratio`, report it in the findings with its value, and **do not d
 
 **There is no address lookup for `rug_ratio`.** It is absent from `token info`, `token security` and `token pool` — verified — and `gmgn-cli` has no `market search` sub-command in any version measured, so the field is only reachable from the per-chain listings. Scan them and stop as soon as the address matches, comparing lowercased:
 
-1. `gmgn-cli market trenches --chain <chain> --raw` — three buckets, `completed` / `near_completion` / `new_creation`, 180 rows, which is where launches live. Measured: this response is **unwrapped**, so the three bucket names are the top-level keys.
-2. `gmgn-cli market trending --chain <chain> --interval 24h --limit 100 --raw` — where actively traded tokens live. Measured: this response **keeps** the `{"code":…,"data":…}` envelope, so the rows are at `data.rank`.
+**⚠️ Never read these two responses raw. Measured 2026-08-28: `market trenches --chain sol --raw` is 757,598 bytes and `market trending --interval 24h --limit 100 --raw` is 233,821 bytes** — roughly 740 KB and 228 KB, against about 5 KB for `token info` and 15 KB for a 100-candle `kline`. Reading the trenches payload to find one address costs on the order of 200,000 tokens of context for a single number, which is more than the entire rest of this procedure by a wide margin. `--limit` does not help: it caps rows per category at 80, and the lookup needs the whole listing to find an arbitrary address.
 
-**The two shapes differ, and assuming either one for both is a silent empty read** — a scan that looks for `data.rank` in the trenches response finds nothing and concludes `rug_ratio` is unavailable, which is a false negative on exactly the tokens this step exists for.
+**Filter in the shell so only the answer reaches you.** Both pipelines below were run and verified on 2026-08-28; they return one short line (16 and 11 bytes measured) instead of the full payload. Export the address first — in `VAR=x cmd | filter` the assignment applies only to `cmd`, so the filter would not see it:
+
+```
+export ADDR=<token_address>
+
+gmgn-cli market trenches --chain <chain> --raw | python3 -c 'import sys,json,os
+a=os.environ["ADDR"].lower()
+d=json.load(sys.stdin)
+for b in ("completed","near_completion","new_creation"):
+    for r in d.get(b) or []:
+        if r["address"].lower()==a:
+            print("trenches/"+b, r.get("rug_ratio")); sys.exit()
+print("not in trenches")'
+```
+
+If that prints `not in trenches`, and only then:
+
+```
+gmgn-cli market trending --chain <chain> --interval 24h --limit 100 --raw | python3 -c 'import sys,json,os
+a=os.environ["ADDR"].lower()
+d=json.load(sys.stdin)
+for r in (d.get("data") or {}).get("rank") or []:
+    if r["address"].lower()==a:
+        print("trending", r.get("rug_ratio")); sys.exit()
+print("not in trending")'
+```
+
+**The two responses have different shapes, which is why the two scripts differ and neither can be reused for the other endpoint.** `trenches` is **unwrapped** — the three bucket names are the top-level keys. `trending` **keeps** the `{"code":…,"data":…}` envelope, so its rows are at `data.rank`. Pointing the wrong script at either one finds nothing and reports `rug_ratio` unavailable — a false negative on exactly the tokens this step exists for, and a silent one, since an empty scan looks identical to an unlisted token.
 
 **`rug_ratio` arrives as a number already in 0-1** — `1` means 100%, not 1%. It is the one ratio in this skill you do not multiply, because the thresholds below are written in the same 0-1 form. Do not route it through the percent rule at the top of this file.
 
