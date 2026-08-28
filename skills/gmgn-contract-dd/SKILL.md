@@ -328,11 +328,13 @@ for b in ("completed","near_completion","new_creation"):
         if r["address"].lower()==a:
             ts=int(r.get("created_timestamp") or 0)
             h=(time.time()-ts)/3600 if ts>0 else None
-            print("trenches/%s rug_ratio=%s age=%s"%(b, r.get("rug_ratio"), ("%.1fh"%h) if h else "unknown")); sys.exit()
+            rr=r.get("rug_ratio")
+            print("trenches/%s rug_ratio=%s age=%s"%(b, "ABSENT" if rr is None else rr,
+                                                    ("%.1fh"%h) if h else "unknown")); sys.exit()
 print("not in trenches")'
 ```
 
-If that prints `not in trenches`, and only then:
+If that prints `not in trenches` **or `rug_ratio=ABSENT`** — the second is a matched row with no label, which is not a zero — run the trending one, keeping any age the first line gave you:
 
 ```
 gmgn-cli market trending --chain <chain> --interval 24h --limit 100 --raw | python3 -c 'import sys,json,os,time
@@ -341,13 +343,19 @@ for r in (json.load(sys.stdin).get("data") or {}).get("rank") or []:
     if r["address"].lower()==a:
         ts=int(r.get("open_timestamp") or 0)
         h=(time.time()-ts)/3600 if ts>0 else None
-        print("trending rug_ratio=%s age=%s"%(r.get("rug_ratio"), ("%.1fh"%h) if h else "unknown")); sys.exit()
+        rr=r.get("rug_ratio")
+        print("trending rug_ratio=%s age=%s"%("ABSENT" if rr is None else rr,
+                                              ("%.1fh"%h) if h else "unknown")); sys.exit()
 print("not in trending")'
 ```
 
 **The same row also carries the token's age, so take it while you are here — it costs nothing extra and Step 8 has to report it.** The field differs between the two listings, which is why the two scripts read different keys: `trenches` rows carry `created_timestamp` (populated; `open_timestamp` is 0 on `near_completion` tokens that have not graduated), and `trending` rows carry `open_timestamp` (`created_timestamp` is absent there). Both are unix seconds. Verified 2026-08-28: `trending rug_ratio=1 age=21.7h` on ANTSEM, `trenches/near_completion rug_ratio=0 age=3.6h` on a live launch.
 
 **The two responses have different shapes, which is why the two scripts differ and neither can be reused for the other endpoint.** `trenches` is **unwrapped** — the three bucket names are the top-level keys. `trending` **keeps** the `{"code":…,"data":…}` envelope, so its rows are at `data.rank`. Pointing the wrong script at either one finds nothing and reports `rug_ratio` unavailable — a false negative on exactly the tokens this step exists for, and a silent one, since an empty scan looks identical to an unlisted token.
+
+**⚠️ A matched row does not guarantee the label, and a row without the key is not `rug_ratio: 0`.** Measured 2026-08-28 over 840 listing rows: **`rug_ratio` is absent from the row entirely on 323 of them**, and which rows lack it is chain-dependent — **176 of 180 bsc trenches rows and 147 of 180 base trenches rows carry no such key**, while sol trenches and all three trending listings always do. Reading a missing key as `0.0` reports "measured clean" for a label that was never supplied, on the majority of bsc and base launches. That is this skill's own headline failure mode, applied to the step that exists to catch it.
+
+So **do not stop at the first row that matches the address — stop at the first row that actually carries `rug_ratio`.** If the trenches row matches but has no such key, go on to trending, which always supplied it in the sample. Measured recovery on bsc: of 176 trenches rows missing the key, 26 are also in trending and get their label there; the remaining 150 end genuinely unavailable. When no listing supplies it, that is **unavailable — no cap, and no clean claim either** — and it is a different sentence from "not listed", so say which one it was. Take the **age** from the first row that matched, whether or not that row carried the label.
 
 **`rug_ratio` arrives as a number already in 0-1** — `1` means 100%, not 1%. It is the one ratio in this skill you do not multiply, because the thresholds below are written in the same 0-1 form. Do not route it through the percent rule at the top of this file.
 
@@ -358,6 +366,7 @@ print("not in trending")'
 | ≥ 0.50 | **cap the composite at 59** — "high risk" |
 | 0.30 to 0.50 | **cap at 79** — withholds "relatively clean" |
 | < 0.30 | no cap |
+| **key absent from every matching row** | **no cap — but this is unavailable, not a measured 0** |
 | address in neither listing | no cap, and say so in the report |
 
 **This cap asserts a risk, and it is entitled to.** Step 2's caps sit at 79 because they fire on an *absent* field and may not assert what was never measured. Step 5B is the opposite case: the label was measured and came back positive, which is why its lower band goes to 59 — the same reasoning Step 7 uses for its own 59.
@@ -447,7 +456,7 @@ Report in this order:
 3. Each section's sub-score, then every deduction as: field path → measured value → points → reason.
 4. **The unavailable list, in full, never omitted.** For each entry say why: not applicable on this chain, block unpopulated, or field absent.
 5. **Reported-not-scored findings**, each quoted with its value and labelled as not having moved the score: the two `dev` X fields, labelled as history of the linked X account rather than of this token; and any `[filtered]` string or `neutralized … suspicious metadata` stderr notice from `gmgn-cli`.
-6. Any cap applied and what caused it — a missing check (Step 2), the `rug_ratio` band (Step 5B), or a downgraded honeypot flag (Step 7). Always print the Step 5B line, including when it found nothing: either `rug_ratio 0.96 (trenches/completed) → cap 59` or `rug_ratio unavailable — address not in the trenches or trending listing for this chain`. It is the one line that tells the reader whether GMGN's own label was consulted at all.
+6. Any cap applied and what caused it — a missing check (Step 2), the `rug_ratio` band (Step 5B), or a downgraded honeypot flag (Step 7). Always print the Step 5B line, including when it found nothing: one of `rug_ratio 0.96 (trenches/completed) → cap 59`, `rug_ratio unavailable — address not in the trenches or trending listing for this chain`, or `rug_ratio unavailable — the address is listed but no listing row carried the key`. The last two are different facts and must not be collapsed into each other, and neither may be written as `rug_ratio 0`. It is the one line that tells the reader whether GMGN's own label was consulted at all.
 7. One line stating this is a rule-based read of public on-chain data, not investment advice.
 
 ## Notes
