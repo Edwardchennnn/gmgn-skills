@@ -248,7 +248,7 @@ Only when `info.stat` is populated per Step 1B — test it per token, do not dec
 | `stat.fresh_wallet_rate` | > 50% | −8 |
 | `stat.private_vault_hold_rate` | > 5% | −8 |
 
-**When the block is unpopulated, all eight are unavailable — never eight passes.** Together with `stat.creator_created_count` from Step 3 that is nine unavailable checks. Do **not** put them in the coverage denominator: hold all nine out of it entirely. Otherwise nine skipped checks bury the coverage number on every token GMGN has no chain-analysis data for, and a token where every applicable check passed reads as poorly evidenced. Measured 2026-08-28: CAKE and eth USDT read 86.7% and 80.0% with the nine held out, and would read 54.2% and 50.0% with them counted as skipped — "coverage low" on two tokens with no failed check between them.
+**When the block is unpopulated, all eight are unavailable — never eight passes.** Together with `stat.creator_created_count` from Step 3 that is nine unavailable checks. Do **not** put them in the coverage denominator: hold all nine out of it entirely. Otherwise nine skipped checks bury the coverage number on every token GMGN has no chain-analysis data for, and a token where every applicable check passed reads as poorly evidenced. Measured 2026-08-28: CAKE and eth USDT read 87.5% and 81.2% with the nine held out, and would read 56.0% and 52.0% with them counted as skipped — "coverage low" on two tokens with no failed check between them.
 
 **Holding them out of the denominator is a labelling choice, and it must be disclosed.** `stat` population is per token, not per chain, so an empty block is genuinely missing data for this token rather than a field the chain cannot have. Therefore, whenever the nine are held out, the report **must** carry the line *"`stat` chain-analysis metrics (9 checks: the 8 holder metrics plus `creator_created_count`) unavailable for this token"* next to the confidence label, so the reader can discount the confidence themselves. Confidence without that line is overstated.
 
@@ -270,10 +270,25 @@ Needs at least 8 candles. Tiers are mutually exclusive per measurement, worst ma
 | `drawdown = 1 - C[-1] / max(H)` | > 70% / > 50% / > 30% | −30 / −18 / −8 |
 | worst single candle, `(C[i] - O[i]) / O[i]` over `W` | < −50% / < −30% | −14 / −7 |
 | `float(info.price.price) / float(info.price.price_24h)` | < 0.5, halved in 24h | −10 |
+| `vol_ratio = mean(V[-20:]) / mean(V[-40:-20])` | **< 0.20 only** — needs `len(W) >= 40` and `mean(V[-40:-20]) > 0` | −18 |
 
-**Guards. A degenerate candle must never manufacture a deduction out of a division.** Skip the measurement and mark it unavailable — never deduct — when its denominator is zero or its input is missing: `max(H) == 0` drops the drawdown row; a candle with `O[i] == 0` is excluded from the worst-candle scan rather than scoring as −100%; `float(info.price.price_24h) == 0` drops the last row. A skipped row here is an ordinary unavailable check and touches only coverage.
+**Guards. A degenerate candle must never manufacture a deduction out of a division.** Skip the measurement and mark it unavailable — never deduct — when its denominator is zero or its input is missing: `max(H) == 0` drops the drawdown row; a candle with `O[i] == 0` is excluded from the worst-candle scan rather than scoring as −100%; `float(info.price.price_24h) == 0` drops the `price_24h` row; `len(W) < 40` or `mean(V[-40:-20]) == 0` drops the `vol_ratio` row. A skipped row here is an ordinary unavailable check and touches only coverage.
 
-**Volume trend is measured and reported, not scored — pending one test.** An earlier draft carried a row reading "recent volume vs earlier volume fell below 20% / below 40% → −18 / −8" with no window definition, which meant it was never reproducibly executable. Define it as `vol_ratio = mean(V[-20:]) / mean(V[-40:-20])`, requiring `len(W) >= 40` and `mean(V[-40:-20]) > 0`, and it becomes executable for the first time — and the first thing it does is cost **USDC on sol 8 points** in this section (`vol_ratio` under 0.40 on a stablecoin whose 24h turnover simply ebbed), which is 1.6 composite points off a token with nothing wrong with it. That is the same shape as the `sell_volume_24h / buy_volume_24h` row this skill already removed for firing only on clean tokens, and the honest position is that **its lift against risky tokens has not been measured.** Measured on the five scorable bluechips, 2026-08-28: `vol_ratio` of **0.28** (USDC/sol), **0.42** (RAY/sol), **0.616** (CAKE/bsc), **0.381** (WETH/base) and **1.427** (USDT/eth). At the tiers above that is a deduction on **2 of 5** — −8 on USDC and −8 on WETH — for nothing worse than a quiet day.
+**The volume row ships with one tier, and the second tier was measured out of existence.** An earlier draft read "recent volume vs earlier volume fell below 20% / below 40% → −18 / −8" with no window definition, so it was never reproducibly executable. Defining it as `vol_ratio` above made it executable for the first time, and it was then put through the same test the `sell_volume_24h / buy_volume_24h` row got: fire rate on tokens labelled `rug_ratio > 0` against tokens labelled `rug_ratio = 0`.
+
+Method, 2026-08-28: candidates from `market trending --interval 24h --limit 100` on sol, bsc and base (299 tokens with 24h volume over $2K), which unlike `market trenches` returns tokens old enough to have candles — every one of 32 trenches tokens sampled first returned 1 to 17 candles against the 40 this measurement needs, so trenches cannot label this row at all. Three sequential batches, 47 scorable risky against 47 scorable clean:
+
+| Tier | fires on `rug_ratio > 0` | fires on `rug_ratio = 0` | lift | z | p |
+|---|---|---|---|---|---|
+| **`< 0.20` → −18** | **10 / 47 (21.3%)** | **2 / 47 (4.3%)** | **5.00x** | 2.47 | **0.013** |
+| `0.20–0.40` → −8 | 9 / 47 (19.1%) | 9 / 47 (19.1%) | **1.00x** | 0.00 | 1.000 |
+| both together | 19 / 47 (40.4%) | 11 / 47 (23.4%) | 1.73x | 1.77 | 0.077 |
+
+**The two tiers are not the same rule.** A collapse below 20% of the earlier window separates the populations at 5x and survives significance; the 20–40% band is 9 against 9 — z of exactly 0.00, literally no information — and it is also the band that was doing all the damage to bluechips. Measured `vol_ratio` on the five scorable bluechips: **0.28** (USDC/sol), **0.384** (RAY/sol), **0.587** (CAKE/bsc), **0.380** (WETH/base), **1.593** (USDT/eth) — USDC and WETH sit squarely in the deleted band, so shipping both tiers would have cost each of them 8 section points for nothing worse than a quiet day, while shipping the deep tier alone **fires on 0 of 5.** Reading the two tiers as one rule is what made the whole row look anti-correlated at 1.73x.
+
+Note the batch-to-batch instability that the tier split resolves: taken as one rule, the three batches read 0.80x, 3.00x and 2.00x. Anyone re-tuning this row needs all three batches, not one — and needs to keep the tiers separate, because pooling them re-buries the signal.
+
+**Do not add a shallower tier back without repeating this measurement.** The row still needs 40 candles, which structurally excludes tokens under ten hours old; that is a real limit on what it can see, and the `len(kline.list)` deduction in Step 3 is what covers those tokens instead.
 
 So compute `vol_ratio`, report it in the findings with its value, and **do not deduct on it.** Before it may score, run the test the sell/buy row got: fire rate on `market trenches` rows with `rug_ratio > 0` against rows with `rug_ratio = 0`, same volume floor, one snapshot. It scores only if the lift is meaningfully above 1.0x. **That test has not been run** — the attempt on 2026-08-28 was cut short by a `RATE_LIMIT_BANNED` response, so no risky-token fire rate exists yet. Until it does, the 2-of-5 bluechip reading is the only evidence about this row and it points the wrong way, which is why the row is reported rather than scored.
 
@@ -303,9 +318,9 @@ Then, in this order:
 | Contract, `sol` | 9 | `renounced_mint`, `renounced_freeze_account`, `max(buy_tax, sell_tax)`, LP locked-or-burned, liquidity, pool shrink ratio, `stat.creator_created_count`, `info.image_dup_count`, `len(kline.list)` |
 | Contract, EVM | 11 | `is_honeypot`, `is_open_source`, `is_renounced`, `is_blacklist`, then the same seven from `max(buy_tax, sell_tax)` onward |
 | Holders | 10 | `top_10_holder_rate`, `info.holder_count`, and the eight `stat` metrics of Step 4 |
-| Price | 3 | drawdown, worst single candle, `info.price.price / info.price.price_24h` |
+| Price | 4 | drawdown, worst single candle, `info.price.price / info.price.price_24h`, `vol_ratio` |
 
-**Inventory total: 22 on `sol`, 24 on the six EVM chains.** Solana's `is_honeypot` and `is_open_source` are not in the Solana list at all — being not applicable, they are absent by construction rather than subtracted, which is the same outcome by a clearer route. `vol_ratio` is not a check: Step 5 reports it without scoring it, so it is neither executed nor skipped.
+**Inventory total: 23 on `sol`, 25 on the six EVM chains.** Solana's `is_honeypot` and `is_open_source` are not in the Solana list at all — being not applicable, they are absent by construction rather than subtracted, which is the same outcome by a clearer route. `vol_ratio` is a check like any other: executed when the window holds at least 40 candles with non-zero earlier volume, skipped otherwise.
 
 One group is **held out of both sides** when it applies: the nine `stat` checks (eight in Holders, `creator_created_count` in Contract) when Step 1B finds the block unpopulated. Held-out checks still appear in the unavailable list, and holding them out additionally requires the disclosure line Step 4 names. Everything else that could not be read is **skipped** — it stays in the denominator.
 
@@ -348,10 +363,10 @@ This cap is lower than Step 2's 79 on purpose, and it is not the same situation.
 Report in this order:
 
 1. Composite score, grade, and confidence label side by side. When confidence is "insufficient evidence", say so on the same line as the number.
-2. Coverage as `executed N / skipped M / held-out K of T`, where `T` is the Step 6 inventory total — 22 on `sol`, 24 on the EVM chains — and the weights actually used. **`N + M + K` must equal `T`; print all four numbers so a reader can check that it does.** A line that omits `K` cannot be verified, which defeats the point of having a fixed inventory. If the nine `stat` checks were held out, also print *"`stat` chain-analysis metrics (9 checks: the 8 holder metrics plus `creator_created_count`) unavailable for this token"* — mandatory, not optional.
+2. Coverage as `executed N / skipped M / held-out K of T`, where `T` is the Step 6 inventory total — 23 on `sol`, 25 on the EVM chains — and the weights actually used. **`N + M + K` must equal `T`; print all four numbers so a reader can check that it does.** A line that omits `K` cannot be verified, which defeats the point of having a fixed inventory. If the nine `stat` checks were held out, also print *"`stat` chain-analysis metrics (9 checks: the 8 holder metrics plus `creator_created_count`) unavailable for this token"* — mandatory, not optional.
 3. Each section's sub-score, then every deduction as: field path → measured value → points → reason.
 4. **The unavailable list, in full, never omitted.** For each entry say why: not applicable on this chain, block unpopulated, or field absent.
-5. **Reported-not-scored findings**, each quoted with its value and labelled as not having moved the score: the two `dev` X fields, labelled as history of the linked X account rather than of this token; `vol_ratio` from Step 5 when it was computable, labelled as unvalidated; and any `[filtered]` string or `neutralized … suspicious metadata` stderr notice from `gmgn-cli`.
+5. **Reported-not-scored findings**, each quoted with its value and labelled as not having moved the score: the two `dev` X fields, labelled as history of the linked X account rather than of this token; and any `[filtered]` string or `neutralized … suspicious metadata` stderr notice from `gmgn-cli`.
 6. Any cap applied and which missing check caused it.
 7. One line stating this is a rule-based read of public on-chain data, not investment advice.
 
@@ -381,16 +396,16 @@ The whole procedure was reimplemented as a script and re-run against live respon
 
 | Sample | Chain | `stat` under the old test → the new one | Composite | Coverage, old count → inventory |
 |---|---|---|---|---|
-| USDC | sol | populated → populated | 100.0, unchanged | 83% → 90.9% |
-| USDT | sol | populated → populated | 93.2, unchanged | 61% → 77.3% |
-| RAY | sol | populated → populated | 88.4, unchanged | 91% → 95.5% |
-| CAKE | bsc | unpopulated → unpopulated | 100.0, unchanged | 56% → 86.7% |
-| WETH | base | **populated → unpopulated** | 97.3, unchanged | 88% → 80.0% |
-| USDT | eth | unpopulated → unpopulated | 97.3, unchanged | 56% → 80.0% |
+| USDC | sol | populated → populated | 100.0, unchanged | 83% → 91.3% |
+| USDT | sol | populated → populated | 93.2, unchanged | 61% → 73.9% |
+| RAY | sol | populated → populated | 88.4, unchanged | 91% → 95.7% |
+| CAKE | bsc | unpopulated → unpopulated | 100.0, unchanged | 56% → 87.5% |
+| WETH | base | **populated → unpopulated** | 97.3, unchanged | 88% → 81.2% |
+| USDT | eth | unpopulated → unpopulated | 97.3, unchanged | 56% → 81.2% |
 
-**The inventory in Step 6 was checked against these runs and it closes:** executed + skipped + held-out came to exactly 22 on all three `sol` tokens and exactly 24 on all three EVM tokens, with no check left over and none double-counted. That is the property that makes coverage reproducible; re-run it after any change to a scoring table.
+**The inventory in Step 6 was checked against these runs and it closes:** executed + skipped + held-out came to exactly 23 on all three `sol` tokens and exactly 25 on all three EVM tokens, with no check left over and none double-counted. That is the property that makes coverage reproducible; re-run it after any change to a scoring table.
 
-**Two of those coverage figures sit exactly on a grade boundary.** WETH and eth USDT both land at 80.0%, the "evidence sufficient" threshold, so a single additional unavailable field on either would demote it to "coverage low". Worth knowing before treating the label as robust: it is not, on those two.
+**Two of those coverage figures sit just above a grade boundary.** WETH and eth USDT both land at 81.2% against the 80% "evidence sufficient" threshold, so one further unavailable field on either — a single check out of 25 — demotes it to "coverage low". Worth knowing before treating the label as robust: it is not, on those two.
 
 **WETH on base is the only token whose `stat` classification flips**, and it is the reason Step 1B gained its second test. Its composite does not move because the nine checks it was silently passing were all reading zero and deducting nothing — which is exactly the point: the score was right by accident while the confidence behind it was overstated. The fix does not correct a number, it corrects what the number is entitled to claim.
 
@@ -418,7 +433,7 @@ Three candidate rules were measured and **rejected**:
 
 **Raising the grade boundaries instead** (clean ≥88, mixed ≥68) was also measured: every score is unchanged, the overlap survives untouched, and the new boundary lands 0.4 points under RAY. Boundaries cannot fix a distribution problem.
 
-On coverage, holding the nine unpopulated `stat` checks out of the denominator is what keeps CAKE and eth USDT out of "coverage low" with no failed check between them — counted as skipped they read 54.2% and 50.0%, held out they read 86.7% and 80.0%. It leaves every Solana token and every fresh launch untouched. The rejected alternative was **per-section coverage taking the worst section**: it drove CAKE to 20% and eth USDT to 10% — "insufficient evidence" on two tokens with no failed check — while *raising* a 4-candle fresh launch to 100%. It inverts the signal.
+On coverage, holding the nine unpopulated `stat` checks out of the denominator is what keeps CAKE and eth USDT out of "coverage low" with no failed check between them — counted as skipped they read 56.0% and 52.0%, held out they read 87.5% and 81.2%. It leaves every Solana token and every fresh launch untouched. The rejected alternative was **per-section coverage taking the worst section**: it drove CAKE to 20% and eth USDT to 10% — "insufficient evidence" on two tokens with no failed check — while *raising* a 4-candle fresh launch to 100%. It inverts the signal.
 
 **Every row of that table came from one simultaneous snapshot, and it has to.** A fresh launch's score moves by the minute: re-running the unchanged skill against the same four launches roughly half an hour later already put the "before" gap at +6.9 rather than −2.1, purely because two of them had drifted. Comparing a candidate tier table against a "before" number captured at a different moment measures the market, not the table. Take the snapshot once, run every candidate against it, then confirm the winner live.
 
@@ -426,12 +441,12 @@ That live confirmation, against the full 14-address battery:
 
 | Sample | Chain | Before | After |
 |--------|-------|--------|-------|
-| USDC | sol | 100.0 clean · 83% sufficient | 100.0 clean · **90.9% sufficient** |
-| USDT | sol | 100.0 clean · 61% low | 93.2 clean · **77.3% low** |
-| RAY | sol | 88.4 clean · 91% sufficient | 88.4 clean · **95.5% sufficient** |
-| CAKE | bsc | 100.0 clean · **56% low** | 100.0 clean · **86.7% sufficient** |
-| WETH | base | 97.3 clean · 88% sufficient | 97.3 clean · **80.0% sufficient** |
-| USDT | eth | 97.3 clean · **56% low** | 97.3 clean · **80.0% sufficient** |
+| USDC | sol | 100.0 clean · 83% sufficient | 100.0 clean · **91.3% sufficient** |
+| USDT | sol | 100.0 clean · 61% low | 93.2 clean · **73.9% low** |
+| RAY | sol | 88.4 clean · 91% sufficient | 88.4 clean · **95.7% sufficient** |
+| CAKE | bsc | 100.0 clean · **56% low** | 100.0 clean · **87.5% sufficient** |
+| WETH | base | 97.3 clean · 88% sufficient | 97.3 clean · **81.2% sufficient** |
+| USDT | eth | 97.3 clean · **56% low** | 97.3 clean · **81.2% sufficient** |
 | pump.fun launch A | sol | 79.6 mixed | 70.6 mixed |
 | pump.fun launch B | sol | 77.3 mixed | 70.6 mixed |
 | four.meme launch A | bsc | 69.9 mixed | **58.7 high risk** |

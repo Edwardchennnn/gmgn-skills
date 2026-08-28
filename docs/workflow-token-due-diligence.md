@@ -42,7 +42,7 @@ gmgn-cli token security --chain sol --address <token_address> --raw
 
 - `rug_ratio` — it is a `market trending` / `market trenches` row field, not a security field. Read it there.
 - `creator_token_status` — it lives at `token info` → `dev.creator_token_status`.
-- `sniper_count` — no such field. The closest measurement is `token info` → `stat.top70_sniper_hold_rate`.
+- `sniper_count` — like `rug_ratio`, it is a `market trending` / `market trenches` row field, not a security field. From `token info` the nearest equivalent is `stat.top70_sniper_hold_rate`.
 
 Also `owner_renounced` does not exist; the field is `is_renounced`.
 
