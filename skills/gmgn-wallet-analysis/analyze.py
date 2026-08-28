@@ -42,6 +42,19 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "⚠️ A track record is past behaviour. It is not a forecast, and none of this is advice — size it yourself.": "⚠️ 战绩只反映已经发生的操作，不代表未来收益。仓位自己定，风险自己担。",
+    "only {0:,} lost more than half": "亏超一半的只有 {0:,} 个",
+    "{0:,} of {1:,} coins in profit": "{1:,} 个币里 {0:,} 个在赚",
+    "This wallet trades by {0}": "这个钱包{0}",
+    "This wallet has lost {0} {1}, {2}": "这个钱包{1}{2}，累计亏了 {0}",
+    "This wallet has made {0} {1}, {2}": "这个钱包{1}{2}，累计赚了 {0}",
+    "so far": "到目前为止",
+    "over {0:.0f} days": "在过去 {0:.0f} 天里",
+    "trading steadily across a wide book": "靠一个很宽的盘面稳定出货",
+    "getting into small caps early": "靠早早进小盘",
+    "picking a few coins and sizing into them": "靠选中几个币然后加到重仓",
+    "turning over volume at machine speed": "靠机器速度高频周转",
+    "outrunning everyone into small caps": "靠机器速度抢在所有人前面进小盘",
     "Even at its own pace, anything over {0} moves the price against you.": "就算跟得上它的节奏，超过 {0} 的单子也会把价格推到你自己脸上。",
     " — a pace a person can actually match": " —— 这个节奏人跟得上",
     " — nobody is out-typing that": " —— 手速这块，人拼不过",
@@ -2212,6 +2225,21 @@ def caliber(m, g):
     return ("😐", T('unremarkable'))
 
 
+def hook_method(m):
+    """How this wallet makes its money, in four or five words. Drives the opening sentence."""
+    fast = m["per_day"] >= 50
+    small = 0 < m["entry_p50"] < 100_000
+    if fast and small:
+        return T('outrunning everyone into small caps')
+    if fast:
+        return T('turning over volume at machine speed')
+    if m["gain_top3_share"] is not None and m["gain_top3_share"] >= 0.5:
+        return T('picking a few coins and sizing into them')
+    if small:
+        return T('getting into small caps early')
+    return T('trading steadily across a wide book')
+
+
 def plain_persona(m):
     """One jargon-free sentence: what it hunts, how fast it moves, what that means for a human.
 
@@ -2220,8 +2248,6 @@ def plain_persona(m):
     a cadence figure only matters once someone tells you whether a person can match it.
     """
     bits = []
-    if m["entry_p50"] > 0:
-        bits.append(T('it hunts around {0}', mc(m["entry_p50"])))
     if m["per_day"] >= 1:
         bits.append(T('{0:,.0f} trades a day', m["per_day"]))
     if m["copy_window_n"] >= 3 and m["copy_window_s"] > 0:
@@ -2239,8 +2265,6 @@ def plain_persona(m):
 def _qualifier(m, chain):
     """Chain, age and following, as a tail on the record line rather than a line of its own."""
     q = [chain.upper()]
-    if m["age_days"] is not None and m["age_days"] >= 180:
-        q.append(T('wallet is {0:.0f} days old', m["age_days"]))
     if m["followers"] >= 10_000:
         q.append(T('{0:,} followers', m["followers"]))
     return T(' · {0}', " · ".join(q))
@@ -2287,20 +2311,20 @@ def card(m, g, wallet, chain):
         # characters before the first verb is a line a scanner's eye bounces off; the caveat
         # and the provenance are true but they are not the hook, so they drop one line and
         # lose the bold.
+        age = (T('over {0:.0f} days', m["age_days"]) if m["age_days"] is not None
+               and m["age_days"] >= 30 else None)
         if m["realized_all"] and m["realized_all"] < 0:
-            head_line = T('{0} traded, {1} of them lost money — {2} gone in total',
-                          T('{0:,} coins', m["token_num"]),
-                          f'{m["token_num"] - m["winners"]:,}', usd(abs(m["realized_all"])))
-            sub = []
+            head_line = T('This wallet has lost {0} {1}, {2}',
+                          usd(abs(m["realized_all"])), age or T('so far'), hook_method(m))
+        elif m["realized_all"]:
+            head_line = T('This wallet has made {0} {1}, {2}',
+                          usd(m["realized_all"]), age or T('so far'), hook_method(m))
         else:
-            head_line = T('{0} of the {1:,} coins it traded are in profit',
-                          f'{m["winners"]:,}', m["token_num"])
-            if m["realized_all"]:
-                head_line = T('{0} banked so far, ', usd(m["realized_all"])) + head_line
-            sub = [T('only {0} lost more than half', f'{m["buckets"]["lt_n50"]:,}')]
-        out += [f"**{head_line}**",
-                (joinclause(sub) + _qualifier(m, chain)) if sub
-                else _qualifier(m, chain).lstrip(" ·　").strip()]
+            head_line = T('This wallet trades by {0}', hook_method(m))
+        sub = [T('{0:,} of {1:,} coins in profit', m["winners"], m["token_num"])]
+        if m["buckets"]["lt_n50"] is not None:
+            sub.append(T('only {0:,} lost more than half', m["buckets"]["lt_n50"]))
+        out += [f"**{head_line}**", joinclause(sub) + _qualifier(m, chain)]
 
     # ── line 3 is gone: the provenance rides on the record line above, so the 7-day figure
     #    lands on line 3 instead of line 5.
@@ -2413,6 +2437,9 @@ def card(m, g, wallet, chain):
             out.append(f"- {sym_} **{usd(v_)}**"
                        + (T(', bought at {0} mcap', mc(mc_)) if mc_ else ""))
         out.append("")
+
+    out += ["> " + T('⚠️ A track record is past behaviour. It is not a forecast, and none of '
+                     'this is advice — size it yourself.'), ""]
 
     if m["open_value"] and m["open_book"]:
         top = m["open_book"][0]
