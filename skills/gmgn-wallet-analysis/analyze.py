@@ -42,6 +42,7 @@ import time
 # same value often reads in a different position in another language and the translator
 # needs to be able to move it.
 ZH = {
+    "current book is {0} concentrated ({1} open of {2:,} traded, so this says nothing about the closed record)": "当前持仓集中度 {0}（{1} 个在手 / 共打过 {2:,} 个，说明不了已平仓的部分）",
     "See the first gate below for what failed.": "具体没过哪一条，看下面第一道闸门。",
     "NO READ · the track record did not check out": "看不出来 · 战绩没通过核验",
     "DO NOT COPY · one position carried the whole result": "别跟 · 全靠一个仓位撑起来的",
@@ -1478,8 +1479,12 @@ def gates(m):
             T('profit concentration {0} (across {1} positions) — one coin carried the record', pct(m['pcr']), m['holdings_n']),
         )
     else:
-        if m["pcr_trusted"]:
+        if m["pcr_represents_record"]:
             pcr_txt = T('profit concentration {0}', pct(m['pcr']))
+        elif m["pcr_trusted"]:
+            pcr_txt = T('current book is {0} concentrated ({1} open of {2:,} traded, so this '
+                        'says nothing about the closed record)',
+                        pct(m['pcr']), m['holdings_n'], m['token_num'])
         elif m["pcr"] is not None:
             pcr_txt = T('profit concentration {0} (only {1} positions — too thin to rely on)', pct(m['pcr']), m['holdings_n'])
         else:
