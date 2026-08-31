@@ -1937,6 +1937,23 @@ def pnl_level(m):
     if m["lt50_share"] >= 0.40 and m["realized_7d"] < 0:
         return ("P1", None)
     if abs(roi) <= 0.10:
+        # A small per-turn return is not a small week when the turn repeats all week. `roi_7d`
+        # is realized profit over the cost basis of the positions CLOSED in the window — the
+        # return on ONE turn of the capital, not on the week. Reading it as a magnitude sent a
+        # bsc wallet running 546 trades/day, +9.5% per turn and $152.3K realized to P3, whose
+        # L4 gloss is "whatever it earns, fees and slippage take back". Its fees were 9.6% of
+        # that profit: the refutation was already in `m["gas_drag"]`, computed from the same
+        # `stats` response, and the label ignored it.
+        # So the friction measurement is what decides the cell, and P4 requires one to exist:
+        # `gas_drag` known and under 0.25 — the same bar `friction_label` uses for "friction
+        # eats the bulk". Unmeasured friction cannot refute the gloss, so it stays P3, and the
+        # gate is limited to L3/L4 because at L1/L2 the turn happens once or twice and a small
+        # per-turn return really is a small week. P4 reads "thin margins, huge volume" (L4) and
+        # "busy hands that keep the money" (L3), which is what such a wallet is.
+        if (roi > 0 and m["realized_7d"] > 0
+                and freq_level(m["per_day"]) in ("L3", "L4")
+                and m["gas_drag"] is not None and m["gas_drag"] < 0.25):
+            return ("P4", None)
         return ("P3", None)
     if m["realized_7d"] < 0 or roi < 0:
         return ("P2", None)
