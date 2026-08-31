@@ -3,7 +3,7 @@ name: gmgn-meme-pick
 description: Multi-factor meme token buy screener — runs a whole chain's candidate pool through liveness gates, smart-money-still-holding verification, dev background, social authenticity, and contract safety, then returns a ranked shortlist with an explicit confidence tier per pick. Answers "which coin should I buy right now" rather than "is this one coin safe". Use when the user asks 选币, 推荐一个币, 帮我选个能买的, 跑一下聪明钱监控, 这几个代币哪个能买, "pick me a coin", "what should I buy right now", "screen for buyable memes", "run the smart money screen", or wants a shortlist of buy candidates across a chain instead of due diligence on one address.
 argument-hint: "[--chain <sol|bsc>] [--count <n>] [--max-age <days>] [--min-turnover <pct>]"
 metadata:
-  cliHelp: "gmgn-cli market trending --help && gmgn-cli token holders --help && gmgn-cli market kline --help"
+  cliHelp: "gmgn-cli market trending --help && gmgn-cli token holders --help && gmgn-cli market kline --help && gmgn-cli portfolio created-tokens --help"
 ---
 
 **BEFORE RUNNING ANY COMMAND: Run `gmgn-cli config --check`. If exit code is 0, proceed normally. If exit code is 1, run `gmgn-cli config` and show output, then apply the key with `gmgn-cli config --apply <KEY>`. If unknown option, tell user to run `npm install -g gmgn-cli`.**
@@ -16,13 +16,14 @@ metadata:
 
 ## Sub-commands
 
-This skill orchestrates three existing commands. It adds no new CLI surface.
+This skill orchestrates four existing commands. It adds no new CLI surface.
 
 | Stage | Purpose | Command |
 |-------|---------|---------|
 | 0 | Build the candidate pool (one call returns 95 fields per token) | `gmgn-cli market trending --chain <chain> --interval <iv> --order-by volume --limit 100 --raw` |
 | 2 | Verify smart money is **still holding** — the decisive test | `gmgn-cli token holders --chain <chain> --address <addr> --tag smart_degen --limit 50 --raw` |
 | 3 | Technical indicators for finalists only | `gmgn-cli market kline --chain <chain> --address <addr> --resolution 5m --from <ts> --to <ts> --raw` |
+| 3 | Real dev launch history for finalists — `creator_open_count` is not it, see Layer 3 | `gmgn-cli portfolio created-tokens --chain <chain> --wallet <creator> --raw` |
 
 Stage 1 is pure local computation — no calls.
 
@@ -151,13 +152,30 @@ Compute from 5m candles: 5m volume, 60m volume vs the prior 60m, RSI(14), MACD(1
 
 ### Layer 3 — Dev background
 
-`creator` and `creator_token_status` are already in the `trending` response — no extra call. When a full launch history is needed, `gmgn-cli portfolio created-tokens --wallet <creator>` gives count and graduation rate.
+`creator` and `creator_token_status` are already in the `trending` response — no extra call.
+
+**`creator_open_count` is the count of that creator's tokens that GRADUATED, not the number they launched.** Reading it as a launch count is a measured trap that inverts the whole layer:
+
+| Creator | `creator_open_count` | Actual, via `portfolio created-tokens` |
+|---------|----------------------|----------------------------------------|
+| A | `1` | 9 launched, 1 graduated (11%) |
+| B | `296` | **16,793 launched**, 296 graduated (1.7%) |
+
+Creator B reads as "a few hundred launches, fine" from the field alone; the real record is a 16,793-token factory that the rubric below excludes outright. **Never call a dev clean on `creator_open_count` alone.** For any token that reaches the shortlist, spend the call:
+
+```bash
+gmgn-cli portfolio created-tokens --chain <chain> --wallet <creator> --raw
+```
+
+It returns `inner_count` (launched), `open_count` (graduated), and `open_ratio` — those are the numbers the rubric wants.
+
+Judge on `inner_count` and `open_ratio`:
 
 | Launch history | Read |
 |----------------|------|
-| 1–2 tokens, graduated | Clean |
-| Tens to low hundreds, 10–25% graduation | Normal serial builder — industry standard, not a red flag |
-| Thousands, `< 5%` graduation | Factory address, spray-and-pray. Exclude |
+| 1–2 launched, graduated | Clean |
+| Tens to low hundreds launched, 10–25% graduation | Normal serial builder — industry standard, not a red flag |
+| Thousands+ launched, `open_ratio < 0.05` | Factory address, spray-and-pray. Exclude |
 
 Also check `dev_team_hold_rate` and `creator_balance_rate`. A dev still sitting on a large unsold allocation is overhead supply regardless of whether the LP is burned — those are independent facts.
 
