@@ -207,16 +207,29 @@ On BSC a large family of memes is quoted not in WBNB but in a tokenized equity. 
 
 Common BSC quote assets: `0xca143ce3…` = WBNB, `0x55d39832…` = USDT. Anything resolving to a bStock puts the token in this branch.
 
-**Recognising a bStock** (score ≥ 2 of 4):
+**Recognising a bStock.** Both size conditions are **necessary**, then one venue condition confirms:
 
-| Condition | Rationale |
-|-----------|-----------|
-| `total_supply < 10,000,000` | Supply tracks custodied shares — small and non-round. BSC memes are almost uniformly 1e9 |
-| `price > 1 USD` | Real share prices ($18–$766). Memes are typically under $0.10 |
-| `creation_timestamp == 0` | No on-chain creation time |
-| `creator == ''` | No deployer address |
+```
+is_bStock  =  total_supply < 10,000,000        # supply tracks custodied shares
+           AND price > 1 USD                    # real share prices, $18-$766
+           AND ( exchange == 0x0bfbcf9fa4f9c56b0f40a671ad40e0805a091865
+                 OR ( lock_percent == 0.95 AND buy_tax == 0
+                      AND sell_tax == 0 AND is_renounced == 1 ) )
+```
 
-The first two carry the meaning. **Never identify by a trailing `B` in the symbol or by "stock" in the name** — a meme literally named 币安股票 (supply 1e9, price $0.004) is an ordinary meme and must stay in the main list.
+All bStocks trade against the same venue address, which is what the `exchange` field carries for them. Measured on a 256-token BSC+SOL pool: **14 of 14 known bStocks identified, zero false positives, zero false negatives.**
+
+**Do not use a "≥ 2 of 4" score over supply / price / `creation_timestamp == 0` / `creator == ''`.** That earlier form was measured leaking three memes into the branch on the same pool:
+
+| Token | supply | price | Why it leaked |
+|-------|--------|-------|---------------|
+| CZ | 1,000,000 | $2.72 | Low-supply meme — passes the size pair, but trades against WBNB and carries a 4% tax |
+| PIRATE | 105,000,000 | $0.021 | Only missing metadata (`creation_timestamp == 0`, `creator == ''`) |
+| WoD | 1,000,000,000 | $0.0035 | Same — a 1e9-supply meme with absent creation data |
+
+Missing metadata is common on ordinary memes and must never identify a bStock on its own; and the size pair alone cannot separate a low-supply meme from a tokenized share. Note that a genuine bStock may still carry a `creator` and a non-zero `creation_timestamp` (GMEB does), so those two fields cannot be required either — the venue condition is what does the work.
+
+**Never identify by a trailing `B` in the symbol or by "stock" in the name** — a meme literally named 币安股票 (supply 1e9, price $0.004) is an ordinary meme and must stay in the main list.
 
 **Extra risk to state for any pick in this branch:**
 
