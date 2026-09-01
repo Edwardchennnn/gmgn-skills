@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { createRequire } from "module";
 const { version } = createRequire(import.meta.url)("../package.json") as { version: string };
-import { setGlobalDispatcher, ProxyAgent, Agent, buildConnector } from "undici";
+import { setGlobalDispatcher, ProxyAgent, Agent, buildConnector, type Dispatcher } from "undici";
 import { SocksClient } from "socks";
 import * as tls from "tls";
 import { Command } from "commander";
@@ -15,11 +15,12 @@ import { registerConfigCommands } from "./commands/config.js";
 
 const proxy = process.env.HTTPS_PROXY ?? process.env.https_proxy
            ?? process.env.HTTP_PROXY  ?? process.env.http_proxy;
+let dispatcher: Dispatcher;
 if (proxy) {
   const u = new URL(proxy);
   if (u.protocol === "socks5:" || u.protocol === "socks4:") {
     const type = u.protocol === "socks5:" ? 5 : 4;
-    setGlobalDispatcher(new Agent({
+    dispatcher = new Agent({
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       connect: async (options: any, callback: any) => {
         try {
@@ -38,15 +39,16 @@ if (proxy) {
           callback(err as Error, null);
         }
       },
-    }));
+    });
   } else {
-    setGlobalDispatcher(new ProxyAgent(proxy));
+    dispatcher = new ProxyAgent(proxy);
   }
 } else {
   // Force IPv4 for all connections (no proxy mode)
   const connector = buildConnector({ family: 4 } as any);
-  setGlobalDispatcher(new Agent({ connect: connector }));
+  dispatcher = new Agent({ connect: connector });
 }
+setGlobalDispatcher(dispatcher);
 
 const program = new Command();
 
@@ -63,7 +65,15 @@ registerSwapCommands(program);
 registerCookingCommands(program);
 registerConfigCommands(program);
 
-program.parseAsync().catch((err) => {
-  console.error(`[gmgn-cli] ${err.message}`);
-  process.exit(1);
-});
+try {
+  await program.parseAsync();
+} catch (err) {
+  const message = err instanceof Error ? err.message : String(err);
+  console.error(`[gmgn-cli] ${message}`);
+  process.exitCode = 1;
+} finally {
+  // Let Undici release sockets and libuv handles before Node exits. In
+  // particular, forcing process.exit() on HTTP error paths can crash Windows
+  // while an async handle is still transitioning to UV_HANDLE_CLOSING.
+  await dispatcher.close();
+}
