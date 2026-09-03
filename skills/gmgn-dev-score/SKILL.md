@@ -63,18 +63,49 @@ Before running:
 
 ## What the answer has to contain
 
-Not a template — a checklist. Order, headings and phrasing are yours; every point below has to be
-in there, and each one names the JSON that carries it.
+A checklist of what must be **said**; `## Display Templates` below fixes **where** each one goes.
+The phrasing is yours. Every point has to be in there, and each one names the JSON that carries it.
+The bullets are in section order.
 
 - **The verdict, first.** `score.total`, `score.conduct`, `score.power`, and `score.band` said as a decision, not as a label.
 - **The open-dump tier** (`dump_gate.tier`) with the sample under it (`dumps` of `coins_with_trades`). When `dump_gate.forced_by` is set, name what actually fired it — a drained pool is not a sell frequency, and saying "he dumps nearly every time (0/1)" about a dev with zero sells is false.
 - **Every adjustment that fired, one per line, saying what it DID.** A shrink (`conduct_terms.shrink_from` → `shrink_to`) pulled an unproven score toward 60, which here means *we cannot tell yet*; it is not a fine for a crime. A cap is a withheld good score, not a proven bad one. Name the thin side by `coins_with_trades` and `career_days`, never by launch count.
 - **His best coins** (`top`, and `flagship`): peak, now, drawdown, holders, pool, tradeable, age. Plus the flagship's position: `flagship.status`, and `exit_rows` / `exit_unrecorded` when the position is closed. `flagship.holds` is tri-state — `null` means say nothing at all about his bag.
 - **What he actually did**, all from his own rows: `his_trades.fastest_first_sell_s`, `median_pull_multiple`, `launches.total` / `on_curve` / `tradeable`, `liquidity.drained` / `partial` / `ignored_rows`.
-- **What to do**, in four parts: whether to buy; **when** — and the timing must quote `fastest_first_sell_s`, never the median, because the median once advised entering at 2.7 days on a dev whose flagship started selling at 4.6 minutes; where the loss actually comes from; and how much the score can be trusted.
 - **Supply moved to other wallets**, whenever `cross_wallet.moves` is non-empty: a move is not a dump, `pending` is not counted in the dump rate, and unverified moves may be a lock or an exchange. Say so; do not accuse.
 - **Bundled buying at open** (`bundler`), disclosed and explicitly **not scored** — the number cannot tell his own alts from a paid bundler or someone else's sniper bot.
 - **Coverage**, whenever any of these is set: `coverage.book_truncated` (the book is a window, not a career — say so before quoting any career-wide claim), `trade_history_truncated` / `unresolved_coins` (missing rows can only remove dumps, so the rate is a floor and he looks cleaner than he is), `implausible_peaks` (name the coin, or a reader who saw it on a chart just finds it missing), `launches.career_days_is_floor`.
+- **What to do**, in four parts: whether to buy; **when** — and the timing must quote `fastest_first_sell_s`, never the median, because the median once advised entering at 2.7 days on a dev whose flagship started selling at 4.6 minutes; where the loss actually comes from; and how much the score can be trusted.
+
+## Display Templates
+
+The **shape** is fixed; the wording inside it is yours. Section names are given in English so you
+translate them into the user's language — do not print them as-is, and do not print a JSON key name.
+
+Title line: `## Dev score · <dev address, first 10 and last 4 chars> · <CHAIN>`. Sections below use `###`.
+
+| # | Section | Block | Omit only when |
+|---|---|---|---|
+| 1 | *(no heading)* the verdict | two lines: `TOTAL / 100` + the band, then CONDUCT and POWER | never |
+| 2 | Open-dump record | prose, at most three short paragraphs | never |
+| 3 | What moved the score | bullets, one adjustment per bullet | never |
+| 4 | His best coins | the coin's full contract address, then one table — peak, now, drawdown, holders, pool, tradeable, age — then prose for the position | never |
+| 5 | What he actually did | bullets | never |
+| 6 | Supply moved to other wallets | bullets | `cross_wallet.moves` is empty — then state it in one line inside §5 instead |
+| 7 | Bundled buying at open | one or two lines | `bundler.median` is null |
+| 8 | Coverage limits | bullets | nothing named in the coverage checklist bullet is set |
+| 9 | What to do | four labelled parts, in this order: buy or not · when · where the loss comes from · how far the score can be trusted | never |
+
+Never reorder, never merge, never invent a tenth section. Sections 1–5 and 9 always appear.
+
+Formatting, all of it fixed:
+
+- **Money uses the plain ascii dollar sign**, with thousands separators and the magnitude word the user's language uses. The fullwidth sign exists only to stop this file's own text being eaten by argument substitution — it must never reach the reader.
+- Percentages carry one decimal. A share that the JSON gives as a fraction is printed as a percentage.
+- Seconds, minutes, hours, days: pick the unit that makes the number readable, and say the unit.
+- **No emoji, no box drawing, no ASCII art, no column padding.** The output is rendered markdown, not a fixed-width terminal block.
+- Bold is for the verdict number, the band, and the label of each part of §9. Nowhere else.
+- Tables only where the table above says so; §2, §7 and §9 are prose.
 
 ## Rules
 
