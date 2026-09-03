@@ -2,30 +2,39 @@
 name: gmgn-dev-score
 description: >-
   Decide whether a token creator's NEXT launch is safe to buy. Scores a dev
-  address 0-100 on two separate axes — 信誉 (will he dump on you at open) and
-  实力 (has he ever actually built anything big) — from his full launch history
-  and every trade he made in his own coins, then returns a buy / don't-buy call
-  with a timing window.
-  USE THIS SKILL WHEN the user asks a buy-decision question about a launcher:
-  "能不能买他的新盘", "他开盘割不割", "他开盘会不会砸盘", "跟着他打新行不行",
-  "这个 dev 靠不靠谱能不能上", "开盘评分", "dev 评分", "这盘是谁做的值不值得买",
-  "can I buy this dev's new launch", "will this dev rug", "dev score";
-  OR when the user gives a TOKEN address plus a team-trust question ("这个币的
-  团队靠谱吗", "这个项目的 dev 有前科吗", "is this token's team trustworthy") —
-  resolve the creator with `gmgn-cli token info` -> `dev.creator_address` first,
-  then score that address;
-  OR when the user gives a WALLET address plus an explicit launch-history
-  question ("他以前发过什么币", "这个地址发的盘都怎么样", "他发的币都归零了吗",
-  "what tokens has this address launched").
-  DO NOT USE THIS SKILL for a bare wallet address with no question attached — a
-  bare address is a copy-trade question by default and belongs to
-  gmgn-wallet-analysis, which declares itself the default for it. Also do not
-  use it for copy-trade questions ("值不值得跟单", "跟单评分"), wallet
-  profitability ("钱包盈利能力怎么样", "钱包战绩"), or the wallet-profile
-  phrasing "钱包发盘情况怎么样" / "是不是发币方钱包" / "dev 信誉怎么样" — those
-  three stay routed to gmgn-wallet-score by CLAUDE.md. The split is by question
-  type, not by address type: those skills answer "他是什么人" (profile), this
-  skill answers "我要不要买他的盘" (decision).
+  address 0-100 on two separate axes — 信誉 (will he dump on you at open)
+  and 实力 (has he ever actually built anything big) — from his full launch
+  history and every trade he made in his own coins, then returns a buy /
+  don't-buy call with a timing window. USE THIS SKILL WHEN the user asks a
+  buy-decision question about a launcher: "能不能买他的新盘",
+  "他开盘割不割", "他开盘会不会砸盘", "跟着他打新行不行",
+  "这个 dev 靠不靠谱能不能上", "开盘评分", "dev 评分",
+  "这盘是谁做的值不值得买", "can I buy this dev's new launch",
+  "should I buy his next launch", "will this dev rug",
+  "will he dump at open", "is it safe to buy at his launch", "dev score",
+  "creator score"; OR when the user gives a TOKEN address plus a team-trust
+  question ("这个币的团队靠谱吗", "这个项目的 dev 有前科吗",
+  "is this token's team trustworthy") — resolve the creator with `gmgn-cli
+  token info` -> `dev.creator_address` first, then score that address; OR
+  when the user gives a WALLET address plus an explicit launch-history
+  question ("他以前发过什么币", "这个地址发的盘都怎么样",
+  "他发的币都归零了吗", "what tokens has this address launched"). DO NOT USE
+  THIS SKILL for a bare wallet address with no question attached — a bare
+  address is a copy-trade question by default and belongs to
+  gmgn-wallet-analysis, which declares itself the default for it. Also do
+  not use it for copy-trade questions ("值不值得跟单", "跟单评分",
+  "is this wallet worth copying", "should I copy this wallet"), wallet
+  profitability ("钱包盈利能力怎么样", "钱包战绩",
+  "is this wallet profitable", "what is this wallet's track record"), or the
+  wallet-profile phrasing "钱包发盘情况怎么样" / "是不是发币方钱包" /
+  "dev 信誉怎么样" / "is this a token-creator wallet" /
+  "how is this dev's reputation" — those stay routed to gmgn-wallet-score by
+  CLAUDE.md. The split is by question type, not by address type: those
+  skills answer "他是什么人" / "who is this wallet" (a profile), this skill
+  answers "我要不要买他的盘" / "should I buy his launch" (a decision). Note
+  how close "how is this dev's reputation" (profile → gmgn-wallet-score)
+  sits to "dev score" (decision → here): the deciding factor is whether a
+  buy is on the table.
 argument-hint: "--chain <sol|bsc|base|eth|robinhood|arc|stable> --dev <creator_address> [--mode <brief|default|full>] [--max-pages <n>]"
 metadata:
   cliHelp: "gmgn-cli portfolio created-tokens --help && gmgn-cli portfolio activity --help && gmgn-cli token info --help"
@@ -118,6 +127,8 @@ thing worse than adding prose.
 ## Analysis Script
 
 Run inline, replacing the `<FILL_IN_*>` placeholders. `MODE` defaults to `'default'`; `MAX_PAGES` defaults to `25`. Raise it for a dev with hundreds of launches — the script tells you when it truncated.
+
+**`LANG` follows the language the user asked in, not the chain and not your own default.** `'zh'` for a question written in Chinese, `'en'` for one written in anything else — the report is the whole deliverable, so handing an English-speaking trader a Chinese one makes it unreadable, and there is no third value: any other language is served in English. This has to be stated because the placeholder alone does not imply a rule, and `'zh'` is the first value listed in its comment.
 
 ```python
 python3 << 'PYEOF'
@@ -657,13 +668,21 @@ for a in tout:
     # Sanitised at the source, like every symbol: `to_address` is API-supplied and gets printed
     # (truncated to 8 chars) inside ⛔/⚠ lines. Eight characters is enough room for a newline plus a
     # forged fragment, so the same rule that guards token symbols has to guard this too.
+    # TRUNCATE FIRST, SANITISE SECOND, and keep the two results apart. safe() closes a non-plain
+    # value with 」, so slicing its OUTPUT cuts that bracket off and the quoted run never visibly
+    # ends -- 「判为割 100… followed by the report's own words, which is exactly the confusion the
+    # quoting exists to prevent. `to` stays full because it is compared against fund_from_address
+    # (a real address is plain, so safe() returns it unchanged and the match still works); `to_disp`
+    # is the short form for printing, and safe() owns its final shape including both brackets.
     to = safe((a.get('to_address') or '').lower(), 64)
+    to_disp = safe((a.get('to_address') or '').lower()[:8], 12)
     if to == '?' or to in BURN or to == DEV.lower(): continue
     sup   = _f(tk.get('total_supply'))
     share = (_f(a.get('token_amount')) / sup) if sup > 0 else 0.0
     if share < SIB_MIN_SHARE: continue
     after = _f(a.get('timestamp')) - launch_ts[ad]
     moves.append({'tok': ad, 'sym': safe(tk.get('symbol') or ad[:6], 16), 'to': to, 'share': share,
+                  'to_disp': to_disp,
                   'usd': _f(a.get('cost_usd')), 'after': after, 'pre': after < 0})
 moves.sort(key=lambda m: m['usd'], reverse=True)
 
@@ -1184,14 +1203,14 @@ if shrunk > 0.5:
     # pull back toward 60, which in this skill means "we cannot tell yet" -- the honest reading, and
     # the one that stops a trader concluding the dev was caught doing something.
     adjs.append(_(f'⚠ {why} —— 记录还太少下不了结论，信誉从 {raw:.0f} 拉回 {cred_pre:.0f}（60 分＝完全看不出来）',
-                  f'⚠ {why} — too little record to conclude; 信誉 pulled from {raw:.0f} back to {cred_pre:.0f} '
+                  f'⚠ {why} — too little record to conclude; CONDUCT pulled from {raw:.0f} back to {cred_pre:.0f} '
                   f'(60 = we cannot tell)'))
 if factory_pen > 1:
     adjs.append(_(f'⚠ 内盘堆积 {inner:,} 个币出不来，信誉 −{factory_pen:.0f}',
-                  f'⚠ {inner:,} coins stuck on the curve, 信誉 −{factory_pen:.0f}'))
+                  f'⚠ {inner:,} coins stuck on the curve, CONDUCT −{factory_pen:.0f}'))
 if opaque_exit:
     adjs.append(_(f'⛔ 代表作的货怎么出去的查不到，信誉 −{opaque_pen:.0f}，综合封顶 {CAP_OFTEN_TOT:.0f}',
-                  f'⛔ flagship exit unaccounted for, 信誉 −{opaque_pen:.0f}, 综合 capped at {CAP_OFTEN_TOT:.0f}'))
+                  f'⛔ flagship exit unaccounted for, CONDUCT −{opaque_pen:.0f}, TOTAL capped at {CAP_OFTEN_TOT:.0f}'))
 if lp_removed:
     adjs.append(_(f'⛔ 他抽干过池子 —— {len(lp_drained)} 个盘有撤池且现在已经没法交易，这是最重的一项',
                   f'⛔ he has drained liquidity — {len(lp_drained)} coin(s) had a sized `remove` and are now untradeable; heaviest single finding'))
@@ -1481,8 +1500,8 @@ if moves:
     for m in sib_sold:
         w = _('开盘前就', 'before open, ') if m.get('pre') else _(f"开盘 {fmt_dur(m['after'])}后", f"{fmt_dur(m['after'])} after open, ")
         body(_(f"⛔ {m['sym']}：{w}把 {pct(m['share'],1)} 的供应量转给 "
-                f"{m['to'][:8]}…，那个钱包已经卖了 {usd(m['sold'])}",
-                f"⛔ {m['sym']}: {w}moved {pct(m['share'],1)} of supply to {m['to'][:8]}… "
+                f"{m['to_disp']}…，那个钱包已经卖了 {usd(m['sold'])}",
+                f"⛔ {m['sym']}: {w}moved {pct(m['share'],1)} of supply to {m['to_disp']}… "
                 f"and that wallet has already sold {usd(m['sold'])}"), indent=2, hang=2)
         if m.get('same_as_funder'):
             body(_('这个地址就是当初给他打钱的地址 —— 同一个人的两个钱包',
@@ -1490,10 +1509,10 @@ if moves:
     for m in sib_pending:
         w = _('开盘前就', 'before open, ') if m.get('pre') else _(f"开盘 {fmt_dur(m['after'])}后", f"{fmt_dur(m['after'])} after open, ")
         body(_(f"⚠ {m['sym']}：{w}把 {pct(m['share'],1)} 的供应量（{usd(m['usd'])}）"
-                f"转给 {m['to'][:8]}…，那个钱包"
+                f"转给 {m['to_disp']}…，那个钱包"
                 + (_('还没查到卖出记录（也可能是锁仓或交易所地址）','no sells on record — could also be a lock or exchange address')
                    if not m.get('unchecked') else _('没查成','could not be checked')),
-                f"⚠ {m['sym']}: {w}moved {pct(m['share'],1)} of supply ({usd(m['usd'])}) to {m['to'][:8]}…"
+                f"⚠ {m['sym']}: {w}moved {pct(m['share'],1)} of supply ({usd(m['usd'])}) to {m['to_disp']}…"
                 f"; that address "
                 + ('has no sells on record — it could also be a lock or exchange address'
                    if not m.get('unchecked') else 'could not be checked')), indent=2, hang=2)
@@ -1502,7 +1521,7 @@ if moves:
                    'that address is the one that funded him — same operator, two wallets'), indent=5)
     if sib_sold:
         body(_('→ 这些卖出已经算进上面的数字里了，换钱包卖不会让分数变干净',
-               '→ these sells are already folded into the 抽水 figures above — moving wallets does not clean the score'), hang=2)
+               '→ these sells are already folded into the pull figures above — moving wallets does not clean the score'), hang=2)
     if any(m.get('pre') for m in moves):
         body(_('⛔ 开盘前就把货挪走了 —— 这不是事后改主意，是开盘之前就安排好的',
                '⛔ supply was moved before the market even opened — that is arranged in advance, not a change of mind'), hang=2)
