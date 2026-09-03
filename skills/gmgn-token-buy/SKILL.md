@@ -1,6 +1,6 @@
 ---
 name: gmgn-token-buy
-description: "Turn a token name into a vetted buy order. USE THIS the moment a user asks whether to buy a token or asks you to buy one — 能不能买, 能冲吗, 值不值得进, 有没有坑, 帮我买 200u 的 XX, 我想梭, 确认是正主不是仿盘, is XX safe to buy, buy me $500 of PENGU but check it first — whether they give a name, a symbol or a contract address, with or without an amount. Resolves the name to the one right contract among its copycats, runs volume / depth / security gates, sizes slippage and gas, and emits an order card. This owns the buy decision: gmgn-token and gmgn-contract-dd only look up an address and return no verdict and no sizing; naming a token with no buy intent is gmgn-market search; skip-the-checks, selling and limit orders are gmgn-swap."
+description: "Turn a token name into a vetted buy order. USE THIS the moment a user asks you to buy a token or asks whether to buy one, INCLUDING the plainest possible ask with no mention of checking — 我想买 200u 的 PENGU, 帮我买 500 刀的 BONK, 买 1 个 SOL 的 WIF, 帮我买点 dogwifhat, 想梭 100u 的 XX, XX 现在能买吗, buy me $500 of PENGU, 能不能买, 能冲吗, 值不值得进, 有没有坑, 确认是正主不是仿盘 — whether they give a name, a symbol or a contract address, with or without an amount. Resolves the name to the one right contract among its copycats, runs volume / depth / security gates, sizes slippage and gas, and emits an order card. This owns the buy decision: gmgn-token and gmgn-contract-dd only look up an address and return no verdict and no sizing; naming a token with no buy intent is gmgn-market search; a plain buy request is MINE by default, not gmgn-swap's — gmgn-swap only gets it when the user explicitly says to skip the checks, or is selling, or wants a limit order."
 argument-hint: "<token name | symbol | contract address> [amount, e.g. 200u | 0.5 ETH | 1 sol] [--chain <sol|bsc|base|eth|robinhood|arc|stable>]"
 metadata:
   cliHelp: "gmgn-cli market search --help"
@@ -12,7 +12,7 @@ metadata:
 
 处理"用户只给出一个代币名称/符号/合约地址 + 一个想投入的金额"这一类请求，输出是一笔已完成尽调、参数齐全、等待用户确认的买入订单——**确认后由官方 gmgn-swap 技能真正提交交易，本技能不碰私钥、不执行资金操作。**
 
-**与 gmgn-swap 的分工（避免触发冲突）：** 本技能负责"买之前的功课"——把名字变成正确的合约、三道闸筛掉风险币、算好滑点/gas/防夹、组装订单卡。真正的签名下单是 gmgn-swap 的职责（它需要交易权限的 API Key + 私钥）。用户如果明确说"直接买、不用尽调"，不要拦，直接转给 gmgn-swap。
+**与 gmgn-swap 的分工（避免触发冲突）：** 本技能负责"买之前的功课"——把名字变成正确的合约、三道闸筛掉风险币、算好滑点/gas/防夹、组装订单卡。真正的签名下单是 gmgn-swap 的职责（它需要交易权限的 API Key + 私钥）。用户如果明确说"直接买、不用尽调"，不要拦，直接转给 gmgn-swap。**卖出、挂限价单/条件单、查订单状态同样一律不属于本技能** ——本技能只覆盖"市价买入之前"。收到这类请求（例如"帮我挂个 BONK 的限价单，0.00002 买入"、"把手里的 WIF 全卖了"）不要执行任何尽调步骤、不要组装订单卡，一句话退回 gmgn-swap。
 
 三条硬规则，任何情况下不得绕过：
 
