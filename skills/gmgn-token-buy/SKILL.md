@@ -55,14 +55,14 @@ metadata:
 
 ## Run
 
-没有脚本。四条读命令按流程依次调用，字段映射与每条命令的陷阱全在 `references/fields.md`，**不在那份清单里的字段一律当作不存在**。
+没有脚本，四步串行，每一步都是一道闸——**不过就不进下一步**。每步要跑的命令写在那一步的标题下面，字段映射与实测陷阱全在 `references/fields.md`，**不在那份清单里的字段一律当作不存在**。
 
-```bash
-gmgn-cli market search  -q <名字或CA> [--chain <链>] --order-by weight --raw   # 第 1 步：找出全部同名候选
-gmgn-cli token info     --chain <链> --address <CA> --raw                      # 第 2 步：深度/量/持有人/开发者/风险画像
-gmgn-cli token security --chain <链> --address <CA> --raw                      # 第 2 步：兜底安检（优先走 gmgn-contract-dd）
-gmgn-cli gas-price      --chain <链> --raw                                     # 第 3 步：gas 三档 + 原生币价
-```
+| 步 | 做什么 | 跑什么 | 出口 |
+|---|---|---|---|
+| 0 | 确认链在 7 条支持链内 | `market search`（仅当用户裸贴合约地址） | 不支持的链或查不到 → **硬停** |
+| 1 | 名字 → 唯一合约 | `market search` | 定不到唯一一个 → **列候选让用户选** |
+| 2 | 三道闸门：量 / 深度 / 安全 | `token info` + `token security`（安全优先交 `gmgn-contract-dd`） | 任一项不过 → **不下单，出"不建议买入"** |
+| 3 | 组装订单卡 | `gas-price` | 用户明确确认 → **参数交给 `gmgn-swap`** |
 
 - **单币尽调固定 4 个请求，与同名候选有多少个无关。** `market search` 一次就带回每个候选的池子/量/笔数/持有人/存续时长，排序与粗筛全在这一份结果里做完；**不要给每个候选各打一次 `token info`**。只有最终锁定的那一个才继续。
 - **只覆盖 7 条链**：`sol` `eth` `bsc` `base` `robinhood` `arc` `stable`。其余链一律硬停、不下单，处理见第 0 步。
@@ -72,11 +72,19 @@ gmgn-cli gas-price      --chain <链> --raw                                     
 
 ## 流程
 
-### 第 0 步：确认链在支持范围内
+### 第 0 步 · 确认链在支持范围内
 
-**本工具只在 GMGN 官方 OpenAPI 覆盖的链上交易，只支持这 7 条：Solana / Ethereum / BSC / Base / Robinhood / arc / stable。** 这是刻意的边界——只在能做完整安检+行情核准的链上下单，保证数据精准，其余链一律不放开。
+**跑什么**（仅当用户裸贴的是合约地址；给的是名字就直接进第 1 步）
 
-**用户裸贴一个合约地址（CA）时的处理**（合约地址本身不带链信息，必须先反查）：
+```bash
+gmgn-cli market search -q <CA> --raw          # 不要给 --chain，链正是要反查的东西
+```
+
+**关键字段**：`coins[].chain` / `coins[].address` / `coins[].symbol`。判断"有没有搜到"**只看 `coins` 的长度**，`wallets` 非空不算。
+
+**出口**：落在 7 条支持链之一 → 进第 1 步；落在别的链、或 GMGN 查不到 → **硬停，不进任何后续步骤**；同一地址跨多链命中 → 列出来问用户要哪条。
+
+**反查步骤**（合约地址本身不带链信息，必须先反查）：
 
 1. **看地址格式定大类**：`0x`+40 位十六进制 = EVM 系；base58、约 44 位 = Solana；`T` 开头 = Tron。格式只能分大类，分不出具体是哪条 EVM 链。
 2. **用 GMGN 搜索反查链**：把这个 CA 当关键词丢给 `gmgn-cli market search -q <CA> --raw`（**不要给 `--chain`**，链正是要反查的东西），它会返回该地址对应的代币及其所在链。实测裸 CA 会精确命中 1 条并带回 `chain`。
@@ -88,9 +96,17 @@ gmgn-cli gas-price      --chain <链> --raw                                     
 
 **核心原则：只在能做完整 GMGN 安检的链上下单。查不到就诚实说查不到，宁可不做这单，绝不在无法核验的链上放行。**
 
-### 第 1 步：搜索并锁定唯一合约
+### 第 1 步 · 名字解析成唯一合约
 
-用 `gmgn-cli market search -q <用户给的名称/符号/CA> --order-by weight --raw`（`references/fields.md`）。
+**跑什么**
+
+```bash
+gmgn-cli market search -q <用户给的名称/符号/CA> [--chain <链>] --order-by weight --raw
+```
+
+**关键字段**：`coins[]` 的 `address` / `symbol` / `name` / `liquidity`（**两侧之和，粗筛用 `liquidity / 2`**）/ `volume_24h` / `swaps_1h` / `holder_count` / `created_at`（可能是 `0` = 未知）。全部字段与陷阱见 `references/fields.md`。
+
+**出口**：唯一确定 → 带着那一个合约地址进第 2 步；确定不了 → **停下来列候选让用户选，绝不猜**；命令报 `unknown command 'search'` → **硬停**，不要换榜单命令代替。
 
 **这个命令报 `unknown command 'search'` 时立刻停下，不要换命令代替。**（实测过：已发布的 gmgn-cli 还没有 `market search`，模型会自动改用 `market hot-searches` / `market trending` / `market trenches` 去按名字翻合约。**这三个都不能用来做名字解析** —— 它们是榜单，按热度和涨幅排序，翻到的很可能正是仿盘，而防仿盘是本技能存在的全部理由。）正确做法是直接告诉用户："当前 gmgn-cli 没有 `market search` 子命令，无法按名字安全地锁定合约，请升级 gmgn-cli；或者你直接把合约地址给我，我从第 2 步开始。" 然后停止——**没有搜索能力时，宁可不做,不要用榜单猜。**
 
@@ -130,9 +146,18 @@ gmgn-cli gas-price      --chain <链> --raw                                     
 
 **注意仿盘。** 符号完全相同、创建时间很新、流动池很小的，几乎总是仿盘。发现这种情况要主动说出来，不要只是静默排除。
 
-### 第 2 步：三道硬性筛选
+### 第 2 步 · 三道硬性筛选（量 / 深度 / 安全）
 
-对锁定的合约拉取详情 + 安全检测数据，逐项判定。阈值见 `references/thresholds.md`，按链和市值分档。
+**跑什么**
+
+```bash
+gmgn-cli token info     --chain <链> --address <锁定的CA> --raw
+gmgn-cli token security --chain <链> --address <锁定的CA> --raw   # 兜底才用，安全结论优先交 gmgn-contract-dd
+```
+
+**关键字段**：深度取 `pool` 单边口径、量取 `price.volume_24h` / `swaps_1h`、持有人取 `holder_count`、开发者取 `dev.*`、风险画像取 `stat.*`；安检字段**分链**，跨链读会把蓝筹误判成风险币。取法与分链对照表见 `references/fields.md`，阈值见 `references/thresholds.md`。
+
+**出口**：三项全过 → 进第 3 步；任一项判"不通过"或"数据缺失" → **不下单**，按 `## Display Templates` 出"不建议买入"；每项都要落成 `通过 / 不通过 / 数据缺失` 三态之一，**数据缺失按不通过处理**。
 
 **交易量** —— 看 24h 交易量绝对值、交易量/流动池比值、近 1h 是否仍有成交（取自 `gmgn-cli token info` 的 `price.*`；候选粗筛阶段用 `market search` 同名字段即可，两者数值一致）。**比值高不等于刷量**：小池 + 巨量正是热门币爆拉的样子。量/池比超上限时用**持有人数**区分——持有人多（≥150）是几百上千地址在抢，判爆拉、放行（提示高波动）；持有人极少 + 比值超上限才判刷量拦截。比值过低（死盘）照旧拦。分档与阈值见 `references/thresholds.md`。
 
@@ -150,9 +175,19 @@ gmgn-cli gas-price      --chain <链> --raw                                     
 
 每项输出 `通过 / 不通过 / 数据缺失` 三态。**数据缺失按不通过处理**——拿不到安全检测结果时不要假设"没查出问题就是没问题"。
 
-### 第 3 步：组装订单并请求确认
+### 第 3 步 · 组装订单卡并请求确认
 
-三项全通过后，按用户给的金额组装参数：
+**跑什么**
+
+```bash
+gmgn-cli gas-price --chain <链> --raw
+```
+
+**关键字段**：三档直接取 `low` / `average` / `high`（**不要用 `suggest_base_fee + *_prio_fee` 去拼**），美元折算用 `native_token_usd_price`，耗时用 `*_estimate_time`，Solana 防夹的贿赂取 `auto_mev`。算法与分链差异见 `references/thresholds.md` 六、。
+
+**出口**：用户在对话里**明确确认** → 把链、合约、金额、滑点、gas 档位、防夹开关交给 `gmgn-swap` 提交；否决或没明确回复 → 不移交。**本技能到此为止，不自行签名下单、不碰私钥。**
+
+按用户给的金额组装参数：
 
 - 买入金额（用户原话给的数额与币种，不要自作主张换算或调整）
 - 滑点：按 `references/thresholds.md` 的规则依池深与税率推导，不要用固定值
@@ -160,7 +195,7 @@ gmgn-cli gas-price      --chain <链> --raw                                     
 - 防夹（anti-MEV）：默认开启
 - 预估到手数量与价格冲击
 
-**gas 必须按币所在链的实时档位取，且手续费与优先费分开。** 拉该链的 gas 档位接口（`references/fields.md`），得到三档 **P1 经济 / P2 标准 / P3 极速**——这就是 GMGN 快捷交易里的那三档，不是我们自己造的分级。默认用 **P2**。规则：
+**gas 必须按币所在链的实时档位取，且手续费与优先费分开。** 上面那条 `gas-price` 返回三档 **P1 经济 / P2 标准 / P3 极速**——这就是 GMGN 快捷交易里的那三档，不是我们自己造的分级。默认用 **P2**。规则：
 
 - **两类链算法不同，不要混用。** EVM 系的档位是单位价格（gwei），实际成本 = `(手续费 + 优先费) × gas 用量`；Solana / Tron 系的档位本身就是原生币数额，**不乘 gas 用量**。算错一次差几个数量级。
 - 开了防夹时，Solana 还要加一笔 **Jito 贿赂**，在成本里单列一行，不要混进优先费。
@@ -173,7 +208,7 @@ gmgn-cli gas-price      --chain <链> --raw                                     
 
 用户确认后，**把订单参数交给官方 `gmgn-swap` 技能提交**（链、合约地址、买入金额、滑点、优先费/gas 档位、防夹开关一并传过去），由它用交易权限的 Key + 私钥完成签名下单，回报交易哈希与成交结果。**本技能到此为止，不自行调用下单接口、不碰私钥。** 用户否决或未明确回复则不移交。
 
-### 筛选未通过时
+### 任一闸门未通过时
 
 不要下单，也不要提供"要不要降低标准"的台阶。直接给结论：按 `## Display Templates` 的同一套形状输出，标题写"不建议买入"，保留判定、代币与合约、同名候选、三道闸门、风险与降级五节，**订单参数与 gas 两节整节省略**——没有订单就不要摆出订单的样子。第 1 节要点名是哪一项不过、读到的数是多少，其余项照常写"通过"。
 
