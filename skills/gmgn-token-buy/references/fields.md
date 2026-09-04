@@ -52,9 +52,13 @@
 |---|---|
 | 可交易深度（单边口径） | 两侧都 > 0 时取 `min(pool.base_reserve_value, pool.quote_reserve_value)`；**任一侧为 `"0"` 或缺失时改用 `pool.liquidity / 2`**（见下方 ⚠️） |
 | 24h 成交额 / 各窗口 | `price.volume_24h` / `volume_1h` / `buys_1h` / `sells_1h` / `swaps_1h` |
+| **方向与波动**（「三、」闸用） | `price.price` / `price.price_5m` / `price.price_1h` / `price.price_24h`（各窗口**起点价**）；`price.buy_volume_5m` / `sell_volume_5m` / `buy_volume_1h` / `sell_volume_1h` / `buy_volume_24h` / `sell_volume_24h`（买卖分开的成交额） |
+| 交易者画像（警告项用） | `stat.top_entrapment_trader_percentage`（诱捕）/ `stat.top_bot_degen_percentage`（机器人）/ `stat.fresh_wallet_rate`（新钱包）/ `wallet_tags_stat.bundler_wallets`（捆绑钱包**个数**，要自己除以 `holder_count`）/ `wallet_tags_stat.smart_wallets` / `whale_wallets` |
+| 主池 DEX 类型（EVM gas 用量用） | `pool.exchange`（如 `uniswap_v4`、`pancake_v2`） |
 | **蜜罐第 4 层判据** | `price.sells_24h > 0` → 有真实卖出即非蜜罐 |
 | 市值 | `price.price × circulating_supply`（无直接市值字段） |
 | 持有人数 | `holder_count` |
+| 开发者持仓 | `stat.creator_hold_rate` —— 这才是开发者当前持仓比例；**`dev.top_10_holder_rate` 是「Top10 里开发者相关地址占比」，不是开发者持仓**，两者混用会误判 |
 | 开发者 | `dev.creator_token_status`（`creator_close`=已清仓）/ `dev.top_10_holder_rate` / `dev.twitter_name_change_history`（改名=跑路信号） |
 | 风险画像 | `stat.top_rat_trader_percentage`（老鼠仓）/ `top_bot_degen_percentage`（机器人）/ `top_bundler_trader_percentage`（捆绑）/ `top70_sniper_hold_rate`（狙击） |
 | 创建时间 | `creation_timestamp`（Unix **秒**）。⚠️ **可能是 `0`**，那是"未知"而不是 1970 年——实测 BONK 的 `creation_timestamp` 与 `open_timestamp` 都是 `0`，直接拿它算存续会得出 56 年。取到 `0` 就把存续时长记为未知，跳过存续加成，**绝不能当成"老盘"给加分**。 |
@@ -92,3 +96,9 @@
 - **蓝筹币的 `honeypot` 也可能是 `-1`（未测）**——PEPE 实测就是。所以四层回退是必需的，不是冗余；`honeypot=-1` 只是"没测"，配合 `can_not_sell=0` 与 `sells_24h>0` 才能下"非蜜罐"的结论。
 
 **三态映射**：字段缺席、为 `null` 或空串一律 `None`（未知），绝不退化成 `False`/`0`——否则"未检测"会显示成"蜜罐否 / 0% 税 / 已弃权"，把空白包装成安全。**判"数据缺失、不能买"要按该链应有的字段数来数**，别拿 EVM 的字段清单去数一个 Solana 币。
+
+⚠️ **`price` 块里的 `price_5m` / `price_1h` / `price_24h` 是那个窗口的「起点价」，不是涨跌幅。** 涨跌幅要自己算：`price / price_5m − 1`。实测 robinhood 上的 MEME `price` = 0.0924、`price_5m` = 0.1107，也就是 5 分钟 −16.5%——而同一响应的 `volume_24h` 是 $63.14M。**只读成交额看不出这件事**，这就是「三、方向与波动」这道闸存在的原因。
+
+⚠️ **`wallet_tags_stat` 给的是钱包「个数」，`stat.*_percentage` 给的是百分比，不要混。** 实测 MEME `wallet_tags_stat.bundler_wallets` = 971、`fresh_wallets` = 1000、`smart_wallets` = 198、`whale_wallets` = 49，而 `holder_count` = 11,423——捆绑占比要自己算成 8.5%。注意 `fresh_wallets` = 1000 看着像被截顶在 1000，所以新钱包比例优先读 `stat.fresh_wallet_rate`（实测 13.81%），不要拿这个数去除。
+
+⚠️ **`lock_summary` 内部可以自相矛盾，三个字段都要读。** 实测 MEME：`is_locked` = `true`、`lock_percent` = `"0"`、而 `lock_detail[0]` 是 95% 打进黑洞地址 `0x000…0`。`lock_percent` = 0 配 `is_locked` = true 不是「没锁」，是**上游没把销毁算进锁仓比例**。判定顺序：先看 `lock_detail[].is_blackhole`（黑洞=已销毁，最硬）→ 再看 `lock_percent` → `is_locked` 单独永不作为依据。三者冲突时按 `lock_detail` 判，并在卡里写明冲突。集中流动性池（`pool.exchange` 带 `_v3` / `_v4` / `clmm` / `dlmm`）本来就没有 LP 代币，本项判**不适用**。
