@@ -16,9 +16,13 @@ description: >-
   safety verdict. This skill never computes a second verdict of its own — it
   CALLS gmgn-contract-dd and defers to it — so there is nothing to gain by
   taking that ask, and the user gets an order card he never asked for. Come
-  back here the moment he names an amount. Naming a token with no buy intent
-  at all is gmgn-market search. gmgn-swap is where this skill ENDS, not a
-  rival for it: gmgn-swap signs and submits, and this skill never touches a
+  back here the moment he names an amount. A buy question about a LAUNCHER
+  rather than about a token — 「这个 dev 的新盘能不能买」, 「他下一个盘值不值得冲」, "should I buy
+  his next launch", "will this dev rug at open" — is gmgn-dev-score: it scores
+  the creator's own record, and there is no token name to resolve or amount to
+  size yet. Come back here once he names the coin. Naming a token with no buy
+  intent at all is gmgn-market search. gmgn-swap is where this skill ENDS, not
+  a rival for it: gmgn-swap signs and submits, and this skill never touches a
   private key and never places an order, so a plain buy request starts HERE
   and reaches gmgn-swap only after the user confirms the order card. Note that
   gmgn-swap cannot start from a name either — its --output-token is a contract
@@ -48,6 +52,8 @@ metadata:
 **与 gmgn-contract-dd 的分工：** 名字→唯一合约、深度、量/池比、滑点、gas、仓位是本技能独占；**合约本身的安全结论归 `gmgn-contract-dd`**，本技能调用它、不与它并行给出第二个安全判定。它未安装或失败时本技能兜底，并如实标注。**触发上按「用户有没有在准备花钱」分：请求里出现名称/符号，或者出现金额，归本技能；只有一个裸合约地址、既没有名字要消歧也没有金额要定仓（「这个地址能不能买」「打个分」「尽调」「有没有貔貅」），归 `gmgn-contract-dd`——它出分、报告结束，用户接着说出金额再回到本技能。反过来不要把带名字或带金额的请求推给它：它没有搜索步骤，定不了用户说的是哪个合约，也没有入参可以放金额。**
 
 **与 gmgn-swap 的分工（避免触发冲突）：** **gmgn-swap 是本技能的出口，不是竞争对手。**本技能负责"买之前的功课"——把名字变成正确的合约、三道闸筛掉风险币、算好滑点/gas/防夹、组装订单卡；真正的签名下单是 gmgn-swap 的职责（它需要交易权限的 API Key + 私钥），本技能不碰私钥。所以一句普通的买入请求先进本技能，用户确认订单卡之后才走到 gmgn-swap。**gmgn-swap 同样不能从名字出发**——它的 `--output-token` 只收合约地址，唯一会自己解析的名字是 SOL/BNB/ETH/USDC 这几种计价币，所以"帮我买点 dogwifhat"这类请求无论先被谁接到，都必须回到本技能来定合约。两种情况直接去 gmgn-swap，不要在本技能停留：一是用户明确表示不要买前检查（"直接买""不用尽调""我很急"），二是本技能压根不做的事——卖出、按百分比卖、挂限价单/条件单、止盈止损、追踪委托、多钱包批量、查订单状态、查 gas 档位。收到后者（例如"帮我挂个 BONK 的限价单，0.00002 买入"、"把手里的 WIF 全卖了"）不要执行任何尽调步骤、不要组装订单卡，一句话退回 gmgn-swap。
+
+**与 gmgn-dev-score 的分工：** 问的对象不同——本技能的主语是**一个币**（"PENGU 能不能买"），`gmgn-dev-score` 的主语是**一个发币的人**（"这个 dev 的新盘能不能买""他下一个盘值不值得冲"）。后者手里还没有币名可查、也没有金额可定仓，要的是发行方自己的历史评分，一律让给它；用户说出具体币名和金额之后再回到本技能。
 
 用户如果明确要求跳过某一项筛选（例如"我知道它没开源，照买"），把该项标为"用户已知悉并豁免"，其余项照常执行，在最终确认卡里显式列出被豁免的项。
 
