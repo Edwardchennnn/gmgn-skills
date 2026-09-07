@@ -1,26 +1,17 @@
 #!/usr/bin/env python3
-import json, subprocess, sys, time
+import json, re, subprocess, sys, threading, time
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
 
 TOKEN_ADDR = sys.argv[1]
 CHAIN      = sys.argv[2]
 LANG       = sys.argv[3] if len(sys.argv) > 3 else 'zh'
 
 # EVM 地址自动探测链（0x... 且 chain 传入 'auto' 或未明确指定时）
+# 探测走 token info（weight 1）而不是 token holders（weight 5）：三次试链原本要烧掉
+# 15 权重，占满限流桶的四分之三，还没开始拉正片就已经被限了。
 KNOWN_CHAINS = ('bsc', 'eth', 'base', 'sol', 'robinhood', 'arc', 'stable')
-if CHAIN == 'auto' or (TOKEN_ADDR.startswith('0x') and CHAIN not in KNOWN_CHAINS):
-    for _c in ('bsc', 'eth', 'base'):
-        _r = subprocess.run(['gmgn-cli', 'token', 'holders', '--chain', _c,
-                             '--address', TOKEN_ADDR, '--limit', '5', '--raw'],
-                            capture_output=True, text=True, timeout=15)
-        if _r.returncode == 0:
-            _data = json.loads(_r.stdout)
-            if _data.get('list'):
-                CHAIN = _c
-                break
-    else:
-        CHAIN = 'eth'  # fallback
+_DETECT_CHAINS = ('bsc', 'eth', 'base')
+_detect_needed = CHAIN == 'auto' or (TOKEN_ADDR.startswith('0x') and CHAIN not in KNOWN_CHAINS)
 WINDOW     = 300   # 同步注资滑窗（秒）—— 文档要求"极短时间"，取 5 分钟
 TIGHT      = 60    # 秒级同步注资，基本可判定为脚本批量打款
 now_ts     = int(time.time())
@@ -38,39 +29,137 @@ NATIVE_SYM = {'sol': 'SOL', 'bsc': 'BNB', 'eth': 'ETH', 'base': 'ETH'}
 ZH = (LANG == 'zh')
 def _(zh, en): return zh if ZH else en
 
-def run_cli(args, timeout=30):
+class GmgnUnavailable(RuntimeError):
+    """一次调用没拿到数据。带上路由名，让调用方决定降级成什么，而不是把
+    traceback 丢给用户 —— 「查不到」和「没有」是两句话，这个类保证前者不会
+    被渲染成后者。"""
+    def __init__(self, route, detail):
+        self.route, self.detail = route, detail
+        super().__init__(f'{route}: {detail}')
+
+
+# GMGN 的漏桶是 rate=20 / capacity=20，各路由权重不同。本地先按同一套账
+# 记一遍，桶空就阻塞，而不是打出去换一个 429 回来 —— 冷却期内每重试一次，
+# 封禁就再加 5 秒，最高五分钟，所以「先打了再说」是净亏的。
+_ROUTE_WEIGHT = {
+    ('token', 'holders'): 5, ('token', 'traders'): 5,
+    ('token', 'info'): 1, ('token', 'security'): 1, ('token', 'pool'): 1,
+    ('portfolio', 'holdings'): 5, ('portfolio', 'stats'): 3,
+    ('portfolio', 'profits'): 3, ('portfolio', 'activity'): 3,
+    ('portfolio', 'created-tokens'): 2,
+    ('market', 'trending'): 1, ('market', 'kline'): 2, ('market', 'trenches'): 3,
+}
+_BUCKET_RATE, _BUCKET_CAP, _MIN_GAP = 20.0, 20.0, 0.25
+_bucket_lock = threading.Lock()
+# 冷启动只给半桶：实测服务端比 rate=20 更严，满桶起步会让第一波直接踩线。
+_bucket_tokens = _BUCKET_CAP / 2
+_bucket_last = time.monotonic()
+_RESET_AT = re.compile(r'"?reset_at"?[:=]\s*(\d{10})')
+
+FETCH_ERRORS = []          # [(route, detail)] —— 报告末尾如实列出跳过了什么
+
+
+def _bucket_spend(weight):
+    global _bucket_tokens, _bucket_last
+    with _bucket_lock:
+        while True:
+            now = time.monotonic()
+            _bucket_tokens = min(_BUCKET_CAP,
+                                 _bucket_tokens + (now - _bucket_last) * _BUCKET_RATE)
+            _bucket_last = now
+            if _bucket_tokens >= weight:
+                _bucket_tokens -= weight
+                break
+            time.sleep((weight - _bucket_tokens) / _BUCKET_RATE)
+    # 实测服务端比 rate=20 更严，桶算式之外再兜一个最小间隔。
+    time.sleep(_MIN_GAP)
+
+
+def run_cli(args, timeout=30, _retried=False):
+    route = ' '.join(args[:2])
+    _bucket_spend(_ROUTE_WEIGHT.get(tuple(args[:2]), 3))
     r = subprocess.run(['gmgn-cli'] + args + ['--raw'],
                        capture_output=True, text=True, timeout=timeout)
-    if r.returncode != 0:
-        raise RuntimeError(r.stderr)
-    return json.loads(r.stdout)
+    if r.returncode == 0:
+        return json.loads(r.stdout)
 
-with ThreadPoolExecutor(max_workers=4) as ex:
-    f_holders = ex.submit(run_cli, ['token', 'holders', '--chain', CHAIN, '--address', TOKEN_ADDR, '--limit', '100'])
-    f_devs    = ex.submit(run_cli, ['token', 'holders', '--chain', CHAIN, '--address', TOKEN_ADDR, '--tag', 'dev', '--limit', '20'])
-    # 原生代币价格与 holders 无依赖，和上面两个请求并发，不额外增加耗时
-    f_price   = (ex.submit(run_cli, ['token', 'info', '--chain', CHAIN, '--address', WNATIVE[CHAIN]])
-                 if CHAIN in WNATIVE else None)
+    err = (r.stderr or '').strip()
+    if '429' in err and not _retried:
+        m = _RESET_AT.search(err)
+        wait = (int(m.group(1)) - time.time()) if m else 5.0
+        wait = min(max(wait, 1.0) + 1.0, 310.0)     # 封禁上限五分钟
+        print(f"[gmgn] {route} 被限流，等待 {wait:.0f}s 后重试一次…", file=sys.stderr)
+        time.sleep(wait)
+        return run_cli(args, timeout, _retried=True)
 
-    # dev 结果一到，立即发起 created-tokens，不等 holders
-    devs = f_devs.result()['list']
-    _creator_tmp = next((d for d in devs if 'creator' in (d.get('maker_token_tags') or [])), None)
-    f_created = None
-    if _creator_tmp:
-        f_created = ex.submit(run_cli, ['portfolio', 'created-tokens', '--chain', CHAIN,
-                                        '--wallet', _creator_tmp['address'],
-                                        '--order-by', 'token_ath_mc', '--direction', 'desc'])
+    raise GmgnUnavailable(route, err)
 
-    holders      = f_holders.result()['list']
-    created_data = f_created.result() if f_created else None
 
-    # 价格取不到就降级为 None —— 宁可只显示原生数量，也不编造美元金额
-    NATIVE_PRICE = None
-    if f_price:
-        try:
-            NATIVE_PRICE = float(((f_price.result() or {}).get('price') or {}).get('price') or 0) or None
-        except Exception:
-            NATIVE_PRICE = None
+def run_cli_opt(args, timeout=30):
+    """拿不到就返回 None 并记账，绝不抛给顶层。"""
+    try:
+        return run_cli(args, timeout)
+    except GmgnUnavailable as e:
+        FETCH_ERRORS.append((e.route, e.detail))
+        return None
+    except Exception as e:                           # 超时 / JSON 解析失败
+        FETCH_ERRORS.append((' '.join(args[:2]), str(e)))
+        return None
+
+
+if _detect_needed:
+    # 探测失败和「这条链上没有」是两回事。原来的写法两种都落到 CHAIN='eth'，
+    # 于是一个 BSC 代币会顶着 ETH 的表头打出一整份 0 —— 猜出来的链比报错更糟。
+    _hit, _probe_failed = None, False
+    for _c in _DETECT_CHAINS:
+        _probe = run_cli_opt(['token', 'info', '--chain', _c, '--address', TOKEN_ADDR])
+        if _probe is None:
+            _probe_failed = True
+            continue
+        if _probe.get('symbol'):
+            _hit = _c
+            break
+    if _hit:
+        CHAIN = _hit
+    else:
+        _why = (_("链探测请求失败，无法确定该地址在哪条链上",
+                  "Chain probe requests failed — cannot determine which chain this address is on")
+                if _probe_failed else
+                _(f"在 {'/'.join(_DETECT_CHAINS)} 上都没有查到这个地址",
+                  f"Address not found on any of {'/'.join(_DETECT_CHAINS)}"))
+        print(_(f"无法确定链：{_why}。", f"Cannot determine chain: {_why}."), file=sys.stderr)
+        print(_("请用 --chain 显式指定后重试；不指定就猜一条链会让整份报告的表头和数字都是错的。",
+                "Pass the chain explicitly and retry — guessing one makes every heading and number in the report wrong."),
+              file=sys.stderr)
+        for _route, _detail in FETCH_ERRORS:
+            print(f"  ⚪ {_route}: {(_detail or '').splitlines()[0][:160]}", file=sys.stderr)
+        sys.exit(2)
+
+# 串行拉取。并发四路（其中两路是 weight-5 的 token holders）一次爆发 >=11 权重，
+# 实测必然 429，而且违规会把封禁一路续下去 —— 省下的那两秒换来的是整份报告拿不出来。
+holders_raw = run_cli_opt(['token', 'holders', '--chain', CHAIN,
+                           '--address', TOKEN_ADDR, '--limit', '100'])
+holders_unavailable = holders_raw is None
+holders = (holders_raw or {}).get('list') or []
+
+devs = ((run_cli_opt(['token', 'holders', '--chain', CHAIN, '--address', TOKEN_ADDR,
+                      '--tag', 'dev', '--limit', '20']) or {}).get('list')) or []
+
+created_data = None
+_creator_tmp = next((d for d in devs if 'creator' in (d.get('maker_token_tags') or [])), None)
+if _creator_tmp:
+    created_data = run_cli_opt(['portfolio', 'created-tokens', '--chain', CHAIN,
+                                '--wallet', _creator_tmp['address'],
+                                '--order-by', 'token_ath_mc', '--direction', 'desc'])
+
+# 价格取不到就降级为 None —— 宁可只显示原生数量，也不编造美元金额
+NATIVE_PRICE = None
+if CHAIN in WNATIVE:
+    _p = run_cli_opt(['token', 'info', '--chain', CHAIN, '--address', WNATIVE[CHAIN]])
+    try:
+        NATIVE_PRICE = float(((_p or {}).get('price') or {}).get('price') or 0) or None
+    except Exception:
+        NATIVE_PRICE = None
 
 normal = [h for h in holders if h.get('addr_type', 0) == 0]
 burn   = [h for h in holders if h.get('addr_type', 0) == 1]
@@ -469,7 +558,10 @@ if creator:
                          "Dev transferred chips to internal wallet — covert control"))
 
 warns = []
-if no_holders:
+if holders_unavailable:
+    warns.append(_( "持仓接口本次没有取到数据，筹码结构无法评估 —— 这是「没查到」，不是「没有持仓」",
+                    "The holders endpoint returned nothing this run — chip structure not assessable. This is a failed read, not an empty token"))
+elif no_holders:
     warns.append(_( "上游未返回任何持仓地址，筹码结构无法评估（本报告所有占比均为空集，不是 0%）",
                     "Upstream returned no holder addresses — chip structure not assessable (every percentage here is an empty set, not a real 0%)"))
 elif float_degenerate:
@@ -589,11 +681,18 @@ print(f"└{'─'*56}┘")
 print()
 
 if no_holders:
-    print(f"  ⚠️  {_('上游未返回任何持仓地址 —— 筹码结构无法评估', 'Upstream returned no holder addresses — chip structure not assessable')}")
-    print(_( "      下方所有占比与计数都是空集的渲染结果，不是“该项为 0”；评级已置为“无法评估”。",
-             "      Every percentage and count below renders an empty set, not a measured zero. Rating is set to \"Cannot Assess\"."))
-    print(_( "      常见原因：代币已无活跃持仓、或上游索引里已不再收录该盘。可稍后重试确认。",
-             "      Usual causes: the token has no active holders left, or upstream no longer indexes it. Retry later to confirm."))
+    if holders_unavailable:
+        print(f"  ⚠️  {_('持仓接口本次没有取到数据 —— 筹码结构无法评估', 'The holders endpoint returned nothing this run — chip structure not assessable')}")
+        print(_( "      这是「没查到」，不是「没有持仓」。下方所有占比与计数都是空集的渲染结果；评级已置为“无法评估”。",
+                 "      This is a failed read, not an empty token. Every percentage and count below renders an empty set. Rating is set to \"Cannot Assess\"."))
+        print(_( "      稍后重试即可 —— 具体失败原因见报告末尾的“本次未取到的数据”。",
+                 "      Retry shortly — the exact failure is listed under \"Data not retrieved this run\" at the end of this report."))
+    else:
+        print(f"  ⚠️  {_('上游未返回任何持仓地址 —— 筹码结构无法评估', 'Upstream returned no holder addresses — chip structure not assessable')}")
+        print(_( "      下方所有占比与计数都是空集的渲染结果，不是“该项为 0”；评级已置为“无法评估”。",
+                 "      Every percentage and count below renders an empty set, not a measured zero. Rating is set to \"Cannot Assess\"."))
+        print(_( "      常见原因：代币已无活跃持仓、或上游索引里已不再收录该盘。可稍后重试确认。",
+                 "      Usual causes: the token has no active holders left, or upstream no longer indexes it. Retry later to confirm."))
     print()
 
 if float_degenerate:
@@ -862,3 +961,11 @@ print()
 print("=" * 58)
 print("  [OUTPUT COMPLETE — COPY ABOVE VERBATIM, DO NOT SUMMARIZE]")
 print("=" * 58)
+
+# 未取到的数据如实列出。跳过了什么必须说出来 —— 静默省略会让读者
+# 把一份缺了半边的报告当成完整结论。
+if FETCH_ERRORS:
+    print()
+    print(f"  {_('本次未取到的数据（未评估 ≠ 通过）：', 'Data not retrieved this run (not evaluated is not a pass):')}")
+    for _route, _detail in FETCH_ERRORS:
+        print(f"    ⚪ {_route}: {(_detail or '').splitlines()[0][:160]}")
