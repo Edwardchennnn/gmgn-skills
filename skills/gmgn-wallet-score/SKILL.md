@@ -172,6 +172,7 @@ for a in acts:
     addr = (a.get('token') or {}).get('address')
     by_tok.setdefault(addr, []).append(a)
 pairs = fast = 0
+hold_windows = []          # observed buy -> sell gaps, in seconds
 for evs in by_tok.values():
     evs = sorted(evs, key=lambda e: _f(e.get('timestamp')))
     last_buy = None
@@ -181,17 +182,27 @@ for evs in by_tok.values():
             last_buy = _f(e.get('timestamp'))
         elif et == 'sell' and last_buy is not None:
             pairs += 1
-            if _f(e.get('timestamp')) - last_buy <= 5:
+            _gap = _f(e.get('timestamp')) - last_buy
+            hold_windows.append(_gap)
+            if _gap <= 5:
                 fast += 1
             last_buy = None
 fast_flip_rate = round(fast / pairs, 4) if pairs else 0.0
+hold_windows.sort()
+# The MEDIAN of observed round trips, not `avg_holding_period`. The API mean counts
+# bags never sold, so it reported 2.8 days for a wallet whose observed median round
+# trip was 8 minutes — and `hold_f` scored that 100/100 while gmgn-wallet-analysis,
+# reading the same activity rows, failed the wallet on reachability.
+median_hold_s = hold_windows[len(hold_windows) // 2] if hold_windows else 0.0
+has_hold_data = bool(hold_windows)
 
 gas_vals = [_f(a.get('gas_usd')) for a in acts if _f(a.get('gas_usd')) > 0]
 has_gas_data = bool(gas_vals)
 avg_gas_usd = round(sum(gas_vals) / len(gas_vals), 4) if gas_vals else 0.0
 
 summ = dict(sampled=len(acts), entry_under_100k=round(entry_under_100k, 4),
-            median_entry_mcap=round(median_entry_mcap, 2),
+            median_entry_mcap=round(median_entry_mcap, 2), has_mcap_data=has_mcap_data,
+            median_hold_s=round(median_hold_s, 1), has_hold_data=has_hold_data,
             fast_flip_rate=fast_flip_rate, avg_gas_usd=avg_gas_usd)
 
 # ── 3. Dev-reputation (only if this wallet mostly launches, not trades) ──
@@ -313,13 +324,35 @@ TRACK_LABELS = dict(tail=_('止损纪律','Stop-loss discipline'), upside=_('盈
 
 # ── 6. Copy-tradeability score (can YOU capture it?) ────────
 COPY_W = dict(entry=0.22, profit=0.22, hold=0.20, feasible=0.18, edge=0.18)
+
+# Entry: the share under $100k alone scored 51/100 for a wallet whose MEDIAN entry
+# was $19k. The median is what decides whether you get filled — a wallet that
+# habitually enters pre-graduation is not reachable however the tail is shaped.
+SUB_SCALE_MCAP = 30_000        # same threshold gmgn-wallet-analysis G3 fails on
+_med_mcap  = summ['median_entry_mcap']
+_sub_scale = summ['has_mcap_data'] and 0 < _med_mcap < SUB_SCALE_MCAP
 entry_f    = _clamp(0.12 + (1 - summ['entry_under_100k']))
+if _sub_scale:
+    entry_f = min(entry_f, 0.15)
+
 profit_f   = _clamp(w['avg_trade_usd'] / 80.0)
-hold_f     = _clamp((1 - summ['fast_flip_rate'] * 1.6) * _clamp(w['avg_hold_s'] / 172800 + 0.15))
+
+# Hold: median observed round trip when we have one; the API mean only as a fallback,
+# and then flagged, because it systematically overstates for wallets that hold losers.
+_hold_ref  = summ['median_hold_s'] if summ['has_hold_data'] else w['avg_hold_s']
+hold_f     = _clamp((1 - summ['fast_flip_rate'] * 1.6) * _clamp(_hold_ref / 172800 + 0.15))
+
 feasible_f = _clamp(1 - w['trades'] / 2500.0)
 edge_f     = _clamp(1 - 0.6 * summ['entry_under_100k'] - 0.6 * summ['fast_flip_rate'])
 copy_facs = dict(entry=entry_f, profit=profit_f, hold=hold_f, feasible=feasible_f, edge=edge_f)
 copy_score = round(100 * sum(COPY_W[k] * v for k, v in copy_facs.items()))
+
+# gmgn-wallet-analysis fails G3 outright below a $30k median entry and prints
+# 「能看不能抄」. A number that still reads 81/100 beside that verdict is the two
+# skills contradicting each other on identical data, so cap rather than average.
+COPY_CAP_SUB_SCALE = 35
+if _sub_scale:
+    copy_score = min(copy_score, COPY_CAP_SUB_SCALE)
 COPY_LABELS = dict(entry=_('进场市值','Entry mcap'), profit=_('单笔利润空间','Profit per trade'),
                     hold=_('持仓 vs 延迟','Hold vs latency'), feasible=_('执行可行性','Execution feasibility'),
                     edge=_('优势类型','Edge type'))
@@ -385,6 +418,13 @@ print(f"  {_('已实现盈亏','Realized P&L')} {usd(w['realized_profit'])}   RO
       f"{_('胜率','Win rate')} {w['winrate']*100:.0f}%   {_('笔数','Trades')} {trades} ({buy}{_('买','buy')}/{sell}{_('卖','sell')})")
 print(f"  {_('交易币数','Tokens traded')} {token_num}   {_('均持仓','Avg hold')} {fmt_dur(w['avg_hold_s'])}   "
       f"{_('均单笔建仓','Avg position')} {usd(w['avg_buy_usd'])}")
+# Print the median beside the mean whenever they disagree materially. The mean is what
+# the API gives and what a reader will quote; the median is what they would actually
+# live with. Showing only the mean is how a 2-minute scalper reads as a swing trader.
+if summ['has_hold_data'] and summ['median_hold_s'] * 4 < w['avg_hold_s']:
+    _hold_note = _('均值被一直没卖的仓位拖高，可跟窗口看中位',
+                   'the mean is inflated by positions never sold — the copy window is the median')
+    print(f"  {_('中位回合','Median round trip')} {fmt_dur(summ['median_hold_s'])}   ⚠️ {_hold_note}")
 print()
 
 sec = _("🏷️ 风格标签", "🏷️ Style Tags")
