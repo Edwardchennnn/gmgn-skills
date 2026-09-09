@@ -457,12 +457,164 @@ Report in this order:
 1. Composite score, grade, and confidence label side by side, **and the token's age from Step 5B when it is known**. When confidence is "insufficient evidence", say so on the same line as the number.
 
    The age belongs on that line because nothing else on it conveys youth. Measured 2026-08-28: a pump.fun launch a few hours old scored **89.4 "relatively clean · evidence sufficient"** with no failed check beyond thin liquidity, a small holder count and an 8% drawdown — every one of which is true and none of which says "this token is hours old". The `len(kline.list)` deduction only reaches tokens under 24 candles, so a token with six hours of history escapes it entirely. Printing `age 3.6h` next to the grade is what stops the number from reading as reassurance. When Step 5B found the address in neither listing, say `age unknown` — and note that being unlisted correlates with being established, which is the opposite of the case this line guards against.
-2. Coverage as `executed N / skipped M / held-out K of T`, where `T` is the Step 6 inventory total — 23 on `sol`, 25 on the EVM chains — and the weights actually used. **`N + M + K` must equal `T`; print all four numbers so a reader can check that it does.** A line that omits `K` cannot be verified, which defeats the point of having a fixed inventory. If the nine `stat` checks were held out, also print *"`stat` chain-analysis metrics (9 checks: the 8 holder metrics plus `creator_created_count`) unavailable for this token"* — mandatory, not optional.
-3. Each section's sub-score, then every deduction as: field path → measured value → points → reason.
-4. **The unavailable list, in full, never omitted.** For each entry say why: not applicable on this chain, block unpopulated, or field absent.
-5. **Reported-not-scored findings**, each quoted with its value and labelled as not having moved the score: the two `dev` X fields, labelled as history of the linked X account rather than of this token; and any `[filtered]` string or `neutralized … suspicious metadata` stderr notice from `gmgn-cli`.
-6. Any cap applied and what caused it — a missing check (Step 2), the `rug_ratio` band (Step 5B), or a downgraded honeypot flag (Step 7). Always print the Step 5B line, including when it found nothing: one of `rug_ratio 0.96 (trenches/completed) → cap 59`, `rug_ratio unavailable — address not in the trenches or trending listing for this chain`, or `rug_ratio unavailable — the address is listed but no listing row carried the key`. The last two are different facts and must not be collapsed into each other, and neither may be written as `rug_ratio 0`. It is the one line that tells the reader whether GMGN's own label was consulted at all.
+2. The three section sub-scores on the line under the verdict, with the age and the Step 5B rug clause. **Coverage is computed but never printed.** It exists to set the confidence label in Step 6 and does nothing else in the output — no `executed N / skipped M / held-out K of T` line, no section weights. When the nine `stat` checks were held out, the report says so in plain words under `Limits of this read` — "GMGN published no chain analysis for this token, so the holder read rests on concentration and holder count alone" — rather than printing Step 4's disclosure sentence verbatim. That sentence is the internal wording; the plain one is what ships. The disclosure itself is still mandatory, only its phrasing changed.
+3. Every deduction, in prose, inside the section it belongs to, plus one summary line per section under `How the score moved`. Print the measured value and what it means for the buyer; never print the field path. The value is not what gets hidden — the label beside it is what changes.
+4. Whatever could not be read, in plain words, under `Limits of this read`. Write "GMGN did not report the burn status or the privileged-function list", not a bulleted list of field names with a reason column. Never write an absence as a measured zero. Fields that are **not applicable** on this chain are not mentioned at all: a Solana token has nothing to say about `is_honeypot`, and an EVM token has nothing to say about mint authority, so listing them as unavailable only pads the report with non-findings.
+5. **Reported-not-scored findings, only when they are actually findings.** The two `dev` X fields are quoted under `Who launched it` when non-empty, described as history of the linked X account rather than of this token; when both are empty they are dropped rather than reported as empty. A `[filtered]` string, or a `neutralized … suspicious metadata` notice on stderr, is **always** reported in its own sentence and may never be dropped for brevity.
+6. Any cap that applied and what caused it, under `How the score moved` — a missing check (Step 2), the `rug_ratio` band (Step 5B), or a downgraded honeypot flag (Step 7). When none applied, say so and give the one-clause reason each did not fire, so the reader knows the composite is a raw weighted value rather than a suppressed one. The rug clause on the sub-score line is mandatory in all three of its phrasings; Display Templates fixes the wording.
 7. One line stating this is a rule-based read of public on-chain data, not investment advice.
+
+## Display Templates
+
+Step 8 above is a checklist of what must be **said**; this section fixes **where** each piece goes
+and **how it looks**. Without a fixed shape the same JSON produces a differently-organized report
+every run — a different mix of headings, tables and bold text depending on nothing but how the model
+felt like laying it out. The shape below is the one `gmgn-dev-score` uses for its own report: a
+header block carrying the number, narrative sections that each answer one question a buyer actually
+has, and a fixed four-question decision block at the end.
+
+**Two rules govern everything here.**
+
+**No field paths and no internal accounting in the output.** `stat.top_entrapment_trader_percentage`,
+`rug_ratio`, `info.price.price_24h`, `lock_summary.is_locked` — none of these appear in the report.
+Neither does the coverage line (`executed N / skipped M / held-out K of T`) nor the section weights.
+Coverage is still computed exactly as Step 6 specifies, because it decides the confidence label; it
+just is not printed. A reader who asks how one line was measured gets the field name then, in
+conversation, not in the report.
+
+**Numbers stay, jargon goes.** Every measured value in the skeleton is printed. What changes is the
+label beside it: not "entrapment trader percentage 62.5%" but "62.5% of the supply sits in wallets
+tagged as entrapment". The report is for someone deciding whether to buy, not for someone auditing
+the scorer.
+
+Section headings below are written in English so you translate them into the user's language. Never
+print them in English when the user is writing Chinese.
+
+### The skeleton
+
+Fill this in. Do not restructure it, do not add sections, do not drop sections.
+
+```
+# Contract DD · <symbol> · <CHAIN>
+`<full, unabbreviated address>`
+
+## **<composite> / 100 · <grade>** — <verdict in a few of the user's own words>
+
+contract <N.N> · holders <N.N> · price <N.N> · age <Xh|N.Nd|age unknown> · <the rug line, one clause>
+
+<One or two sentences: where the score came from and where it did not, naming the single heaviest
+finding.>
+
+### Key numbers
+
+| | |
+|---|---|
+| Liquidity | <$X (at launch $Y, grew Nx / shrank to N.N%)> |
+| LP lock | <locked, N.N% to the blackhole address / not locked / not reported> |
+| Buy / sell tax | <N.N% / N.N%> |
+| Holders | <N addresses, top ten hold N.N%> |
+| <heaviest holder-structure finding, named in plain words> | <N.N%> |
+| <second holder-structure finding> | <N.N%> |
+| Price / market cap | <$X / $Y> |
+| All-time high | <$X / $Y, now N.N% below> |
+| 24h volume | <$X, bought $Y, sold $Z> |
+| Deployer | <`address`, has launched N tokens> |
+
+### Can you sell it
+
+<Honeypot, open source, ownership, blacklist and the taxes, in plain sentences: what can and cannot
+be done to the holder. Say plainly when this section cost nothing.>
+
+### Pool and lock
+
+<Depth now, depth at launch and which direction it moved, the lock and how much of it is real, and
+any part of the lock-or-burn picture that was simply not reported — "not disclosed", never
+"confirmed absent".>
+
+### Who is holding it
+
+<Concentration first, then the wallet tags that contradict it. This is usually where the deductions
+are, so say so. Then the tags that came back clean, so the reader sees both sides.>
+
+### Who launched it
+
+<Launch count, whether the deployer still holds, any vanity-address or shared-logo finding. Compare
+against a sibling token only when one was actually measured.>
+
+### Where the price is
+
+<Move over 24h, distance from the high, worst single candle, volume direction. State the window
+actually scored whenever it is shorter than 96 candles.>
+
+### How the score moved
+
+- <section> 100 → <N.N>: <what was deducted and why, one clause each, then the checks that passed>
+- <one line per section>
+- <caps: which fired and what caused it, or "none fired" with the one-clause reason for each>
+
+### Limits of this read
+
+- <what was read in full, so the number itself can be trusted>
+- <how much time the data covers, and what that means the report cannot claim>
+- <what GMGN did not report, in plain words>
+- <off-chain presence: X, website, Telegram, verification status>
+
+### What to do
+
+**Buy or not** — <the decision, then the condition attached to it>
+
+**When** — <entry timing, with the number that drives it>
+
+**Where the loss comes from** — <the actual mechanism, not a list of risks>
+
+**How much to trust this score** — <which sides are solid, which are thin, and what the grade word
+does and does not mean>
+
+*<One line: a rule-based read of public on-chain data, not investment advice.>*
+```
+
+### Rules the skeleton does not show
+
+**The address is never truncated, on its own line under the title.** This skill exists partly to
+catch vanity-mined copycats — several measured in this file end in `7777`, `ffff` or `b07` — and a
+shortened display address defeats the one check a reader can do with their own eyes: compare the full
+string against whatever they were about to paste into a swap. The deployer address inside `Key
+numbers` is also printed in full.
+
+**When Step 0 resolved a wallet or "no record", the whole header block and every section below it are
+replaced by that verdict's own one- or two-line statement.** There is no composite, so there is
+nothing to lay out.
+
+**The rug clause on the sub-score line is mandatory and has three phrasings**, matching Step 5B:
+the measured band ("GMGN rug label 0.96, score capped"), `not listed` ("not in GMGN's listings for
+this chain, so no label"), or `listed without the key` ("listed, but no row carried a label"). The
+last two are different facts and must never be collapsed, and neither may be written as a measured
+zero. It is the one clause telling the reader whether GMGN's own label was consulted at all.
+
+**A `[filtered]` string, or a `neutralized … suspicious metadata` notice on stderr, always gets its
+own sentence** — in `Who launched it` if it was in a metadata field, in `Limits of this read`
+otherwise. A token trying to steer an automated reader is a finding, and it is the one
+reported-not-scored item that may never be dropped for brevity.
+
+**A section with nothing to report gets one honest sentence, never deletion and never an empty
+table.** "Nothing was deducted here" is information.
+
+Formatting, all of it fixed:
+
+- **Percentages carry exactly one decimal** — `23.4%`, not `23.39%` and not `23%` — regardless of how
+  much precision the raw fraction carried.
+- **Money uses the plain ascii dollar sign with thousands separators** — `$60,505.79`, never a bare
+  number and never a currency symbol other than `$`.
+- **Time is `Nh` under 48 hours and `N.Nd` at or above it** — `32.5h`, not `1.4d` — and `age unknown`
+  is a word, never a blank.
+- **No emoji, no box-drawing characters, no ASCII art, no column padding.** The output is rendered
+  markdown, not a fixed-width terminal block.
+- **Bold is for the composite number, the grade word, and the four `What to do` labels. Nowhere
+  else.** Section titles carry their weight from the heading syntax, not from bold; bolding the
+  reason text next to a finding defeats bolding, the same as bolding none.
+- **Exactly one table in the whole report: `Key numbers`.** Everything else is prose or bullets. The
+  section that was a four-column deduction table in an earlier version of this file is now
+  `How the score moved`, in sentences.
 
 ## Notes
 
