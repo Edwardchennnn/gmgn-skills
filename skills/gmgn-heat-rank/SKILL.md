@@ -86,10 +86,14 @@ for ch in $CHAINS; do
     *" $ch "*) ;;
     *) echo "refusing unsupported chain name: $ch" >&2; continue;;
   esac
+  # Only tags the API actually recognises. An unrecognised tag is not refused -- it is silently
+  # ignored, and a filters list containing nothing else turns the server's own default screening
+  # OFF, which is worse than sending no filter at all. So the fourth branch sends no --filter and
+  # lets those defaults apply; do not invent a tag to fill it. Measured, see `## Known limits`.
   case $ch in
-    sol) F=(--filter renounced --filter frozen --filter is_out_market --filter not_wash_trading);;
-    bsc|base|eth) F=(--filter not_honeypot --filter verified --filter renounced --filter is_out_market);;
-    *) F=(--filter is_out_market);;
+    sol) F=(--filter renounced --filter frozen --filter not_wash_trading);;
+    bsc|base|eth) F=(--filter not_honeypot --filter verified --filter renounced);;
+    *) F=();;
   esac
   # 24h first, and stop after it when it comes back empty. A candidate has to be present in the
   # 24h window to count at all, so a chain with nothing there cannot produce one whatever its 1h
@@ -213,6 +217,16 @@ State these only when they bite the run in front of you.
   **What the script does about it.** Three situations count as *no screen ran on this row*: bot share and bundling both read 0; the rug score reads 0 while the platform says the creator still holds and will not say how much; or the row sits on a chain where `rug_ratio` reads 0 on **every** row of the whole sweep, which means no rug model is deployed there. The third has to be decided chain-wide, because one row reading 0 cannot be told from one clean token — and it matters far more than it looks, since `rug_ratio` is dead on six of the seven chains, so in practice every non-sol row is weakly screened. Such a row has to clear the `U_*` thresholds and a score floor 8 points higher instead. Those substitutes are deliberately crude and all absolute: a two-sided tape, a 250k pool, tighter concentration, presence in the 6h window, real smart-money or KOL wallets. A row that cannot clear them is dropped, and the drop is the whole treatment — the gap is never disclosed in the report, so the list never has to be read with a caveat attached. Know the cost before touching `U_SCORE_ADD`: on a measured sweep this rule took the list from nine names to five, all four losses scoring between 60 and 68 on chains with no rug model. And never write the survivors up as though the missing checks had passed.
 - **`buy_tax` / `sell_tax` arrive as strings, and they are not empty — an earlier reading of this file claimed they were all zero, which was an artefact of reading a string as a number.** Measured on the same 569 rows: bsc carries a real sell tax on 93% of rows (80 of them exactly 1%, up to 3%), sol on 21% (1% or 3%, and the field is the empty string on the other 79%), base on 6%, eth on 1%; robinhood, arc and stable are a literal 0 throughout. The largest tax anywhere in the sample is 4%, so nothing here is a honeypot-grade trap — this is a round-trip fee worth mentioning to the user when it is non-zero, not a gate, and it cannot stand in for the dead manipulation gates on base and eth because that is exactly where its coverage collapses. `lock_percent` is a different case: 96 of 100 bsc rows and 94 of 100 robinhood rows are exactly 0.95 and sol is 0 throughout, which is a default rather than a measurement; base and eth do vary. None of the three is read by the script today. If you add a gate on one, measure the spread again first — and read the value as text before deciding it is zero.
 - **`entrapment_ratio` is reported everywhere and still cannot be a threshold.** It is present on 97%+ of rows on all seven chains, which makes it the obvious candidate to stand in where bot and bundler are dead — and it does not survive contact with the numbers. Its median runs 0.07 on sol against 0.88 on eth, so no absolute cut carries across chains; within one chain the values sit close enough together that a percentile cut turns arbitrary (a chain-p75 ceiling cut the third-ranked name of a real run for being 0.5% over the line); on the four chains it was meant to rescue, this skill's own filtered fetch returns single-digit rows per run, far too few to estimate a percentile from; and about 3% of base and eth values fall outside the documented 0-1 range, so its meaning there is not even established. Only the unambiguous reading is used: a value above `E_HARD` is uninterpretable and the row is refused. The out-of-range problem is not unique to it: on the same sample one base row reported `top_10_holder_rate` 2.2493 and one eth row reported 5.9e62 for that field and `entrapment_ratio` alike — a share of supply above 1 is impossible, so those rows are simply refused by `MAX_TOP10`, which is the correct outcome but happens for a data reason rather than a risk one. Say so if such a row is asked about.
+- **An unrecognised `--filter` tag is silently ignored, and an all-unrecognised filters list disables the
+  server's default screening.** This file used to pass `--filter is_out_market` on all seven chains. It is not
+  a tag the API knows: measured on sol, `--filter is_out_market` and `--filter zzz_fake_tag_qqq` returned the
+  identical 22 rows, and both returned a *superset* of the 18 returned with no filter at all. So sending a
+  filters list made only of unrecognised tags is not a no-op in the harmless direction — it replaces the
+  server's defaults with nothing. On sol / bsc / base / eth the tag sat alongside real ones and was inert
+  (dropping it returned the identical address set on both sol and bsc). On robinhood / arc / stable it was
+  the *only* tag, so those three chains were being fetched with server-side screening switched off: on one
+  robinhood sweep that admitted 6 extra rows, 4 of them `is_honeypot=1`, plus two more that are neither
+  renounced nor open-source and that no local gate here would have caught. Send real tags or none.
 - **The script's own availability probe is only as good as its sample.** `AVAIL` infers "this chain does not carry this field" from the filtered candidate pool, which on a quiet chain can be one or two rows — far too few to conclude anything. Trust the table above over a single run's probe, and re-measure it with an unfiltered `--limit 100` sweep rather than inferring it from a thin pool.
 - **A chain can be empty because of the gates, not because it is quiet.** Measured the same day: unfiltered, arc returns 50 rows and stable 19, but only one row each clears the 500k market cap plus 100k liquidity floor, and none of those is under 7 days old. "No candidates on arc" therefore means "nothing recent and liquid enough", not "no data".
 - **A number can arrive as text, and that is a data fault, not a risk finding.** Every numeric field is
