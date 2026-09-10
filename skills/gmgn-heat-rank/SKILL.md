@@ -517,7 +517,12 @@ print(f"\npassed {len(alive)} -> score>={MIN_SCORE}, capped at {TOP_N} = {len(ro
 print(f"\n{'#':>2} {'chain':<9} {'sym':11s} {'score':>5} | {'vacc':>5} {'size':>4} {'pos':>4} {'grow':>4} {'smart':>5} {'qual':>4} {'heat':>4} | {'mc':>12} {'liq':>9} {'vol24h':>11} {'age':>5} {'ATH':>5} {'24h%':>8}")
 for i,c in enumerate(rows,1):
     t=c['t']; p=c['p']; ap='n/a' if c['ath'] is None else format(c['ath'],'.2f')
-    print(f"{i:>2} {c['ch']:<9} {sym(t)[:11]:11s} {c['score']:>5} | {p['vacc']:>5.2f} {p['size']:>4.2f} {p['pos']:>4.2f} {p['grow']:>4.2f} {p['smart']:>5.2f} {p['qual']:>4.2f} {p['heat']:>4.2f} | ${t['market_cap']:>11,.0f} ${t['liquidity']:>8,.0f} ${c['v']['24h'] or 0:>10,.0f} {(str(round(c['rage']*24,1))+'h' if c['rage']<1 else str(round(c['rage'],1))+'d'):>5} {ap:>5} {t.get('price_change_percent') or 0:>+7.1f}%")
+    # A 24h change needs 24h of history. Under one day of age the window opens before the token existed, so the
+    # figure is measured off the launch price and prints things like +128168.0% -- arithmetically right, useless
+    # as a read on momentum, and wide enough to break the column. n/a is the honest cell, and the age column
+    # immediately to its left already says why it is empty.
+    chg='n/a' if c['rage']<1.0 else format(t.get('price_change_percent') or 0,'+.1f')+'%'
+    print(f"{i:>2} {c['ch']:<9} {sym(t)[:11]:11s} {c['score']:>5} | {p['vacc']:>5.2f} {p['size']:>4.2f} {p['pos']:>4.2f} {p['grow']:>4.2f} {p['smart']:>5.2f} {p['qual']:>4.2f} {p['heat']:>4.2f} | ${t['market_cap']:>11,.0f} ${t['liquidity']:>8,.0f} ${c['v']['24h'] or 0:>10,.0f} {(str(round(c['rage']*24,1))+'h' if c['rage']<1 else str(round(c['rage'],1))+'d'):>5} {ap:>5} {chg:>8}")
 
 print("\nCA (verify at https://gmgn.ai/<chain>/token/<CA>):")
 for i,c in enumerate(rows,1):
