@@ -278,8 +278,13 @@ if missing: print('missing (excluded):', ', '.join(missing))
 VOL ={(ch,iv):{t['address']:(t.get('volume') or 0) for t in ROWS[ch][iv]} for ch in USE for iv in IV if iv in ROWS[ch]}
 U={}
 for ch in USE:
+    # The reference row must be the 24h one. Most of what is read off it is a current snapshot and reads
+    # the same in every window -- market cap, pool, holders, the risk fields -- but price_change_percent is
+    # that window's own move, so a row taken from the 1h file prints a 1h change under a 24h heading, and
+    # which window a row came from varied per token. setdefault keeps the FIRST window that carried the
+    # token (24h, then 6h, then 1h) instead of letting the last one loaded overwrite it.
     for iv in ['24h','6h','1h']:
-        for t in ROWS[ch].get(iv,[]): U.setdefault((ch,t['address']),{})['ref']=t
+        for t in ROWS[ch].get(iv,[]): U.setdefault((ch,t['address']),{}).setdefault('ref',t)
 UNI=[dict(ch=k[0],a=k[1],t=v['ref']) for k,v in U.items()]
 
 def pctl(v):
