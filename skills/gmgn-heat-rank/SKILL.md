@@ -612,7 +612,11 @@ for i,c in enumerate(rows,1):
     chg='n/a' if c['rage']<1.0 else format(t.get('price_change_percent') or 0,'+.1f')+'%'
     print(f"{i:>2} {c['ch']:<9} {sym(t)[:11]:11s} {c['score']:>5} | {p['vacc']:>5.2f} {p['size']:>4.2f} {p['pos']:>4.2f} {p['grow']:>4.2f} {p['smart']:>5.2f} {p['qual']:>4.2f} {p['heat']:>4.2f} | ${t['market_cap']:>11,.0f} ${t['liquidity']:>8,.0f} ${c['v']['24h'] or 0:>10,.0f} {(str(round(c['rage']*24,1))+'h' if c['rage']<1 else str(round(c['rage'],1))+'d'):>5} {ap:>5} {chg:>8}")
 
-print("\nCA (verify at https://gmgn.ai/<chain>/token/<CA>):")
+# Addresses only, no link. Nothing in this file may point at a gmgn.ai path: the rules at the top
+# forbid reaching that site, so any URL printed here is a path shape nobody was allowed to verify.
+# The full address is the portable thing anyway -- it pastes into whatever front-end the reader
+# already uses, and the reader searches it there.
+print("\nCA (full addresses -- search one on whichever front-end you use):")
 for i,c in enumerate(rows,1):
     t=c['t']
     print(f"{i:>2}. {c['ch']:<9} {sym(t)[:12]:12s} {c['a']}   vacc={(c['vacc'] or 0):.2f} hold/d={c['hgrow']:.0f} kol/d={c['kgrow']:.1f} top10={(t.get('top_10_holder_rate') or 0)*100:.1f}%")
