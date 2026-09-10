@@ -182,7 +182,7 @@ Only when the `security` block is populated:
 
 The two caps above apply **only** when the block is populated and those specific fields are absent. An unpopulated block never caps — see Step 1A.
 
-`79` is chosen deliberately: it lands in "mixed, needs manual review", not in "high risk". Without a honeypot or open-source check the token cannot be called relatively clean, so the cap **withholds the clean verdict** — but it must not **assert** a risk the data never showed. These are two of the three points in this skill where an absent field touches the number; Step 6 lists all three.
+`79` is chosen deliberately: it lands in `buyable with conditions`, not in `not advised`. Without a honeypot or open-source check the token cannot be called plainly buyable, so the cap **withholds the unqualified verdict** — but it must not **assert** a risk the data never showed. These are two of the three points in this skill where an absent field touches the number; Step 6 lists all three.
 
 ## Step 3 — Contract safety, from 100
 
@@ -194,7 +194,7 @@ Applies on every chain, on top of the chain-mode branch:
 |-------|-----------|-----------|
 | `max(float(buy_tax), float(sell_tax))` | > 10% | −25 |
 | same | > 5% | −10 |
-| `lock_summary.is_locked` **and** `burn_status` | both present and both negative: not locked and not burned | −12 |
+| `lock_summary.is_locked`, and `burn_status` on `sol` only | LP not locked — and not burned, on the one chain that reports burning | −12 |
 | `info.liquidity` or `pool.liquidity` | < $10K, including a genuine 0 | −15 |
 | same | < $50K | −6 |
 | `pool.liquidity / pool.initial_liquidity` | pool shrank below 50% of launch | −10 |
@@ -223,8 +223,13 @@ Five field traps, all measured:
 
 - **Liquidity lives in two places, and a `0` in both is ambiguous.** `info.liquidity` can be `0` while `pool.liquidity` holds the real figure. Take the non-zero one and say which you used. When **both** read 0, resolve it with `info.price.volume_24h` before scoring: 0 liquidity with 0 24h volume is a **genuine dead pool** and takes the −15; 0 liquidity with non-zero 24h volume is **unavailable**, because a pool cannot turn over volume it does not have — report it unavailable and skip the row. This replaces an earlier row reading "0 and `info.price.volume_24h` also 0 → −15", which was dead text: under the worst-row rule a liquidity of 0 already matches `< $10K` at the same −15, so the row could never change an outcome, and its existence implied a `0` was always a measurement.
 - **`buy_tax` / `sell_tax` of `"0"` is a real 0% tax; `""` is not.** The two arrive differently and mean opposite things. Measured on populated blocks: USDC, CAKE and one token each on arc, stable and robinhood all return `buy_tax: "0"`, `sell_tax: "0"` — a genuine no-tax token, scored as an executed check that passes. On an unpopulated EVM block they arrive as `""`, which is exactly what Step 1A keys on, and there they are **unavailable** — not a 0% tax. Never coerce `""` to `0.0`.
-- **`burn_status: ""` is absent, not a measurement — and it is the usual case on the EVM chains.** "Neither locked nor burned" is a claim about two facts, so it needs both of them. Deduct the −12 only when `lock_summary.is_locked === false` **and** `burn_status` is present and not `"burn"`. If `burn_status` is `""`, the burn half was never reported and the row is **unavailable**, however clear `is_locked: false` is — half the evidence cannot carry a two-part claim. Measured 2026-08-28, three distinct values: `""` on every EVM token sampled (10 of 10 on bsc, one each on arc, stable and robinhood); `"burn"` on 10 of 10 trending sol tokens and on USDC and USDT; and **`"none"` on RAY** — an explicit negative, which is a real measurement and is exactly the case this row exists for. RAY reads `is_locked: false` with `burn_status: "none"`, both halves present and both negative, and takes the −12 (it is one of the three deductions behind RAY's 88.4). So the row is decidable on Solana and usually unavailable on the EVM chains — the honest reading of the data rather than a threshold worth widening, and the same conclusion Step 7 reaches about `privileges`.
+- **`burn_status` is reported on `sol` and never on the six EVM chains, so the row is decided differently on each.** On `sol` it is a real measurement with three observed values: `"burn"` on 10 of 10 trending tokens and on USDC and USDT, and **`"none"` on RAY** — an explicit negative. There the row keeps its two-part form: deduct the −12 only when `lock_summary.is_locked === false` **and** `burn_status` is present and not `"burn"`. RAY reads `is_locked: false` with `burn_status: "none"`, both halves negative, and takes the −12 (one of the three deductions behind its 88.4). If `burn_status` were ever `""` on `sol`, the row would be unavailable there.
+
+  **On the six EVM chains the burn half never arrives, which made this gate dead rather than cautious.** Measured `""` on every EVM token sampled: 10 of 10 on bsc plus one each on arc, stable and robinhood on 2026-08-28, and re-confirmed on 2026-09-10 on both a two-day-old bsc launch and on CAKE, a bsc bluechip — so it is a property of the chain's coverage, not a gap on any one token. A two-part rule whose second half can never be supplied does not fire once, which means an EVM token with **unlocked LP** was passing this row on a technicality. **So on the six EVM chains, decide the row on the lock half alone: `lock_summary.is_locked === false` takes the −12 on its own, and additionally caps the composite at 79** — unlocked LP on an EVM chain disqualifies the token from `buyable`, it is not a missing measurement. `lock_summary` absent entirely is still unavailable. This is a compensatory tightening for a check the data source cannot complete; it is **not** grounds for telling the reader that the burn field was unavailable — see Display Templates, which keeps a field the chain never provides out of the report.
+
+  **No composite published in this file moves.** All 10 bsc tokens in the firing-rate sample returned `lock_summary.is_locked: true`, as did the one token each on arc, stable and robinhood, so the widened row still fires on none of them; the row's 1-of-25 firing rate below was RAY on `sol`, which the two-part rule still governs. The tightening changes what happens the next time an EVM token arrives with unlocked LP — previously a silent pass, now −12 and a cap of 79.
 - **`initial_liquidity: 0` is normal on old pools.** It means the shrink ratio cannot be computed, not that the pool shrank. Report unavailable.
+- **A non-zero `initial_liquidity` is the opening depth of *that pool*, never the token's launch depth, and must not be reported as one.** GMGN picks which pool it calls the main pool and can switch that choice as depth moves, so the field follows the pool rather than the token. Measured 2026-09-10 on 4Stock (bsc): `pool.exchange: pancake_v3`, `pool.liquidity: 909952.03`, `pool.initial_liquidity: 19893.57` — non-zero, on a token whose earlier main pool was the migrated pancake_v2 one that reads `0`. The v3 pool was created about half an hour after launch, so its $19,893 opening depth is a real number about that pool and says nothing about what the token launched with. Two consequences: never write the figure as "launch depth" or "发射深度", and read the shrink ratio only as this pool shrinking — a ratio far above 1 (here 45×) means the pool deepened since it opened, which is not a finding and never a deduction, since the row only charges shrinkage.
 - **`dev.twitter_name_change_history: []` and `dev.twitter_del_post_token_count: 0` are struct defaults.** On an unpopulated `dev` block both come back as `[]` and `0`, which is unavailable: neither a clean record nor a dirty one. Since neither field deducts, this only decides whether you report a value or report unavailable — never a deduction either way.
 
 ## Step 4 — Holder structure, from 100
@@ -314,7 +319,7 @@ Note the batch-to-batch instability that the tier split resolves: taken as one r
 
 ## Step 5B — Cross-check against GMGN's own rug label
 
-**This step exists because the composite, on its own, does not separate tokens GMGN itself labels as rugs.** Measured 2026-08-28 on ten tokens carrying `rug_ratio >= 0.5` with over $20K of 24h volume: three scored "relatively clean" — ANTSEM at `rug_ratio: 1.00` scored **92.8**, GASSPAS at 0.54 scored **96.5**, Pistacio at 0.96 scored **86.8** — seven scored "mixed", and none reached "high risk". Nine of the ten reported "evidence sufficient". A verdict number that calls a maximum-rug-label token relatively clean at high confidence is worse than no number, so the label is read and it caps.
+**This step exists because the composite, on its own, does not separate tokens GMGN itself labels as rugs.** Measured 2026-08-28 on ten tokens carrying `rug_ratio >= 0.5` with over $20K of 24h volume: three scored "relatively clean" — ANTSEM at `rug_ratio: 1.00` scored **92.8**, GASSPAS at 0.54 scored **96.5**, Pistacio at 0.96 scored **86.8** — seven scored "mixed", and none reached "high risk". Nine of the ten reported "evidence sufficient". A verdict number that calls a maximum-rug-label token `buyable` at high confidence is worse than no number, so the label is read and it caps.
 
 **There is no address lookup for `rug_ratio`.** It is absent from `token info`, `token security` and `token pool` — verified — and `gmgn-cli` has no `market search` sub-command in any version measured, so the field is only reachable from the per-chain listings. Scan them and stop as soon as the address matches, comparing lowercased:
 
@@ -369,7 +374,7 @@ So **do not stop at the first row that matches the address — stop at the first
 | `rug_ratio` | Effect |
 |---|---|
 | ≥ 0.50 | **cap the composite at 59** — "high risk" |
-| 0.30 to 0.50 | **cap at 79** — withholds "relatively clean" |
+| 0.30 to 0.50 | **cap at 79** — withholds `buyable` |
 | < 0.30 | no cap |
 | **key absent from every matching row** | **no cap — but this is unavailable, not a measured 0** |
 | address in neither listing | no cap, and say so in the report |
@@ -397,7 +402,7 @@ Base weights: **contract 0.45, holders 0.35, price 0.20.** They sum to 1.
 **Renormalize over the sections that actually returned data.** Drop any section whose inputs were entirely unavailable, then divide each surviving weight by the surviving total. With price dropped, contract and holders become 0.5625 and 0.4375. Print the weights you actually used.
 
 Then, in this order:
-1. **Collect every cap that applies — Step 2, Step 5B and Step 7 — and take the lowest.** Step 2 can contribute 79 (missing `is_honeypot`, missing `is_open_source`); Step 5B contributes 79 or 59 from `rug_ratio`; Step 7 contributes 59 when it downgrades a honeypot flag. An earlier version of this list named only Step 2's caps, which left the others with no place to be applied — a downgraded honeypot, or a token GMGN labels a rug, would have kept its raw composite.
+1. **Collect every cap that applies — Step 2, Step 3, Step 5B and Step 7 — and take the lowest.** Step 2 can contribute 79 (missing `is_honeypot`, missing `is_open_source`); Step 3 contributes 79 when an EVM token's LP is not locked; Step 5B contributes 79 or 59 from `rug_ratio`; Step 7 contributes 59 when it downgrades a honeypot flag. An earlier version of this list named only Step 2's caps, which left the others with no place to be applied — a downgraded honeypot, or a token GMGN labels a rug, would have kept its raw composite.
 2. If the honeypot hard stop fired **and Step 7 did not downgrade it**, the composite is 0 regardless of everything else. Step 7 is checked before this line, not after — it appears later in this document only because it is the rarer case.
 3. If Step 0 found no record for the address, or if no section returned any data, report **cannot score** — not a number. Never emit a score for an address GMGN has no record of. If Step 0's wallet probe identified a wallet, hand off instead of reporting either.
 
@@ -412,7 +417,7 @@ Then, in this order:
 
 **Inventory total: 23 on `sol`, 25 on the six EVM chains.** Solana's `is_honeypot` and `is_open_source` are not in the Solana list at all — being not applicable, they are absent by construction rather than subtracted, which is the same outcome by a clearer route. `vol_ratio` is a check like any other: executed when the window holds at least 40 candles with non-zero earlier volume, skipped otherwise.
 
-One group is **held out of both sides** when it applies: the nine `stat` checks (eight in Holders, `creator_created_count` in Contract) when Step 1B finds the block unpopulated. Held-out checks still appear in the unavailable list, and holding them out additionally requires the disclosure line Step 4 names. Everything else that could not be read is **skipped** — it stays in the denominator.
+One group is **held out of both sides** when it applies: the nine `stat` checks (eight in Holders, `creator_created_count` in Contract) when Step 1B finds the block unpopulated. Holding them out additionally requires the one plain sentence Step 8 item 2 names — the sole gap the report still states out loud, because this one is per token rather than per chain and it changes what the score is entitled to claim. There is no unavailable list in the output for held-out checks to appear in. Everything else that could not be read is **skipped** — it stays in the denominator.
 
 If your executed + skipped + held-out does not equal **23 on `sol` or 25 on the EVM chains**, you have invented or dropped a check; recount before reporting a confidence label. The identity holds in both directions: with `stat` populated the nine `stat` checks are executed or skipped and held-out is 0, and with `stat` unpopulated they move to held-out — either way the three numbers still sum to the same total, which is the whole point of holding them out rather than dropping them.
 
@@ -426,15 +431,58 @@ Coverage limits the **strength of the claim**. Missing data must never become a 
 
 **Three exceptions, and only three.** Every other absent field is scored as unavailable and touches nothing but coverage.
 
-1. **A populated EVM `security` block missing `is_honeypot` → cap 79** (Step 2). "Relatively clean" is not a claim this skill may make without a honeypot check. The cap stops at 79 so it withholds the clean grade without asserting a risk the data never showed.
+1. **A populated EVM `security` block missing `is_honeypot` → cap 79** (Step 2). `buyable` is not a claim this skill may make without a honeypot check. The cap stops at 79 so it withholds the unqualified band without asserting a risk the data never showed.
 2. **A populated EVM `security` block missing `is_open_source` → cap 79** (Step 2), for the same reason.
 3. **`len(kline.list)` under 24 → −12 or −6** (Step 3). This one is a genuine deduction on absent data, and it is deliberate: dropping the price section renormalizes its 0.20 onto contract and holders, which are the two sections a brand-new token is most likely to still pass, so silence about price would otherwise *raise* the score. See Step 3 for the full argument and for why the deduction is bounded and is not a rug claim. Measured cost to a bluechip: USDT on sol, zero candles, 100.0 → 93.2, still "relatively clean".
 
 Exceptions 1 and 2 withhold a verdict without asserting risk. Exception 3 does assert something — that price cannot be verified yet — which is why it is bounded at −12 and can never move a token more than one grade on its own.
 
-Grades, when confidence is not "insufficient": ≥80 relatively clean · ≥60 mixed, needs manual review · ≥40 high risk · <40 very high risk.
+**Grades, when confidence is not "insufficient". Each verdict is two parts: a band word answering how buyable the token is, and a profile clause naming what is standing in the way. The reader arrived with exactly one question — can I buy this — so the band word answers that question and nothing else.**
 
-**"Relatively clean" means "no measured red flag among the fields this skill reads, and no rug label from GMGN" — it still does not mean "not a rug", and the report must not imply that it does.** The scored rows alone did not carry this: measured 2026-08-28 on ten tokens carrying `rug_ratio >= 0.5`, three scored ≥80 and none scored below 60. Step 5B's cap is what closes that, and it closes it by refusing a verdict rather than by measuring the contract better — the underlying reason is still true, that the rows firing hardest on labelled rugs are the price ones, which detect a token that has already dumped rather than one about to. A token with no rug label and a young chart can still score in the eighties on nothing but the absence of findings. Say the grade as what it is.
+| Composite | Band word | Rendered in Chinese as |
+|---|---|---|
+| ≥ 80 | **buyable** | **可买** |
+| ≥ 60 | **buyable with conditions** | **有条件可买** |
+| ≥ 40 | **not advised** | **不宜买入** |
+| < 40 | **do not buy** | **不可买** |
+
+**The axis is whether the token can be bought and sold back safely — not whether it will go up.**
+Every field this skill reads is about transactability and rug exposure: can the holder sell, what
+the tax costs, whether the LP is locked, who controls the float, whether the pool has already been
+drained. None of it forecasts price. So `buyable` means "nothing here stops you from buying and
+getting back out", and it never means "this will appreciate". Say so in `How much to trust this
+score` whenever the band lands at `buyable` or `buyable with conditions`.
+
+**Both columns are fixed wording. Render the Chinese exactly as written, do not re-translate the
+English per run** — a band word that comes out differently on two runs of the same token defeats the
+reason this table exists.
+
+**The profile clause is derived from the three section scores, never written freely.** Count the sections scoring under 60, then take the first rule that matches:
+
+| | Which sections scored under 60 | Clause | Rendered in Chinese as |
+|---|---|---|---|
+| 1 | two or three of them | *the problem is on more than one side* | 问题不止一侧 |
+| 2 | holders only | *contract is fine, the float is controlled* | 合约无问题，筹码被控盘 |
+| 3 | price only | *contract is fine, the price structure has broken* | 合约无问题，价格结构走坏 |
+| 4 | contract only | *the problem is in the contract itself* | 问题出在合约本身 |
+| 5 | none, but contract is under 80 | *no clear problem, but the contract side is thin* | 无明显问题，但合约侧偏薄 |
+| 6 | none | *nothing standing in the way on any of the three sides* | 三侧均无问题 |
+
+Take the first row that matches. **These renderings are fixed wording too** — same reason as the band words.
+
+**Why the band words sit on the buyability axis.** Three earlier wordings were rejected, and the progression is worth writing down because each failure was a different way of answering a question the reader did not ask.
+
+The original was `relatively clean · mixed, needs manual review · high risk · very high risk` — audit language. "Mixed" describes the *average* of the three sections, which is the one reading that never helps: a token at contract 90 / holders 52 / price 92 is not average on anything, one side is rotten and two are clean, and the average hides exactly the fact the reader needs. "Needs manual review" then hands the work back without naming what to review.
+
+The second attempt was `no hard flaw found · one side is broken, not a hold · risk established, watch only · avoid`. That failed because each band spliced a **description of the asset** together with an **instruction**, in one comma phrase, which reads like a translation rather than like a desk's own note.
+
+The third was `structure intact · structural defect present · structural risk is material · structure has failed` — one noun on a four-step severity ladder, description only, action left to `What to do`. That one was internally consistent and still wrong, for the reason that governs this whole section: **the reader pasted an address because they want to know whether they can buy it.** "结构存在缺陷" makes them do a second translation step from the state of the asset to their own decision, and a reader who has to translate a verdict has not been given a verdict.
+
+So the band word answers the question that was actually asked, on one axis, in four steps. The profile clause beside it then names what is in the way, which is what makes the pair complete: how buyable from the word, why not more so from the clause. Note what this does **not** license: the band word is not permission to size a position — sizing is `gmgn-token-buy`'s job, and `What to do` still carries the timing, the mechanism of loss and the caveats.
+
+The band boundaries — 80, 60, 40 — never moved through any of the three rewordings, so **no composite in this file changes grade**; only the words on the line change. **Dated passages throughout this file still quote the original audit words, and are left as written** — they are records of runs that happened, not live rules, and rewriting a past run's printed output would falsify the record. They map onto the table above one-for-one, so any occurrence decodes: `relatively clean` = `buyable`, `mixed / needs manual review` = `buyable with conditions`, `high risk` = `not advised`, `very high risk` = `do not buy`. **A live rule must never name a band in the old vocabulary** — two did, at Step 5B's rationale and in the absent-field list above, and both were corrected when this table landed.
+
+**"Buyable" means "no measured red flag among the fields this skill reads, and no rug label from GMGN" — it still does not mean "not a rug", and the report must not imply that it does.** The scored rows alone did not carry this: measured 2026-08-28 on ten tokens carrying `rug_ratio >= 0.5`, three scored ≥80 and none scored below 60. Step 5B's cap is what closes that, and it closes it by refusing a verdict rather than by measuring the contract better — the underlying reason is still true, that the rows firing hardest on labelled rugs are the price ones, which detect a token that has already dumped rather than one about to. A token with no rug label and a young chart can still score in the eighties on nothing but the absence of findings. Say the grade as what it is.
 
 ## Step 7 — Tokenized-equity honeypot false positive
 
@@ -459,7 +507,7 @@ Report in this order:
    The age belongs on that line because nothing else on it conveys youth. Measured 2026-08-28: a pump.fun launch a few hours old scored **89.4 "relatively clean · evidence sufficient"** with no failed check beyond thin liquidity, a small holder count and an 8% drawdown — every one of which is true and none of which says "this token is hours old". The `len(kline.list)` deduction only reaches tokens under 24 candles, so a token with six hours of history escapes it entirely. Printing `age 3.6h` next to the grade is what stops the number from reading as reassurance. When Step 5B found the address in neither listing, say `age unknown` — and note that being unlisted correlates with being established, which is the opposite of the case this line guards against.
 2. The three section sub-scores on the line under the verdict, with the age and the Step 5B rug clause. **Coverage is computed but never printed.** It exists to set the confidence label in Step 6 and does nothing else in the output — no `executed N / skipped M / held-out K of T` line, no section weights. When the nine `stat` checks were held out, the report says so in plain words under `Limits of this read` — "GMGN published no chain analysis for this token, so the holder read rests on concentration and holder count alone" — rather than printing Step 4's disclosure sentence verbatim. That sentence is the internal wording; the plain one is what ships. The disclosure itself is still mandatory, only its phrasing changed.
 3. Every deduction, in prose, inside the section it belongs to, plus one summary line per section under `How the score moved`. Print the measured value and what it means for the buyer; never print the field path. The value is not what gets hidden — the label beside it is what changes.
-4. Whatever could not be read, in plain words, under `Limits of this read`. Write "GMGN did not report the burn status or the privileged-function list", not a bulleted list of field names with a reason column. Never write an absence as a measured zero. Fields that are **not applicable** on this chain are not mentioned at all: a Solana token has nothing to say about `is_honeypot`, and an EVM token has nothing to say about mint authority, so listing them as unavailable only pads the report with non-findings.
+4. **A field the data source does not supply is not mentioned at all.** Whatever could not be read is handled by the score and by the confidence label, not by a paragraph telling the reader which fields were empty. A gap in GMGN's coverage is not a finding about the token, and printing it manufactures a doubt out of nothing — the report said "the remaining 5% of the lock is unaccounted for" about a chain that reports no burn field whatsoever. This covers both the not-applicable fields (a Solana token has nothing to say about `is_honeypot`) and the fields the chain simply never populates (`burn_status` and `pool.initial_liquidity` on the EVM chains). Where such a gap disables a scoring row, the answer is the compensatory tightening in that row — Step 3's EVM lock rule is the worked example — never a disclosure. Never write an absence as a measured zero either: a row that could not be scored is silent, not clean. **The one exception is the nine held-out `stat` checks**, whose plain sentence in item 2 above still ships: that block is missing per token rather than per chain, so it says something about this token's evidence rather than about GMGN's coverage of the chain.
 5. **Reported-not-scored findings, only when they are actually findings.** The two `dev` X fields are quoted under `Who launched it` when non-empty, described as history of the linked X account rather than of this token; when both are empty they are dropped rather than reported as empty. A `[filtered]` string, or a `neutralized … suspicious metadata` notice on stderr, is **always** reported in its own sentence and may never be dropped for brevity.
 6. Any cap that applied and what caused it, under `How the score moved` — a missing check (Step 2), the `rug_ratio` band (Step 5B), or a downgraded honeypot flag (Step 7). When none applied, say so and give the one-clause reason each did not fire, so the reader knows the composite is a raw weighted value rather than a suppressed one. The rug clause on the sub-score line is mandatory in all three of its phrasings; Display Templates fixes the wording.
 7. One line stating this is a rule-based read of public on-chain data, not investment advice.
@@ -487,6 +535,16 @@ label beside it: not "entrapment trader percentage 62.5%" but "62.5% of the supp
 tagged as entrapment". The report is for someone deciding whether to buy, not for someone auditing
 the scorer.
 
+**A field the data source does not provide does not appear in the report — not even to say it was
+missing.** No "not disclosed", no "GMGN did not report", no "unavailable" list. Coverage already
+carries the gap into the confidence label, and a dead scoring row is answered by tightening that row
+(Step 3's EVM lock rule), not by narrating the hole to the reader. The single exception is the nine
+held-out `stat` checks, which keep their one plain sentence — that gap is per token, not per chain. Two measured examples of what this
+suppresses: `pool.initial_liquidity` is usually `0` on a migrated pool, so the shrink comparison is
+simply absent from `Pool and lock`; `burn_status` is empty on all six EVM chains, so an EVM report
+says what the lock does say and stops there. Writing the gap down turns a property of GMGN's coverage
+into an apparent property of the token, which is the opposite of what this skill is for.
+
 Section headings below are written in English so you translate them into the user's language. Never
 print them in English when the user is writing Chinese.
 
@@ -498,7 +556,7 @@ Fill this in. Do not restructure it, do not add sections, do not drop sections.
 # Contract DD · <symbol> · <CHAIN>
 `<full, unabbreviated address>`
 
-## **<composite> / 100 · <grade>** — <verdict in a few of the user's own words>
+## **<composite> / 100 · <band word>** — <the derived profile clause, in the user's language>
 
 contract <N.N> · holders <N.N> · price <N.N> · age <Xh|N.Nd|age unknown> · <the rug line, one clause>
 
@@ -509,7 +567,7 @@ finding.>
 
 | | |
 |---|---|
-| Liquidity | <$X (at launch $Y, grew Nx / shrank to N.N%)> |
+| Liquidity | <$X, quoted against <quote symbol>; add "at launch $Y, grew Nx / shrank to N.N%" only when the launch figure was supplied> |
 | LP lock | <locked, N.N% to the blackhole address / not locked / not reported> |
 | Buy / sell tax | <N.N% / N.N%> |
 | Holders | <N addresses, top ten hold N.N%> |
@@ -527,9 +585,9 @@ be done to the holder. Say plainly when this section cost nothing.>
 
 ### Pool and lock
 
-<Depth now, depth at launch and which direction it moved, the lock and how much of it is real, and
-any part of the lock-or-burn picture that was simply not reported — "not disclosed", never
-"confirmed absent".>
+<Depth now, the lock and how much of it is real, and the quote asset the depth is denominated in.
+Add depth at launch and the direction it moved only when the launch figure was actually supplied;
+when it was not, say nothing about it.>
 
 ### Who is holding it
 
@@ -538,8 +596,9 @@ are, so say so. Then the tags that came back clean, so the reader sees both side
 
 ### Who launched it
 
-<Launch count, whether the deployer still holds, any vanity-address or shared-logo finding. Compare
-against a sibling token only when one was actually measured.>
+<Launch count, whether the deployer still holds, and any shared-logo finding. The launchpad is
+not named — see the launchpad rule below. Never present the address's trailing characters as a
+finding either. Compare against a sibling token only when one was actually measured.>
 
 ### Where the price is
 
@@ -556,7 +615,7 @@ actually scored whenever it is shorter than 96 candles.>
 
 - <what was read in full, so the number itself can be trusted>
 - <how much time the data covers, and what that means the report cannot claim>
-- <what GMGN did not report, in plain words>
+- <only when the nine `stat` checks were held out: the one plain sentence from Step 8 item 2>
 - <off-chain presence: X, website, Telegram, verification status>
 
 ### What to do
@@ -575,11 +634,54 @@ does and does not mean>
 
 ### Rules the skeleton does not show
 
+**The verdict line is the band word plus the derived profile clause, and nothing else.** Step 6 fixes
+both halves: the band word comes from the composite, the clause comes from which sections fell under
+60. Do not improvise a summary phrase in that position, do not soften the band word, and do not
+substitute the average of the three sections for the clause — naming the weak side is the whole
+reason the clause exists.
+
+**`Buy or not` must not contradict the band word, and must not merely repeat it.** The band word is
+the verdict; that slot carries what the band word cannot hold — the condition attached, the size
+framing, what would have to change for the band to move. A report whose header says `有条件可买` and
+whose `Buy or not` says 不要买 has given the reader two answers to their only question. If the
+measured findings genuinely argue against buying at a composite the bands call buyable, say that in
+`Where the loss comes from` and in `How much to trust this score`, and name the finding — do not
+resolve it by overriding the band word.
+
+**The band word never promises upside.** It says the token can be bought and sold back, not that it
+will rise; `How much to trust this score` must say so in plain words whenever the band is `buyable`
+or `buyable with conditions`, because that is the sentence a reader is most likely to over-read.
+
 **The address is never truncated, on its own line under the title.** This skill exists partly to
-catch vanity-mined copycats — several measured in this file end in `7777`, `ffff` or `b07` — and a
-shortened display address defeats the one check a reader can do with their own eyes: compare the full
-string against whatever they were about to paste into a swap. The deployer address inside `Key
-numbers` is also printed in full.
+catch copycats, and a shortened display address defeats the one check a reader can do with their own
+eyes: compare the full string against whatever they were about to paste into a swap. The deployer
+address inside `Key numbers` is also printed in full.
+
+**The trailing characters of an address are a launchpad marker, not a deployer's choice, and are never
+reported as a finding.** Measured 2026-09-10 over all 180 bsc trenches rows: **130 of 130 flap
+launches end in `7777`** and **39 of 50 four.meme launches end in `ffff`, the remaining 11 in
+`4444`** — `ffff` being four.meme's newer openfour mode, which is also what `info.launchpad` says.
+The suffix is issued by the launchpad, identical across every token it mints, so it carries no
+information about this token at all. Writing "the address ends in `ffff`, a vanity suffix commonly
+used by copycats" states the opposite of the truth and manufactures a warning out of a platform
+default. Say nothing about the suffix.
+
+**And do not name the launchpad either — `info.launchpad` is not reliable enough to report.** It is
+an attacker-controlled string by the rule at the top of this file, and its coverage was measured on
+2026-09-10 rather than assumed. Two findings disqualify it. First, **the vocabulary is not stable
+across endpoints**: 4Stock returns `openfour` from `token info`, while all 180 `market trenches` rows
+use only `flap` (143) and `fourmeme` (37) and never emit `openfour` at all — so the same launch
+platform has two names depending on which call produced the row, and a report naming one of them is
+naming an endpoint artifact. `market trending --interval 24h --limit 100` on bsc returns a third
+vocabulary again, carrying `openfour` (13) and `fourmeme` (1) side by side. Second, **an empty value
+is unreadable**: 9 of those 100 bsc rows returned `launchpad: ""` (BNC4, GMEB, BREW, HIMSB, QQQB,
+MOMO, CNPY, SPCXB, AAPLB), and nothing in the response distinguishes "this token came from no
+launchpad" from "GMGN does not know which launchpad this came from". The same sample on `sol` was
+fully populated — `pump` 55, `ray_launchpad` 28, `stonkfun` 11, `meteora_virtual_curve` 6 — and
+`base`, `eth`, `robinhood`, `arc` and `stable` were not measured at all, so there is no basis for
+claiming the field resolves every launchpad on the seven supported chains. A launch platform named
+half-right is worse than one left unsaid: the reader cannot tell which half. Quote the field only if
+it trips the `[filtered]` rule, which is a metadata finding and not a launchpad claim.
 
 **When Step 0 resolved a wallet or "no record", the whole header block and every section below it are
 replaced by that verdict's own one- or two-line statement.** There is no composite, so there is
@@ -644,7 +746,7 @@ Measured against live GMGN responses on 2026-08-27, one real token per chain acr
 - **megaeth returns a fully empty block**: `address: ""`, the four booleans null, taxes empty strings — yet `renounced_mint: false` and `renounced_freeze_account: false` are still present. That pair of defaults is what Step 1A exists to catch, and applying the Solana rule to them would have condemned a clean token.
 - **tron populates only `lock_summary`.** Two tokens with completely different risk profiles, including USDT-TRC20, returned an identical field set — proof those were defaults rather than measurements.
 - Zero-candle `kline` responses were reproduced on sol, arbitrum, xlayer and arc using bluechip stablecoins, and every one of those chains returned a full 100-candle series for its highest-liquidity active token. Zero candles is a per-token pool gap.
-- **The Step 2 hard stop and the Step 7 exemption were checked against three live `is_honeypot === true` tokens** on base (2026-08-28, all three from one factory, addresses vanity-mined to end in `b07`). None came close to Step 7's gate: `sells_24h` of 243, 0 and 0 against the 500 required, and `sell_volume_24h` of $63.6K, $0 and $0 against the $100K required. All three resolve to composite 0, which is the right answer. Step 7's gate is tight enough that ordering it before the hard stop does not open a hole — worth re-checking if that gate is ever loosened. Note also that the one honeypot with any sell flow had `sell_volume / buy_volume` of 0.00, i.e. heavily **buy**-side: a honeypot is bought and cannot be sold, so Step 7's 0.3-3.0 two-sidedness band excludes it for the right reason.
+- **The Step 2 hard stop and the Step 7 exemption were checked against three live `is_honeypot === true` tokens** on base (2026-08-28, all three from one factory, addresses all ending in `b07` — a shared suffix marks a common minter, which on bsc is measurably the launchpad rather than a vanity choice; do not read it as evidence of vanity mining). None came close to Step 7's gate: `sells_24h` of 243, 0 and 0 against the 500 required, and `sell_volume_24h` of $63.6K, $0 and $0 against the $100K required. All three resolve to composite 0, which is the right answer. Step 7's gate is tight enough that ordering it before the hard stop does not open a hole — worth re-checking if that gate is ever loosened. Note also that the one honeypot with any sell flow had `sell_volume / buy_volume` of 0.00, i.e. heavily **buy**-side: a honeypot is bought and cannot be sold, so Step 7's 0.3-3.0 two-sidedness band excludes it for the right reason.
 
 ### Re-verification after the field-reading review
 
@@ -755,7 +857,7 @@ Lowest bluechip 88.4, highest fresh launch 73.1, gap **+15.3**; no bluechip lost
 >
 > Still true regardless: "relatively clean" means "no measured red flag among the fields this skill reads, and no rug label", not "not a rug".
 
-Caveat on all of the above: ten scored tokens, four of them fresh launches, and two of those four came from the same four.meme factory (both addresses vanity-mined to end in `7777`). The gap holds on this sample; it is not a claim about generalisation.
+Caveat on all of the above: ten scored tokens, four of them fresh launches, and two of those four shared the `7777` suffix — which the tally in Display Templates shows is flap's launchpad marker, so "same factory" was read off the suffix and is not established. The gap holds on this sample; it is not a claim about generalisation.
 
 Re-measured end to end against live responses on 2026-08-27, over 14 addresses: five bluechips (USDC/USDT/RAY on sol, CAKE on bsc, WETH on base, USDT on eth), four fresh launches (two pump.fun, two four.meme), three well-formed addresses with no GMGN record, and one malformed address. What that pass changed:
 
