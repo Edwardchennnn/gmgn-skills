@@ -531,9 +531,26 @@ just is not printed. A reader who asks how one line was measured gets the field 
 conversation, not in the report.
 
 **Numbers stay, jargon goes.** Every measured value in the skeleton is printed. What changes is the
-label beside it: not "entrapment trader percentage 62.5%" but "62.5% of the supply sits in wallets
+label beside it: not "entrapment trader percentage 62.5%" but "62.5% of the analysed traders are
 tagged as entrapment". The report is for someone deciding whether to buy, not for someone auditing
 the scorer.
+
+**The `stat` percentages are shares of an analysed trader cohort — never of the supply and never of
+the holder count, and the report must not say otherwise.** Measured 2026-09-10 on 4Stock (bsc):
+`stat.bot_degen_count: 1068` against `stat.bot_degen_rate: 0.5416` gives a denominator of
+**1068 / 0.5416 = 1971.9**, on a token whose `info.holder_count` is **20,930** — so the rate is over
+roughly 1,972 analysed wallets, two orders of magnitude away from both the holder count and any
+supply figure. `stat.top_bot_degen_percentage` returned **exactly** `0.5416` on the same response,
+identical to `bot_degen_rate`, which is what ties the whole `top_*_trader_percentage` family to that
+same cohort: `top_entrapment_trader_percentage`, `top_bundler_trader_percentage` and
+`top_rat_trader_percentage` share its naming and one of them shares its value. **So render them as
+"N.N% of the analysed traders" / 「占已分析交易者 N.N%」, never as "N.N% of the supply" or
+「N.N% 的流通筹码」.** An earlier version of this rule used the supply wording in its own worked
+example, and a live report inherited it and told the reader that 61.1% of the float sat in entrapment
+wallets — a claim the response never made. The deduction tiers in Step 4 are unaffected: they compare
+the same fraction against the same thresholds either way, so this is a labelling fix and **no
+composite in this file moves.** Only `bot_degen_rate` ships a count to divide by; do not invent one
+for the others, and do not print the cohort size as if it were a holder segment.
 
 **A field the data source does not provide does not appear in the report — not even to say it was
 missing.** No "not disclosed", no "GMGN did not report", no "unavailable" list. Coverage already
@@ -573,7 +590,7 @@ finding.>
 | Holders | <N addresses, top ten hold N.N%> |
 | <heaviest holder-structure finding, named in plain words> | <N.N%> |
 | <second holder-structure finding> | <N.N%> |
-| Price / market cap | <$X / $Y> |
+| Price / market cap | <$X / $Y — see the market-cap rule below; the response carries no `market_cap` field> |
 | All-time high | <$X / $Y, now N.N% below> |
 | 24h volume | <$X, bought $Y, sold $Z> |
 | Deployer | <`address`, has launched N tokens> |
@@ -616,7 +633,8 @@ actually scored whenever it is shorter than 96 candles.>
 - <what was read in full, so the number itself can be trusted>
 - <how much time the data covers, and what that means the report cannot claim>
 - <only when the nine `stat` checks were held out: the one plain sentence from Step 8 item 2>
-- <off-chain presence: X, website, Telegram, verification status>
+- <off-chain presence — only when at least one social field or the verification status actually
+  carries a value; an all-empty `link` block is a coverage gap and the bullet is dropped entirely>
 
 ### What to do
 
@@ -651,6 +669,30 @@ resolve it by overriding the band word.
 **The band word never promises upside.** It says the token can be bought and sold back, not that it
 will rise; `How much to trust this score` must say so in plain words whenever the band is `buyable`
 or `buyable with conditions`, because that is the sentence a reader is most likely to over-read.
+
+**An isolated `0` is only printed when a second field from the same response corroborates it.**
+A populated `stat` block makes a genuine zero a real measurement (Step 1B), so the score reads it —
+but the *report* has a higher bar than the scorer, because a printed "0%, clean" reads to the buyer
+as a verified fact rather than as an unremarkable default. So a zero earns a line only with
+corroboration. Two that qualify, measured 2026-09-10 on 4Stock (bsc): `stat.creator_hold_rate: 0` is
+backed by `dev.creator_token_balance: "0"` **and** `dev.creator_token_status: "creator_close"`, so
+"the deployer has fully exited" is printed; `stat.top70_sniper_hold_rate: 0` is backed by
+`wallet_tags_stat.sniper_wallets: 0`, so "no sniper wallets" is printed. Two that do not, on the same
+response: `stat.private_vault_hold_rate: 0` and `stat.dev_team_hold_rate: 0` stand alone with nothing
+to check them against, so **both are dropped from the report** rather than listed as passing checks.
+The rule cuts one way only — an uncorroborated zero is silent, never written up as a gap either, per
+the no-absences rule above. It also does not touch scoring: the zero still counts as an executed
+check in Step 6's coverage exactly as before.
+
+**Market cap is derived, not read, and the derivation is fixed.** The `token info` response carries
+**no `market_cap` key at all** — measured 2026-09-10 on 4Stock (bsc), where the top-level keys include
+`price`, `ath_price`, `circulating_supply` and `total_supply` and no market-cap field of any kind. So
+compute it as `float(info.price.price) * float(info.circulating_supply)` and print the result; do not
+report market cap as unavailable, and do not substitute `total_supply` when the two differ. **That
+formula is GMGN's own, verified against a figure GMGN does publish**: on the same response
+`float(ath_price) * float(circulating_supply)` = `0.082633663 * 1e9` = **82,633,663**, matching
+`dev.ath_token_info.ath_mc: "82633663"` exactly. Use the same pair for the `All-time high` row, and
+take the distance below the high from the prices rather than recomputing it from the two caps.
 
 **The address is never truncated, on its own line under the title.** This skill exists partly to
 catch copycats, and a shortened display address defeats the one check a reader can do with their own
