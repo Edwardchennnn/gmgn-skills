@@ -72,18 +72,24 @@ Three steps. Every code block below is run verbatim; only the values in **Parame
 **Step 1 — sweep every chain.** 7 chains x 3 windows = 21 calls, paced.
 
 ```bash
-CHAINS="sol bsc base eth robinhood arc stable"   # narrow to a subset when the user asks; never add a name
+CHAINS=(sol bsc base eth robinhood arc stable)   # narrow to a subset when the user asks; never add a name
+# An array, and iterated as "${CHAINS[@]}". A plain string iterated as `for ch in $CHAINS` works under
+# bash and silently does not under zsh, which performs no word splitting on an unquoted expansion: the
+# loop runs once with every chain name in one variable, and the whole sweep collapses to a single
+# refused call. Verified under zsh, bash and bash --posix -- all seven iterations.
 # mktemp -d, not a name anyone can guess. The old /tmp/gmgn-heat-data-$(date +%s) was a second-resolution
 # timestamp in a world-writable directory, and heat_rank.py is written into it and then executed: another
 # local user could pre-create that directory with their own heat_rank.py, and the run would execute theirs.
 DATA=$(mktemp -d); cd "$DATA"
-for ch in $CHAINS; do
+for ch in "${CHAINS[@]}"; do
   # A chain name ends up on a command line, so it is checked against the fixed set of names this API
   # has instead of being passed through. A typo, a chain from some other exchange, or a string with
   # spaces or shell metacharacters in it is refused out loud and skipped -- it never becomes arguments
-  # to gmgn-cli. Keep this list literal: reusing $CHAINS here would check the input against itself.
-  case " sol bsc base eth robinhood arc stable " in
-    *" $ch "*) ;;
+  # to gmgn-cli. Whole names only: a substring test (`case " sol bsc ... " in *" $ch "*`) accepts any
+  # run of adjacent names, so `sol bsc` would pass it. Keep this list literal -- reusing $CHAINS here
+  # would check the input against itself.
+  case $ch in
+    sol|bsc|base|eth|robinhood|arc|stable) ;;
     *) echo "refusing unsupported chain name: $ch" >&2; continue;;
   esac
   # Only tags the API actually recognises. An unrecognised tag is not refused -- it is silently
@@ -102,11 +108,11 @@ for ch in $CHAINS; do
   # calls never had a chance. Skipping them changes no listed name. On a day when all seven chains
   # are alive the sweep still costs its full 21 -- this cuts waste, not coverage.
   for iv in 24h 1h 6h; do
-    gmgn-cli market trending --chain $ch --interval $iv --limit 100 \
+    gmgn-cli market trending --chain "$ch" --interval "$iv" --limit 100 \
       --min-marketcap 500000 --min-liquidity 100000 --max-created 7d \
-      "${F[@]}" --raw > ${ch}_${iv}.json 2>${ch}_${iv}.err
+      "${F[@]}" --raw > "${ch}_${iv}.json" 2>"${ch}_${iv}.err"
     sleep 1.4
-    if [ "$iv" = 24h ] && ! grep -q '"rank":\[{' ${ch}_24h.json; then
+    if [ "$iv" = 24h ] && ! grep -q '"rank":\[{' "${ch}_24h.json"; then
       echo "no 24h candidate on $ch -- skipping its 1h/6h calls" >&2
       break
     fi
