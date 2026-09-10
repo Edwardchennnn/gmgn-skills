@@ -19,16 +19,27 @@ description: >-
   bonding-curve tokens ("just launched", "pump.fun new", "新盘") - that is
   `gmgn-market trenches`; nor for one address the user already has ("is this
   token safe", "打个分", "尽调") - that is `gmgn-contract-dd`; nor for a chart
-  read ("走势怎么样", "什么形态") - that is `gmgn-kline-pattern`. The split is by
-  who chooses the tokens: if the user names the token, it is not this skill; if
-  the user is asking the skill to choose, it is. When nobody names a token and
+  read ("走势怎么样", "什么形态") - that is `gmgn-kline-pattern`; nor for
+  early-stage hunting below this skill's own floor ("值得埋伏吗", "新币筛选",
+  "早期机会", "discover early-stage opportunities") - that is
+  `gmgn-market trenches`, because the candidate pool here starts at 500k market
+  cap and 100k liquidity and never contains a bonding-curve token; nor for the
+  wallet-side view of the same market ("聪明钱在买什么", "KOL 在买什么",
+  "on-chain alpha", "copy-trade signals") - that is `gmgn-track smartmoney` /
+  `kol`, which answers who is buying rather than what is worth looking at. The
+  split is by who chooses the tokens: if the user names the token, it is not
+  this skill; if the user is asking the skill to choose, it is. When nobody names a token and
   the wording alone collides with `gmgn-market` - "hot coins", "what's pumping",
   "trending tokens", "热门币", "什么币在涨" - the deciding test is the shape of the
   answer being asked for: an untouched ranking of N rows in the exchange's own
   order is `gmgn-market trending`; a short list that survived risk gates, carries
   a score and can be acted on is this skill. A bare ambiguous ask with no other
   signal defaults here, because this skill can point at the raw ranking while the
-  raw ranking cannot screen itself.
+  raw ranking cannot screen itself. Nothing has to be supplied to run it - the
+  trigger phrase alone is enough, and no address, chain or amount is ever
+  required. Four things can be narrowed when the user asks for it: which chains
+  are swept, the age ceiling, how many names come back, and the score floor;
+  any value changed that way is named in the report.
 argument-hint: "[chains sol,bsc,base,eth,robinhood,arc,stable] [max-created 7d] [TOP_N 10] [MIN_SCORE 60]"
 metadata:
   cliHelp: "gmgn-cli market trending --help"
