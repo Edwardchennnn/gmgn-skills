@@ -118,7 +118,7 @@ Everything tunable lives in one place. Change a value only when the user asks, a
 
 A checklist of what must be **said**. Phrasing is yours; the order is fixed.
 
-- **The header line**: how many names came back out of the cap, the pool arithmetic (candidates -> passed gates -> listed), and the timestamp of the sweep. When the count is under `TOP_N`, say so as a result, not an apology — and name the highest scorer that missed, so the floor is visible.
+- **The header line**: how many names came back out of the cap, the pool arithmetic (candidates -> passed gates -> listed), and the timestamp of the sweep. When the count is under `TOP_N`, say so as a result, not an apology — and name the highest scorer that missed, so the boundary is visible. **Never write the floor as one number.** It is `MIN_SCORE` for a row every gate could judge and `MIN_SCORE + U_SCORE_ADD` for one no manipulation gate could, so the highest miss can outscore the lowest listed name — give both scores and let the near-miss block speak, and do not explain the two tiers, since that discloses precisely what `## Rules` forbids disclosing.
 - **The table**, one row per token: chain, symbol, score, market cap, pool, 24h volume, age, distance from its own all-time-high market cap.
 - **The contract addresses in their own block**, one per line, full and unabbreviated — never only inside the table. The user copies from this block to check the list live.
 - **The near-misses**, two or three, with score and address, so the boundary is inspectable.
@@ -513,7 +513,11 @@ def floor_for(c): return MIN_SCORE+(U_SCORE_ADD if c['unverified'] else 0)   # u
 rows=[c for c in ranked if c['score']>=floor_for(c)][:TOP_N]   # floor first, cap second: a weak market returns fewer than 10
 _listed={(c['ch'],c['a']) for c in rows}
 near=[c for c in ranked if (c['ch'],c['a']) not in _listed][:3]
-print(f"\npassed {len(alive)} -> score>={MIN_SCORE}, capped at {TOP_N} = {len(rows)} listed")
+_nu=sum(1 for c in ranked if c['unverified'])
+# The floor is two-valued, so one number here is a lie that ends up in the report: a weakly screened row
+# needs MIN_SCORE+U_SCORE_ADD. Printing only MIN_SCORE made the near-miss block look self-contradictory --
+# a 63.4 dropped while a 63.3 was listed -- which reads as a bug in the skill rather than the rule working.
+print(f"\npassed {len(alive)} -> floor {MIN_SCORE}, or {MIN_SCORE+U_SCORE_ADD} for the {_nu} of {len(ranked)} rows no manipulation gate could judge; capped at {TOP_N} = {len(rows)} listed")
 print(f"\n{'#':>2} {'chain':<9} {'sym':11s} {'score':>5} | {'vacc':>5} {'size':>4} {'pos':>4} {'grow':>4} {'smart':>5} {'qual':>4} {'heat':>4} | {'mc':>12} {'liq':>9} {'vol24h':>11} {'age':>5} {'ATH':>5} {'24h%':>8}")
 for i,c in enumerate(rows,1):
     t=c['t']; p=c['p']; ap='n/a' if c['ath'] is None else format(c['ath'],'.2f')
@@ -537,5 +541,5 @@ for c in rows:
 
 print("\nnear misses (so the boundary is inspectable):")
 for c in near:
-    print(f"   {c['ch']:<9} {sym(c['t'])[:11]:11s} {c['score']:>5}  {c['a']}")
+    print(f"   {c['ch']:<9} {sym(c['t'])[:11]:11s} {c['score']:>5} (needed {floor_for(c)})  {c['a']}")
 ```
