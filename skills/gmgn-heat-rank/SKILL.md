@@ -21,7 +21,14 @@ description: >-
   token safe", "打个分", "尽调") - that is `gmgn-contract-dd`; nor for a chart
   read ("走势怎么样", "什么形态") - that is `gmgn-kline-pattern`. The split is by
   who chooses the tokens: if the user names the token, it is not this skill; if
-  the user is asking the skill to choose, it is.
+  the user is asking the skill to choose, it is. When nobody names a token and
+  the wording alone collides with `gmgn-market` - "hot coins", "what's pumping",
+  "trending tokens", "热门币", "什么币在涨" - the deciding test is the shape of the
+  answer being asked for: an untouched ranking of N rows in the exchange's own
+  order is `gmgn-market trending`; a short list that survived risk gates, carries
+  a score and can be acted on is this skill. A bare ambiguous ask with no other
+  signal defaults here, because this skill can point at the raw ranking while the
+  raw ranking cannot screen itself.
 argument-hint: "[--chains sol,bsc,base,eth,robinhood,arc,stable] [--max-age 7d] [--top 10] [--min-score 60]"
 metadata:
   cliHelp: "gmgn-cli market trending --help"
@@ -38,7 +45,7 @@ metadata:
 | The user's question | Goes to |
 |---|---|
 | "what is hot and worth looking at" — no address given, wants a chosen list | **here** |
-| "top N by volume / swaps on chain X", "hot search list" — wants the raw ranking | `gmgn-market trending` / `market hot-searches` |
+| "top N by volume / swaps on chain X", "hot coins", "what's pumping", "hot search list" — wants the raw ranking in the exchange's own order | `gmgn-market trending` / `market hot-searches` |
 | "just launched", "new tokens", bonding-curve stage | `gmgn-market trenches` |
 | one token address + "safe?" / "score it" | `gmgn-contract-dd` |
 | a token by name + "should I buy N dollars of it" | `gmgn-token-buy` |
@@ -185,7 +192,7 @@ State these only when they bite the run in front of you.
 Written verbatim to `$DATA/heat_rank.py` in Step 2. Reads `HEAT_DATA`; writes nothing.
 
 ```python
-import json, time, math, os, glob
+import json, time, math, os
 from collections import Counter, defaultdict
 IV=['1h','6h','24h']; now=time.time()
 def sym(t):
@@ -268,7 +275,6 @@ USE=[ch for ch in CHAINS if '24h' in ROWS[ch]]
 print('loaded chains:', ', '.join(f"{ch}({'/'.join(str(len(ROWS[ch][iv])) for iv in IV if iv in ROWS[ch])})" for ch in USE))
 if missing: print('missing (excluded):', ', '.join(missing))
 
-RANK={(ch,iv):{t['address']:i+1 for i,t in enumerate(ROWS[ch][iv])} for ch in USE for iv in IV if iv in ROWS[ch]}
 VOL ={(ch,iv):{t['address']:(t.get('volume') or 0) for t in ROWS[ch][iv]} for ch in USE for iv in IV if iv in ROWS[ch]}
 U={}
 for ch in USE:
@@ -297,7 +303,7 @@ def risknum(t,k,f):
     f.append(f'unreadable risk field {k}')
     return 0.0
 
-MIN_LIQ,MIN_VOL24,MIN_TURN,MAX_TOP10,MAX_BUNDLER,MAX_BOT=100_000,800_000,0.05,0.30,0.40,0.85
+MIN_LIQ,MIN_VOL24,MIN_TURN,MAX_TOP10,MAX_BOT=100_000,800_000,0.05,0.30,0.85
 MIN_VOL1H=20_800   # pace gate: last-1h run rate must imply >=500k/day, independent of MIN_VOL24
 MIN_POS,MIN_HOLDERS=0.20,500
 HARD_POS = 0.10             # unconditional drawdown floor: down to 10% of its own peak is a falling knife however hot
@@ -500,7 +506,8 @@ TOP_N,MIN_SCORE=10,60
 ranked=sorted(alive,key=lambda x:-x['score'])
 def floor_for(c): return MIN_SCORE+(U_SCORE_ADD if c['unverified'] else 0)   # unverified rows earn their place at a higher bar
 rows=[c for c in ranked if c['score']>=floor_for(c)][:TOP_N]   # floor first, cap second: a weak market returns fewer than 10
-near=[c for c in ranked if c not in rows][:3]
+_listed={(c['ch'],c['a']) for c in rows}
+near=[c for c in ranked if (c['ch'],c['a']) not in _listed][:3]
 print(f"\npassed {len(alive)} -> score>={MIN_SCORE}, capped at {TOP_N} = {len(rows)} listed")
 print(f"\n{'#':>2} {'chain':<9} {'sym':11s} {'score':>5} | {'vacc':>5} {'size':>4} {'pos':>4} {'grow':>4} {'smart':>5} {'qual':>4} {'heat':>4} | {'mc':>12} {'liq':>9} {'vol24h':>11} {'age':>5} {'ATH':>5} {'24h%':>8}")
 for i,c in enumerate(rows,1):
