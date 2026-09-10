@@ -91,17 +91,27 @@ for ch in $CHAINS; do
     bsc|base|eth) F=(--filter not_honeypot --filter verified --filter renounced --filter is_out_market);;
     *) F=(--filter is_out_market);;
   esac
-  for iv in 1h 6h 24h; do
+  # 24h first, and stop after it when it comes back empty. A candidate has to be present in the
+  # 24h window to count at all, so a chain with nothing there cannot produce one whatever its 1h
+  # and 6h lists say -- fetching them spends two calls and 2.8s on a guaranteed empty result.
+  # Measured on a real sweep: eth, arc and stable were empty in all three windows, so 6 of the 21
+  # calls never had a chance. Skipping them changes no listed name. On a day when all seven chains
+  # are alive the sweep still costs its full 21 -- this cuts waste, not coverage.
+  for iv in 24h 1h 6h; do
     gmgn-cli market trending --chain $ch --interval $iv --limit 100 \
       --min-marketcap 500000 --min-liquidity 100000 --max-created 7d \
       "${F[@]}" --raw > ${ch}_${iv}.json 2>${ch}_${iv}.err
     sleep 1.4
+    if [ "$iv" = 24h ] && ! grep -q '"rank":\[{' ${ch}_24h.json; then
+      echo "no 24h candidate on $ch -- skipping its 1h/6h calls" >&2
+      break
+    fi
   done
 done
 echo "$DATA"
 ```
 
-`--raw` is mandatory, not cosmetic: the scorer reads `data.rank` out of the single-line JSON, and the pretty-printed form is not parseable. Each chain/window pair gets its own file, and a file that failed to parse is reported as a missing window rather than an empty one.
+`--raw` is mandatory, not cosmetic: the scorer reads `data.rank` out of the single-line JSON, the pretty-printed form is not parseable, and the empty-window test above matches `"rank":[{` in that same single line. Each chain/window pair gets its own file, and a file that failed to parse is reported as a missing window rather than an empty one.
 
 **Step 2 — write the scorer.** Copy the block under **Implementation** into `$DATA/heat_rank.py` **using a quoted heredoc** (`cat > "$DATA/heat_rank.py" <<'PY' ... PY`). Quoting is not optional: the script's f-strings contain `$`, and an unquoted heredoc lets the shell eat them. Do not retype, reformat, or "improve" the script — it is the ruleset itself, and every threshold in it is calibrated; a "cleaner" rewrite silently changes which tokens pass.
 
@@ -129,7 +139,7 @@ The four names in `argument-hint` are things the user can ask for in words — t
 | Step 1 | `--max-created` | `7d` | Age ceiling. This is the "recent" in "recently hot" and it is a hard gate. |
 | Script | `MAX_AGE_D` | `7.0` | Local backstop for that same ceiling, checked against `open_timestamp` on every row. Change it with `--max-created`, never alone. |
 | Step 1 | `--min-marketcap` / `--min-liquidity` | `500000` / `100000` | Floor of the candidate pool, not the verdict. |
-| Step 1 | intervals | `1h 6h 24h` | `5m` is noise at this tier. A token must be present in the 24h list to count. |
+| Step 1 | intervals | `1h 6h 24h` | `5m` is noise at this tier. A token must be present in the 24h list to count, which is why 24h is fetched first and an empty one ends that chain after a single call. |
 | Script | `TOP_N` | `10` | Hard cap on names printed. |
 | Script | `MIN_SCORE` | `60` | Score floor, applied **before** the cap: a weak market returns fewer than `TOP_N`, and nothing is ever promoted to fill the quota. |
 | Script | `YOUNG_D` | `2.0` | Days below which a token is judged on the new-launch track instead of the mature one. |
@@ -287,6 +297,15 @@ for ch in CHAINS:
         p=f'{DATA}/{ch}_{iv}.json'
         try: ROWS[ch][iv]=json.load(open(p))['data']['rank']
         except Exception: missing.append(f'{ch}/{iv}')
+# Step 1 fetches 24h first and skips a chain's 1h/6h calls when that window comes back empty, so those
+# two files are deliberately absent rather than lost. Reporting them here would turn a saving into what
+# reads as two failed calls, and `missing` has to keep meaning one thing: a call that failed or returned
+# JSON we could not parse. A 24h window that itself failed to load still shows up, which is the signal
+# worth seeing -- the chain is unusable either way.
+def _deliberate(m):
+    ch,iv=m.split('/')
+    return iv!='24h' and not ROWS[ch].get('24h')
+missing=[m for m in missing if not _deliberate(m)]
 for ch in ROWS:
     for iv in ROWS[ch]:
         for t in ROWS[ch][iv]: scalefix(t)
