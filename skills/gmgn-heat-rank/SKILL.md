@@ -72,11 +72,20 @@ Three steps. Every code block below is run verbatim; only the values in **Parame
 **Step 1 — sweep every chain.** 7 chains x 3 windows = 21 calls, paced.
 
 ```bash
+CHAINS="sol bsc base eth robinhood arc stable"   # narrow to a subset when the user asks; never add a name
 # mktemp -d, not a name anyone can guess. The old /tmp/gmgn-heat-data-$(date +%s) was a second-resolution
 # timestamp in a world-writable directory, and heat_rank.py is written into it and then executed: another
 # local user could pre-create that directory with their own heat_rank.py, and the run would execute theirs.
 DATA=$(mktemp -d); cd "$DATA"
-for ch in sol bsc base eth robinhood arc stable; do
+for ch in $CHAINS; do
+  # A chain name ends up on a command line, so it is checked against the fixed set of names this API
+  # has instead of being passed through. A typo, a chain from some other exchange, or a string with
+  # spaces or shell metacharacters in it is refused out loud and skipped -- it never becomes arguments
+  # to gmgn-cli. Keep this list literal: reusing $CHAINS here would check the input against itself.
+  case " sol bsc base eth robinhood arc stable " in
+    *" $ch "*) ;;
+    *) echo "refusing unsupported chain name: $ch" >&2; continue;;
+  esac
   case $ch in
     sol) F=(--filter renounced --filter frozen --filter is_out_market --filter not_wash_trading);;
     bsc|base|eth) F=(--filter not_honeypot --filter verified --filter renounced --filter is_out_market);;
@@ -112,11 +121,11 @@ The rate limiter, not the network, sets the runtime. `market trending` is weight
 
 Everything tunable lives in one place. Change a value only when the user asks, and say in the report which value you changed.
 
-The four names in `argument-hint` are things the user can ask for in words — they are not command-line flags, and typing them as flags fails: `gmgn-cli market trending` takes one `--chain` at a time (the seven-chain sweep is the loop in Step 1, not a list argument), the age flag is spelled `--max-created`, and the cap and the floor are Python constants that no CLI flag reaches at all. Each maps to exactly one row of the table below: `chains` to the `for ch in ...` list, `max-created` to `--max-created` **and** `MAX_AGE_D` together, `TOP_N` and `MIN_SCORE` to the two assignments on the `TOP_N,MIN_SCORE=` line. Never invent a flag the CLI does not have; check `metadata.cliHelp` when unsure.
+The four names in `argument-hint` are things the user can ask for in words — they are not command-line flags, and typing them as flags fails: `gmgn-cli market trending` takes one `--chain` at a time (the seven-chain sweep is the loop in Step 1, not a list argument), the age flag is spelled `--max-created`, and the cap and the floor are Python constants that no CLI flag reaches at all. Each maps to exactly one row of the table below: `chains` to the `CHAINS` variable, `max-created` to `--max-created` **and** `MAX_AGE_D` together, `TOP_N` and `MIN_SCORE` to the two assignments on the `TOP_N,MIN_SCORE=` line. Never invent a flag the CLI does not have; check `metadata.cliHelp` when unsure.
 
 | Where | Name | Default | Meaning |
 |---|---|---|---|
-| Step 1 | chain list | all 7 | Never drop a chain to save time; an empty chain is a finding, not a gap. |
+| Step 1 | `CHAINS` | all 7 | Never drop a chain to save time; an empty chain is a finding, not a gap. Only `sol bsc base eth robinhood arc stable` are real names — the loop checks each one against that literal set and refuses anything else, so narrowing is safe and inventing a name fails loudly. |
 | Step 1 | `--max-created` | `7d` | Age ceiling. This is the "recent" in "recently hot" and it is a hard gate. |
 | Script | `MAX_AGE_D` | `7.0` | Local backstop for that same ceiling, checked against `open_timestamp` on every row. Change it with `--max-created`, never alone. |
 | Step 1 | `--min-marketcap` / `--min-liquidity` | `500000` / `100000` | Floor of the candidate pool, not the verdict. |
