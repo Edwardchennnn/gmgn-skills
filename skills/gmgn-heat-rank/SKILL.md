@@ -29,7 +29,7 @@ description: >-
   a score and can be acted on is this skill. A bare ambiguous ask with no other
   signal defaults here, because this skill can point at the raw ranking while the
   raw ranking cannot screen itself.
-argument-hint: "[--chains sol,bsc,base,eth,robinhood,arc,stable] [--max-age 7d] [--top 10] [--min-score 60]"
+argument-hint: "[chains sol,bsc,base,eth,robinhood,arc,stable] [max-created 7d] [TOP_N 10] [MIN_SCORE 60]"
 metadata:
   cliHelp: "gmgn-cli market trending --help"
 ---
@@ -97,6 +97,8 @@ The rate limiter, not the network, sets the runtime. `market trending` is weight
 ## Parameters
 
 Everything tunable lives in one place. Change a value only when the user asks, and say in the report which value you changed.
+
+The four names in `argument-hint` are things the user can ask for in words — they are not command-line flags, and typing them as flags fails: `gmgn-cli market trending` takes one `--chain` at a time (the seven-chain sweep is the loop in Step 1, not a list argument), the age flag is spelled `--max-created`, and the cap and the floor are Python constants that no CLI flag reaches at all. Each maps to exactly one row of the table below: `chains` to the `for ch in ...` list, `max-created` to `--max-created` **and** `MAX_AGE_D` together, `TOP_N` and `MIN_SCORE` to the two assignments on the `TOP_N,MIN_SCORE=` line. Never invent a flag the CLI does not have; check `metadata.cliHelp` when unsure.
 
 | Where | Name | Default | Meaning |
 |---|---|---|---|
