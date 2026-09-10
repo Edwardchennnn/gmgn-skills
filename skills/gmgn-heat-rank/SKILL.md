@@ -72,7 +72,10 @@ Three steps. Every code block below is run verbatim; only the values in **Parame
 **Step 1 — sweep every chain.** 7 chains x 3 windows = 21 calls, paced.
 
 ```bash
-DATA=/tmp/gmgn-heat-data-$(date +%s); mkdir -p "$DATA"; cd "$DATA"
+# mktemp -d, not a name anyone can guess. The old /tmp/gmgn-heat-data-$(date +%s) was a second-resolution
+# timestamp in a world-writable directory, and heat_rank.py is written into it and then executed: another
+# local user could pre-create that directory with their own heat_rank.py, and the run would execute theirs.
+DATA=$(mktemp -d); cd "$DATA"
 for ch in sol bsc base eth robinhood arc stable; do
   case $ch in
     sol) F=(--filter renounced --filter frozen --filter is_out_market --filter not_wash_trading);;
@@ -260,7 +263,8 @@ def scalefix(t):
     if bad:  t['_badnum']=bad
     if risk: t['_badrisk']=risk
 
-DATA=os.environ.get('HEAT_DATA','/tmp/gmgn-heat-data')
+DATA=os.environ.get('HEAT_DATA')   # no default: a fixed fallback path is a directory an attacker can plant
+if not DATA: raise SystemExit('HEAT_DATA is unset. Run as: HEAT_DATA="$DATA" python3 "$DATA/heat_rank.py"')
 CHAINS=['sol','bsc','base','eth','robinhood','arc','stable']
 
 # ---- load whatever chain/interval files parsed cleanly; a chain needs 24h to be usable ----
