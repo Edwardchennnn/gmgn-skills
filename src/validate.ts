@@ -1,4 +1,4 @@
-const VALID_CHAINS = new Set(["sol", "bsc", "base", "eth", "robinhood", "arc", "stable" /*, "monad" */]);
+const VALID_CHAINS = new Set(["sol", "bsc", "base", "eth", "arbitrum", "hyperevm", "robinhood", "arc", "stable" /*, "monad" */]);
 const SOL_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/;
 const POSITIVE_INT_RE = /^\d+$/;
@@ -13,7 +13,7 @@ export function validateChain(chain: string): void {
 }
 
 export function validateAddress(address: string, chain: string, label: string): void {
-  const isEvm = chain === "bsc" || chain === "base" || chain === "eth" || chain === "robinhood" || chain === "arc" || chain === "stable" /* || chain === "monad" */;
+  const isEvm = chain === "bsc" || chain === "base" || chain === "eth" || chain === "arbitrum" || chain === "hyperevm" || chain === "robinhood" || chain === "arc" || chain === "stable" /* || chain === "monad" */;
   const valid = isEvm ? EVM_ADDRESS_RE.test(address) : SOL_ADDRESS_RE.test(address);
   if (!valid) {
     console.error(
@@ -32,13 +32,26 @@ export function validatePositiveInt(value: string, label: string): void {
   }
 }
 
-// Chains that do not support condition orders / smart_trade strategies.
+// Chains that do not support condition orders attached to market swaps.
 const NO_CONDITION_ORDER_CHAINS = new Set(["arc", "stable"]);
+
+// V1 smart_trade is unavailable on the newer EVM chains. They support the V2
+// strategy endpoint instead; the CLI currently exposes only the V1 command.
+const NO_V1_SMART_TRADE_CHAINS = new Set(["arbitrum", "hyperevm", "arc", "stable"]);
 
 export function validateConditionOrdersSupported(chain: string, feature: string): void {
   if (NO_CONDITION_ORDER_CHAINS.has(chain)) {
     console.error(
       `[gmgn-cli] condition orders are not supported on chain "${chain}" (${feature}). Use a plain swap or limit_order instead.`
+    );
+    process.exit(1);
+  }
+}
+
+export function validateV1SmartTradeSupported(chain: string): void {
+  if (NO_V1_SMART_TRADE_CHAINS.has(chain)) {
+    console.error(
+      `[gmgn-cli] V1 smart_trade is not supported on chain "${chain}". Use a plain limit_order, or call the OpenAPI V2 strategy endpoint for TP/SL orders.`
     );
     process.exit(1);
   }
