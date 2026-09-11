@@ -24,12 +24,13 @@ This skill's whole value is doing the checks a purely generative narrative would
 
 ## Required interfaces
 
-This skill does not browse the web itself and does not use anyone's personal logged-in session. It calls exactly two external data interfaces, both of which must be wired up by the runtime before this skill can run — see `references/interfaces.md` for the full contract. In short:
+This skill does not browse the web itself and does not use anyone's personal logged-in session. It calls exactly three external data interfaces, all of which must be wired up by the runtime before this skill can run — see `references/interfaces.md` for the full contract. In short:
 
 1. **On-chain token data** — `gmgn-cli` (per this deployment's standing rule: all GMGN on-chain data goes through `gmgn-cli`, never through scraping gmgn.ai). Calls used here: `token info --chain <chain> --address <address>` and, if a safety read is also wanted, `token security`.
 2. **Social evidence** — an abstract **social search provider**, configured via `SOCIAL_SEARCH_PROVIDER` (`x_api` for the official X API v2 search endpoints, or `grok_api` for xAI's Grok API with live X grounding) and an injected `SOCIAL_SEARCH_API_KEY`. Neither this skill nor its runtime should ever fall back to browser automation, a scraped/unofficial mirror, or any individual's authenticated session to get this data — see the hard rule below.
+3. **Web content fetch** — a plain HTTP(S) fetch used only to open a specific URL already in hand (a linked post's URL, a `link.website` value, a project's own site) for step 4's verification — never a general-purpose browsing or search capability. Scheme, address-range, timeout, and size limits are all specified in `references/interfaces.md`; nothing about this interface's constraints is left to be inferred.
 
-If the social search provider is not configured or is unavailable at run time, do not silently degrade to guessing from prior knowledge. Say plainly that social evidence could not be gathered, and produce an on-chain-only card (or decline, if the user specifically needs the social half) — this is the same "neutral over fabricated" principle applied to a missing tool instead of missing evidence.
+If the social search provider is not configured or is unavailable at run time, do not silently degrade to guessing from prior knowledge. Say plainly that social evidence could not be gathered, and produce an on-chain-only card (or decline, if the user specifically needs the social half) — this is the same "neutral over fabricated" principle applied to a missing tool instead of missing evidence. The same holds if the fetch interface can't reach a specific URL (timeout, blocked range, oversized response): report that specific claim as unable to be verified rather than treating a fetch failure as either a confirmation or a denial.
 
 ## Supported chains
 
@@ -90,7 +91,7 @@ Use exactly this structure. Don't add extra fields — fold everything into thes
 
 **传播观察** (secondary field — smaller / de-emphasized, supporting detail): only independently-verified, specific findings. Terse and data-forward: lead with the concrete number or fact, cut connective narration, don't restate context already covered in 叙事背景. Length follows the evidence: a token with real findings gets a few compact sentences; a token with nothing distinctive gets one short, neutral data statement. Never pad either field to match the length of a previous card.
 
-Append the standing disclaimer from hard rule 7 below to every card, every time — it is part of the output, not a separate step that can be skipped once the two fields look done.
+Append the standing disclaimer from hard rule 9 below to every card, every time — it is part of the output, not a separate step that can be skipped once the two fields look done.
 
 If a numeric score is requested, anchor it to a consistent rubric rather than an ad hoc feel for each token:
 
@@ -111,8 +112,10 @@ These apply to every card this skill produces, no exceptions:
 3. **No raw API field names in the output.** Translate `cto_flag`, `creator_open_count`, and similar internal names into plain language before they reach the card.
 4. **Clean, professional register.** Not stiff "translated-sounding" abstraction, not internet slang — the formality level of a finished analyst-style deliverable. No "测试" / test-log framing anywhere in section labels or body text.
 5. **Length follows evidence, not a template.** A thin token gets a short card. Never write filler to make output feel more thorough than the evidence supports.
-6. **No local or personal-account dependency.** This skill must not use browser automation, must not assume or request access to any individual's logged-in session on any platform, and must not read from or write to any location outside the two interfaces declared above and this skill's own reference files.
-7. **Every card ends with a visible disclaimer — not optional, not summarizable away.** Append, verbatim or as a faithful translation into the card's output language:
+6. **No local or personal-account dependency.** This skill must not use general-purpose browser automation, must not assume or request access to any individual's logged-in session on any platform, and must not read from or write to any location outside the three interfaces declared above and this skill's own reference files. Opening a specific URL through interface 3 to verify a claim is not browser automation and is exactly what step 4 requires — the line this rule draws is against an open-ended browsing/search capability, not against fetching a single URL already in hand.
+7. **Verification has a budget, and running past it is a stop condition, not a license to keep digging forever.** As a rough ceiling, if one card has taken on the order of 30 tool calls without reaching a stable, well-evidenced conclusion, stop: write the card with whatever has actually been verified, and say plainly in 传播观察 that further verification was capped rather than exhausted. This is the same "neutral over fabricated, incomplete over runaway" principle as the rest of this skill, applied to cost and time instead of to evidence quality — a token engineered to look ambiguous should not be able to turn one card into an unbounded number of tool calls.
+8. **A named negative claim carries reputational and legal exposure even when correctly hedged as unverified.** "One account alleges X, uncorroborated" is the honest way to report a single-sourced accusation, per the verification rule above — but it still names a real, identifiable party (a wallet address tied to a real operator, a named account) in connection with a serious claim, and publishing that at scale is not risk-free just because the hedge is accurate. This isn't a reason to suppress a genuinely-sourced finding, but whoever operates this skill in production should treat a rise in this specific kind of output as worth a human look, not assume the hedge alone is sufficient review.
+9. **Every card ends with a visible disclaimer — not optional, not summarizable away.** Append, verbatim or as a faithful translation into the card's output language:
 
    > This card was generated by an AI agent from on-chain data and public social posts. It has not been reviewed by a person. Verify independently before making any financial decision — this is not financial advice, and any score shown is a judgment call, not an objective rating or a price prediction.
 
@@ -122,5 +125,5 @@ These apply to every card this skill produces, no exceptions:
 
 | File | What is in it |
 |---|---|
-| `references/interfaces.md` | The configuration contract for the two pluggable interfaces (social search backend, model/runtime capability requirements) and the validation-pass checklist to run before trusting a new model or runtime combination. |
+| `references/interfaces.md` | The configuration contract for the pluggable interfaces (social search backend, web content fetch, model/runtime capability requirements) and the validation-pass checklist to run before trusting a new model or runtime combination. |
 | `references/patterns.md` | The checklist of specific, recurring red-flag patterns to actively check for — ticker collisions, similarly-named unrelated tokens, generic multi-tenant websites, launchpad-vs-issuer confusion, creator wallet history, paired-token mechanics, and citation failure modes. |
