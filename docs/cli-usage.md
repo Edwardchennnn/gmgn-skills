@@ -318,8 +318,8 @@ npx gmgn-cli market trenches --chain <chain> [--type <type...>] [--launchpad-pla
 |--------|----------|-------------|
 | `--chain` | Yes | `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable` |
 | `--type` | No | Categories to query, repeatable: `new_creation` / `near_completion` / `completed` (default: all three) |
-| `--launchpad-platform` | No | Launchpad platform filter, repeatable (default: all platforms for the chain). Values depend on chain — see below. |
-| `--limit` | No | Max results per category, max 80 (default: 80) |
+| `--launchpad-platform` | No | Launchpad platform filter, repeatable. **Default is NOT literally "all platforms": when omitted, the server injects a fixed per-chain default platform allow-list; passing values REPLACES that allow-list (so passing fewer platforms returns less data). Platforms outside the allow-list — including some newer RWA / tokenized-stock platforms — are filtered out.** Values depend on chain — see below. |
+| `--limit` | No | Max results per category (default: 80). **Best-effort only — not guaranteed.** The value is forwarded upstream but the `new_creation` category is served from a fixed live window (~60 in practice), so both larger and smaller `--limit` may still return ~60. |
 
 **`sol` platforms:** `Pump.fun` / `pump_mayhem` / `pump_mayhem_agent` / `pump_agent` / `letsbonk` / `bonkers` / `bags` / `memoo` / `liquid` / `bankr` / `zora` / `surge` / `anoncoin` / `moonshot_app` / `wendotdev` / `heaven` / `sugar` / `token_mill` / `believe` / `trendsfun` / `trends_fun` / `jup_studio` / `Moonshot` / `boop` / `ray_launchpad` / `meteora_virtual_curve` / `xstocks`
 
@@ -328,6 +328,12 @@ npx gmgn-cli market trenches --chain <chain> [--type <type...>] [--launchpad-pla
 **`base` platforms:** `clanker` / `bankr` / `flaunch` / `zora` / `zora_creator` / `baseapp` / `basememe` / `virtuals_v2` / `klik`
 
 **`eth` platforms:** `trench` / `clanker` / `klik` / `livo` / `stroid` / `pool_uniswap_v2` / `pool_uniswap_v3` / `printr`
+
+**`robinhood` platforms:** `trench` / `noxa` / `dyorswap` / `apestore` / `printr` / `virtuals` / `bankr` / `clanker` / `klik` / `livo` / `flap` / `flap_stocks` / `flap_pve` / `bags` / `bowfun` / `o1` / `circus` / `arrowfinance` / `longxyz` / `motion` / `pons` / `stoxes_tax` / `stoxes` / `holoworld` / `pewfun` / `dyorfun_v3` / `noxafi`
+
+**`arc` / `stable` platforms:** no default allow-list — the server applies no launchpad-platform filter (returns all platforms). Pass `--launchpad-platform` only if you want to narrow to specific platforms.
+
+> The `robinhood` list above is the trenches default allow-list. It may lag behind newly launched platforms (e.g. some RWA / tokenized-stock launchpads); tokens on a platform not in this list will not appear unless/until the list is updated server-side.
 
 **Response:** `data.new_creation`, `data.pump`, `data.completed` — each is an array of `RankItem` (same structure as `market trending` rank items). **Note: `data.pump` in the response corresponds to `--type near_completion` in the request. The API always returns this category under the key `pump`, not `near_completion`.**
 
@@ -392,7 +398,7 @@ gmgn-cli market signal --chain sol --groups '<json_array>' [--raw]
 Query the hot-search ranking — the most-searched tokens, ranked by `visiting_count` (search heat). Cross-chain top-500; one request can cover several chains at once. API Key auth only.
 
 ```bash
-# Default 7-chain set (sol/bsc/base/eth/robinhood/arc/stable, each 24h):
+# Default 9-chain set (sol/bsc/base/eth/arbitrum/hyperevm/robinhood/arc/stable, each 24h):
 gmgn-cli market hot-searches [--raw]
 
 # Specific chain(s) and interval:
@@ -404,7 +410,7 @@ gmgn-cli market hot-searches --params '<json_array>' [--raw]
 
 | Option | Required | Description |
 |--------|----------|-------------|
-| `--chain` | No | Repeatable: `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable`. Omit for the default 7-chain set. |
+| `--chain` | No | Repeatable: `sol` / `bsc` / `base` / `eth` / `robinhood` / `arc` / `stable`. Omit for the default 9-chain set. |
 | `--interval` | No | `1m` / `5m` / `1h` / `6h` / `24h` (default `24h`). Applies to every `--chain`. |
 | `--limit` | No | Max results per chain (default `500`). |
 | `--filter` | No | Repeatable **boolean** filter tags (downstream `filter.filters`). sol defaults: `renounced` / `frozen`; EVM defaults: `not_honeypot` / `verified` / `renounced`. Recognised tags: `renounced` / `frozen` (sol) / `is_burnt` / `token_burnt` / `not_wash_trading` / `not_honeypot` (EVM) / `verified` (EVM) / `locked` (EVM) / `has_social` / `distribed` / `not_risk` / `img_not_duplicate` / `social_not_duplicate` / `creator_hold` / `creator_close` / `dexscr_update_link` / `launching` / `migrated` / `hide_b20` (base) / `hide_non_b20` (base). Unknown tags are silent no-ops. |

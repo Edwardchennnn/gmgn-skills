@@ -492,7 +492,7 @@ gmgn-cli market signal --chain sol --signal-type 12 --raw
 gmgn-cli market signal --chain sol \
   --groups '[{"signal_type":[12]},{"signal_type":[14,16]}]' --raw
 
-# Hot searches — most-searched tokens (default 7-chain set, 24h)
+# Hot searches — most-searched tokens (default 9-chain set, 24h)
 gmgn-cli market hot-searches --raw
 
 # Hot searches — SOL only, 1h window, top 50
