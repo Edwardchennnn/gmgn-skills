@@ -3,13 +3,13 @@ import { OpenApiClient, SwapParams, MultiSwapParams, StrategyCreateParams, Strat
 import { getConfig } from "../config.js";
 import { exitOnError, printResult } from "../output.js";
 import { confirmTrade } from "../confirm.js";
-import { validateAddress, validateChain, validateConditionOrdersSupported, validatePercent, validatePositiveInt } from "../validate.js";
+import { validateAddress, validateChain, validateConditionOrdersSupported, validatePercent, validatePositiveInt, validateV1SmartTradeSupported } from "../validate.js";
 
 export function registerSwapCommands(program: Command): void {
   program
     .command("swap")
     .description("Submit a token swap")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / arbitrum / hyperevm / robinhood / arc / stable")
     .requiredOption("--from <address>", "Wallet address (must match API Key binding)")
     .requiredOption("--input-token <address>", "Input token contract address")
     .requiredOption("--output-token <address>", "Output token contract address")
@@ -93,7 +93,7 @@ export function registerSwapCommands(program: Command): void {
   program
     .command("multi-swap")
     .description("Submit token swaps across multiple wallets concurrently (up to 100 wallets)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / arbitrum / hyperevm / robinhood / arc / stable")
     .requiredOption("--accounts <addresses>", "Comma-separated wallet addresses (all must be bound to the API Key)")
     .requiredOption("--input-token <address>", "Input token contract address")
     .requiredOption("--output-token <address>", "Output token contract address")
@@ -181,7 +181,7 @@ export function registerSwapCommands(program: Command): void {
   order
     .command("quote")
     .description("Get a swap quote without submitting a transaction (exist auth — GMGN_API_KEY only, no private key needed)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / arbitrum / hyperevm / robinhood / arc / stable")
     .requiredOption("--from <address>", "Wallet address")
     .requiredOption("--input-token <address>", "Input token contract address")
     .requiredOption("--output-token <address>", "Output token contract address")
@@ -204,7 +204,7 @@ export function registerSwapCommands(program: Command): void {
   order
     .command("get")
     .description("Query order status (requires private key)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / arbitrum / hyperevm / robinhood / arc / stable")
     .requiredOption("--order-id <id>", "Order ID")
     .option("--raw", "Output raw JSON")
     .action(async (opts) => {
@@ -230,11 +230,11 @@ export function registerSwapCommands(program: Command): void {
   strategy
     .command("create")
     .description("Create a limit/strategy order (requires private key)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / arbitrum / hyperevm / robinhood / arc / stable")
     .requiredOption("--from <address>", "Wallet address (must match API Key binding)")
     .requiredOption("--base-token <address>", "Base token contract address")
     .requiredOption("--quote-token <address>", "Quote token contract address")
-    .requiredOption("--order-type <type>", "Order type: limit_order / smart_trade (arc / stable support limit_order only)")
+    .requiredOption("--order-type <type>", "Order type: limit_order / smart_trade (arbitrum / hyperevm / arc / stable support limit_order only in V1)")
     .requiredOption("--sub-order-type <type>", "Sub-order type: buy_low / buy_high / stop_loss / take_profit (limit_order); mix_trade (smart_trade with condition_orders)")
     .option("--check-price <price>", "Trigger check price (required for limit_order; omit for smart_trade)")
     .option("--open-price <price>", "Open price of the position")
@@ -254,7 +254,7 @@ export function registerSwapCommands(program: Command): void {
     .option("--max-fee-per-gas <amount>", "EIP-1559 max fee per gas (BSC / BASE / ETH)")
     .option("--max-priority-fee-per-gas <amount>", "EIP-1559 max priority fee per gas (BSC / BASE / ETH)")
     .option("--anti-mev", "Enable anti-MEV protection")
-    .option("--condition-orders <json>", "JSON array of condition sub-orders for smart_trade (must include a buy_low entry + TP/SL entries); smart_trade not supported on arc / stable")
+    .option("--condition-orders <json>", "JSON array of condition sub-orders for smart_trade (must include a buy_low entry + TP/SL entries); V1 smart_trade is not supported on arbitrum / hyperevm / arc / stable")
     .option("--sell-param <json>", "JSON object of sell-side trade params used when a TP/SL condition fires (required for smart_trade)")
     .option("--buy-param <json>", "JSON object of buy-side trade params override for smart_trade")
     .option("--yes", "Skip the interactive confirmation prompt (requires GMGN_ALLOW_AUTOMATED_TRADES=1)")
@@ -270,7 +270,7 @@ export function registerSwapCommands(program: Command): void {
       }
       validateChain(opts.chain);
       if (opts.orderType === "smart_trade") {
-        validateConditionOrdersSupported(opts.chain, "strategy create (smart_trade)");
+        validateV1SmartTradeSupported(opts.chain);
       }
       const params: StrategyCreateParams = {
         chain: opts.chain,
@@ -330,7 +330,7 @@ export function registerSwapCommands(program: Command): void {
   strategy
     .command("list")
     .description("List strategy orders (requires private key)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / arbitrum / hyperevm / robinhood / arc / stable")
     .option("--type <type>", "open (default) / history")
     .option("--from <address>", "Filter by wallet address")
     .option("--group-tag <tag>", "Filter by group: LimitOrder / STMix")
@@ -355,7 +355,7 @@ export function registerSwapCommands(program: Command): void {
   strategy
     .command("cancel")
     .description("Cancel a strategy order (requires private key)")
-    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / robinhood / arc / stable")
+    .requiredOption("--chain <chain>", "Chain: sol / bsc / base / eth / arbitrum / hyperevm / robinhood / arc / stable")
     .requiredOption("--from <address>", "Wallet address (must match API Key binding)")
     .requiredOption("--order-id <id>", "Order ID to cancel")
     .option("--order-type <type>", "Order type: limit_order / smart_trade")
