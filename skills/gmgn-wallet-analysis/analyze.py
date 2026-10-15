@@ -186,6 +186,9 @@ ZH = {
     " (positions active since {0})": "（统计 {0} 之后活跃过的仓位）",
     "per-token realized P&L unavailable: {0} — the share of profit from its own launches was not measured": "按币的已实现盈亏未取到：{0} —— 自发币盈利占比本次未评估",
     "🏭 launches tokens, profits from trading": "🏭 发币方（但盈利靠交易）",
+    "launched {0:,} tokens; in the positions read, at most {1} of realized gains came from them — the profit there is from trading {2}{3}. Its older positions were not read, so they are not verified": "发过 {0:,} 个币；在读到的仓位里，最多只有 {1} 的已实现盈利来自这些币 —— 这部分盈利来自交易 {2}{3}。更早的仓位没有读到，无法核实",
+    "HOLD OFF · its launches look minor, but its older record was not read": "先别跟 · 自发币占比看起来很小，但更早的记录没有读完",
+    "Re-run once its launch list can be read. Do not size off this record first.": "等发币列表能取到时再跑一次。在那之前别按这份战绩下注。",
     "where the profit came from cannot be checked — its launch list could not be read, so its own tokens cannot be told apart from the rest; the {0} in this window is neither confirmed nor refuted": "盈利来源无法核验 —— 它的发币列表没有取到，自己发的币和其他币分不开；这个窗口的 {0} 既不能确认也不能排除",
     "launched {0:,} tokens — the share of profit from them was not measured (it needs at least 3 winning positions and the per-token P&L pull)": "发过 {0:,} 个币 —— 来自这些币的盈利占比本次未评估（需要至少 3 个盈利仓位，并取到按币的盈亏数据）",
     "DO NOT COPY · one token made all the money": "别跟 · 全靠一个币赚钱，复制不了",
@@ -860,7 +863,7 @@ def read_tags(raw_tags):
     """Return [{key, emoji, sev, name, meaning, known}] — unknown tags kept verbatim."""
     out = []
     for t in raw_tags or []:
-        key = clean_text(t, 32)
+        key = clean_text(t, 32).strip()
         row = TAGS.get(key.lower())
         if row:
             emoji, sev, name, meaning = row
@@ -935,10 +938,9 @@ SELF_MIN_PAGES = 6
 SELF_STABLE = 3
 SELF_MAX_PAGES = 20
 SELF_ROWS_PER_PAGE = 100  # `--limit 50` asked for; a page claiming more is cut, not trusted
-# A clear reading on a truncated sample only lifts the count veto once the sample's gains
-# cover this share of the wallet's all-time realized profit — otherwise older own-token
-# gains beyond the last page read could be what the record is made of.
-SELF_COVER = 0.50
+# A clear reading lifts the count veto only when the whole book was read. On a truncated
+# sample, unread older positions can hold any amount of own-token gains, offset by losses
+# that net all-time profit cannot reveal — so no coverage ratio can bound them.
 # A token address from an API row goes into a `token info` argv. It is third-party data, so it
 # must look like an address before it gets there — never like a flag.
 TOKEN_ADDR_RE = re.compile(r"^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$")
@@ -1172,7 +1174,7 @@ def collect(chain, wallet, gaps):
     try:
         d["stats_30d"] = first_row(cli(["portfolio", "stats", "--chain", chain, "--wallet", wallet,
                                         "--period", "30d"]))
-    except Gap as e:
+    except (Gap, subprocess.TimeoutExpired) as e:
         d["stats_30d"] = {}
         gaps.append(f"stats_30d: {e}")
 
@@ -1191,7 +1193,9 @@ def collect(chain, wallet, gaps):
         ct = d["created_tokens"]
         own = own_token_set(ct)
         complete = launch_list_complete(own, ct, i(common.get("created_token_count")))
-        all_time = f(((d.get("profits_all") or {}).get("total_realized_profit")), 0.0)
+        pnl7 = d["stats_7d"].get("pnl_stat") or {}
+        created_n = i(common.get("created_token_count"))
+        dev_by_count = created_n > 0 and created_n > 0.5 * max(1, i(pnl7.get("token_num")))
         rows, cursor, classes, cursors, cut = [], None, [], set(), None
         # Every page is the same critical-auth route that just failed for want of a key —
         # skip it rather than fail again and print the same gap twice.
@@ -1237,9 +1241,10 @@ def collect(chain, wallet, gaps):
                 classes.append(cls)
                 # Stable includes stably unmeasurable (None): past the floor, a book with too
                 # few winners will not grow a verdict, so reading 20 pages would be waste. A
-                # stable "clear" also needs the sample to cover the all-time record.
-                covered = cls != "clear" or (all_time > 0 and sp["gains"] >= SELF_COVER * all_time)
-                if page + 1 >= SELF_MIN_PAGES and len(set(classes[-SELF_STABLE:])) == 1 and covered:
+                # "clear" on a launcher by count keeps paging: only the book's natural end can
+                # lift its count veto.
+                settled = cls != "clear" or not dev_by_count
+                if page + 1 >= SELF_MIN_PAGES and len(set(classes[-SELF_STABLE:])) == 1 and settled:
                     break
             if cut is not None:
                 pages_read, why = cut
@@ -1254,7 +1259,6 @@ def collect(chain, wallet, gaps):
                 cursor = cursor or "cut"
         d["realized_rows"] = rows
         d["realized_truncated"] = bool(cursor)
-        d["realized_all_time"] = all_time
         # Resolve the largest suspects only when they could move the verdict: a range that
         # straddles a line. Weight 1 each; an unresolved one stays a suspect.
         sp = self_launch_split(rows, own, complete, wallet, {})
@@ -1742,9 +1746,11 @@ def compute(d, latency_s, my_size):
 
     # ── self-launch attribution (see self_launch_split) ──
     m["self_lo"] = m["self_hi"] = None
-    m["self_clear"] = False
+    m["self_clear"] = m["self_clear_partial"] = False
     rr = lc["rows"]
-    if lc["ct"] and rr and not d.get("self_partial"):
+    # An empty own set while it launched tokens means the list was not read: own tokens cannot
+    # be told apart, so nothing is measured (and nothing can be cleared).
+    if lc["ct"] and lc["own"] and rr and not d.get("self_partial"):
         sp = lc["sp"]
         m["self_lo"], m["self_hi"] = sp["lo"], sp["hi"]
         m["self_own_usd"], m["self_ext_usd"] = sp["own"], sp["ext"]
@@ -1756,12 +1762,12 @@ def compute(d, latency_s, my_size):
         m["self_since"] = (time.strftime("%Y-%m-%d", time.gmtime(min(ts)))
                            if d.get("realized_truncated") and ts else None)
         # A launcher by count whose profit demonstrably comes from other people's tokens is
-        # a trader who also launches. The count stops vetoing; it is still printed. On a
-        # truncated sample "demonstrably" needs the sample to cover the all-time record.
-        all_time = f(d.get("realized_all_time"), f(pall.get("total_realized_profit"), 0.0))
-        covered = (not d.get("realized_truncated")
-                   or (math.isfinite(sp["gains"]) and all_time > 0 and sp["gains"] >= SELF_COVER * all_time))
-        m["self_clear"] = m["self_hi"] is not None and m["self_hi"] < SELF_WARN and covered
+        # a trader who also launches: the count stops vetoing; it is still printed. Only a
+        # fully read book is demonstrable. A clear reading on a truncated one is kept as
+        # `self_clear_partial`: it holds G1 open (⚪) instead of vetoing or passing it.
+        clear_reading = m["self_hi"] is not None and m["self_hi"] < SELF_WARN
+        m["self_clear"] = clear_reading and not d.get("realized_truncated")
+        m["self_clear_partial"] = clear_reading and bool(d.get("realized_truncated"))
 
     # ── friction: the numbers that decide whether the edge survives being copied ──
     # Per-trade net is the yardstick everything else is measured against. A wallet netting
@@ -1913,7 +1919,7 @@ def gates(m):
               pct(m['self_lo']), usd(m['self_own_usd']), m['self_own_n'],
               joinsym(m['self_own_top']), self_window(m)),
         )
-    elif m["is_dev"] and not m["self_clear"]:
+    elif m["is_dev"] and not m["self_clear"] and not m["self_clear_partial"]:
         g["G1"] = (
             False,
             T('launcher wallet: created {0} vs traded {1} — its win rate and entry timing are self-authored, not a market read', m['created_tokens_n'], m['token_num']),
@@ -1939,6 +1945,14 @@ def gates(m):
             None,
             T('{0}–{1} of realized gains may come from tokens it deployed — its launch list is truncated and the rest could not be confirmed{2}',
               pct(m['self_lo']), pct(m['self_hi']), self_window(m)),
+        )
+    elif m["is_dev"] and m["self_clear_partial"]:
+        # Recent positions clear it, older ones were not read: neither the count veto nor a
+        # pass is earned. Ranked with the other open questions, below every measured failure.
+        g["G1"] = (
+            None,
+            T('launched {0:,} tokens; in the positions read, at most {1} of realized gains came from them — the profit there is from trading {2}{3}. Its older positions were not read, so they are not verified',
+              m['created_tokens_n'], pct(m['self_hi']), joinsym(m['self_ext_top']), self_window(m)),
         )
     else:
         if m["pcr_represents_record"]:
@@ -2176,9 +2190,16 @@ def verdict(m, g):
         return ("🟡",
                 T('HOLD OFF · over half its profit may come from its own launches'),
                 T('Check its launch record before sizing off this one.'))
+    if (p["G1"] is None and m.get("self_clear_partial")
+            and not any(t["sev"] == "veto_g1" for t in m["tag_info"])):
+        return ("🟡",
+                T('HOLD OFF · its launches look minor, but its older record was not read'),
+                T('Check its launch record before sizing off this one.'))
     if p["G1"] is None:
         return ("🟡",
                 T('HOLD OFF · a wash-trading flag we cannot check'),
+                T('Re-run once its launch list can be read. Do not size off this record first.')
+                if m.get("conviction_blocked") else
                 T('Configure GMGN_PRIVATE_KEY and re-run. Do not size off this record first.'))
     if p["G3"] is False and p["G4"] is False:
         return ("🟡",
@@ -2433,7 +2454,7 @@ def archetype(m):
     tags = []
     if m["self_lo"] is not None and m["self_lo"] >= SELF_VETO:
         tags.append(T('🏭 launcher (marks its own homework)'))
-    elif m["is_dev"] and m["self_clear"]:
+    elif m["is_dev"] and (m["self_clear"] or m["self_clear_partial"]):
         tags.append(T('🏭 launches tokens, profits from trading'))
     elif m["is_dev"]:
         tags.append(T('🏭 launcher (marks its own homework)'))

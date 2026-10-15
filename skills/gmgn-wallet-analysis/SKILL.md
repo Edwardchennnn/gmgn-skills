@@ -59,7 +59,7 @@ detail.
 
 Verdict is a pure function of the gates — G1 and G2 are vetoes, G3 and G4 change *what you do* rather than whether you act:
 
-Fifteen outcomes, short-circuited in this order:
+Sixteen outcomes, short-circuited in this order:
 
 | # | Gates | Verdict | Fixture |
 |---|-------|---------|---------|
@@ -72,6 +72,7 @@ Fifteen outcomes, short-circuited in this order:
 | 5 | G1 ❌ via `token_num < 5` | ⚪ NO READ · only N tokens traded | `thin-sample` |
 | 6 | G2 ❌ | 🔴 DO NOT COPY · it has stopped making money | `cooled-star` |
 | 10b | G1 ⚪ via a self-launch range straddling 50% | 🟡 HOLD OFF · over half its profit may come from its own launches | — |
+| 10c | G1 ⚪ via a clear reading on a truncated book of a launcher by count | 🟡 HOLD OFF · its launches look minor, but its older record was not read | — |
 | 10 | G1 ⚪ | 🟡 HOLD OFF · a wash-trading flag we cannot check | `unverifiable-wash` |
 | 7 | G3 ❌ **and** G4 ❌ | 🟡 WATCH, DO NOT COPY · you cannot get its fills, and it never cuts | `unreachable-and-no-cut` |
 | 8 | G3 ❌ | 🟡 WATCH, DO NOT COPY · you cannot get its fills | `sniper-bot` |
@@ -185,7 +186,7 @@ then can they move the verdict.
 | lo ≥ 50% | ❌ | `DO NOT COPY · most of its profit came from tokens it launched` |
 | lo < 50% ≤ hi | ⚪ — only when no measured G1 failure applies; a launcher by count still fails on the count | `HOLD OFF · over half its profit may come from its own launches` |
 | 20% ≤ hi < 50% | ✅ — but a launcher by count still fails on the count | A warning line with the share (a range when suspects remain) and what it made on other people's tokens |
-| hi < 20% | ✅ | The launch count stops vetoing — G1 says the profit is from trading, and G3/G4 are evaluated instead of marked not-applicable. On a truncated sample this needs the sample's gains to cover at least half of the all-time realized profit; otherwise the count still vetoes |
+| hi < 20% | ✅ — when the whole book was read | The launch count stops vetoing — G1 says the profit is from trading, and G3/G4 are evaluated instead of marked not-applicable. On a truncated book a launcher by count gets ⚪ instead: unread older positions can hold any amount of own-token gains, offset by losses that the all-time net cannot reveal, so no sample ratio can clear them |
 | not measured — fewer than 3 winning positions, `created-tokens` or `holdings` unavailable, or the paging cut off before page 6 (a failed call, an empty or malformed page that still points onward, a repeated cursor) | — | Falls back to the count test, unchanged |
 
 Only positive realized gains are attributed. A launcher by count whose own tokens netted zero or
@@ -201,12 +202,12 @@ The rules that hold it together:
   --order-by last_active_timestamp`. Every other sort returns at most 400 rows, and for a wallet
   with more positions than that those are not the global top, so the largest closed gains can
   be missing. Paging stops at page 6 at the earliest, once the last 3 pages agree on the verdict
-  class and — for a clear reading — the sample covers half of the all-time realized profit; at
-  20 pages at most. A cut-off (failed call, malformed page, repeated cursor) is never read as
-  the end of the book. A truncated sample names its start date. For a wallet that is not a
-  launcher by count, a share that could not be measured is said so in G1. EVM contract
-  addresses are compared case-insensitively; base58 addresses exactly, the creator check
-  included.
+  class, at 20 pages at most; a clear reading on a launcher by count keeps paging, because only
+  the book's natural end can lift its count veto. A cut-off (failed call, malformed page,
+  repeated cursor) is never read as the end of the book. A truncated sample names its start
+  date. For a wallet that is not a launcher by count, a share that could not be measured is said
+  so in G1. EVM contract addresses are compared case-insensitively; base58 addresses exactly,
+  the creator check included.
 - **Those closed rows also feed the conviction share — minus the wallet's own launches.** A
   wallet's biggest wins are usually closed, so the open book alone under-reads it and can
   corroborate `wash_trader` on a record that its closed positions refute. Own and suspected
@@ -330,7 +331,7 @@ issues zero API calls and finishes in seconds.
 Restore it rather than testing on live wallets alone. Live data moves — the 1d window is
 rolling and `activity` is a sample — so two runs minutes apart differ for reasons unrelated to
 your change, and a full dossier costs weight 23 or more against a bucket of 20, so a handful of
-verification runs rate-limits the account. Most of the fifteen verdict branches are also
+verification runs rate-limits the account. Most of the sixteen verdict branches are also
 close to impossible to reach on demand: you would need to find a wallet whose wash-trade flag
 is corroborated *right now*.
 
