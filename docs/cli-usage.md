@@ -529,6 +529,46 @@ gmgn-cli track smartmoney [--chain <chain>] [--limit <n>] [--side <side>] [--raw
 
 ---
 
+## callout record
+
+Query one wallet's call-out (喊单) history over the last 30 days, newest first. `POST /v1/callout/get_record`, API Key auth, weight 3.
+
+```bash
+gmgn-cli callout record --chain <chain> --wallet <address> [--token <address>] [--limit <n>] [--page-token <token>] [--raw]
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `--chain` | Yes | `sol` / `bsc` / `eth` / `base` / `megaeth` / `hyperevm` / `tron` / `monad` / `xlayer` / `robinhood` / `arbitrum` / `arc` / `stable` |
+| `--wallet` | Yes | Call-out wallet address |
+| `--token` | No | Only call-outs on this token |
+| `--limit` | No | Page size (0–50, 0 = server default) |
+| `--page-token` | No | `next_page_token` from the previous page (opaque, valid 24h) |
+
+---
+
+## callout global
+
+Query the global call-out feed across chains, newest first. `POST /v1/callout/global`, API Key auth, weight 3.
+
+```bash
+gmgn-cli callout global --chain <chain> [--chain <chain> ...] [--limit <n>] [--page-token <token>] \
+  [--only-kol] [--only-declaration] [--only-safe] [--min-holding-usd <usd>] [--max-holding-usd <usd>] [--raw]
+```
+
+| Option | Required | Description |
+|--------|----------|-------------|
+| `--chain` | Yes | Repeatable, 1–20 chains, same list as `callout record` |
+| `--limit` | No | Page size (0–50, 0 = server default). Filtered pages may return more than `limit` |
+| `--page-token` | No | `next_page_token` from the previous page (opaque, valid 24h) |
+| `--only-kol` | No | Only call-outs from KOL wallets |
+| `--only-declaration` | No | Only paid declarations |
+| `--only-safe` | No | Only tokens whose `is_safe` is `safe` |
+| `--min-holding-usd` | No | Caller's current holding lower bound in USD (inclusive, ≥ 0) |
+| `--max-holding-usd` | No | Caller's current holding upper bound in USD (inclusive, ≥ min) |
+
+---
+
 ## order quote
 
 Get a swap quote without submitting a transaction. Uses normal auth — only `GMGN_API_KEY` is required, no `GMGN_PRIVATE_KEY` needed.

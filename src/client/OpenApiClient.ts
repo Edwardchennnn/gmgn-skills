@@ -201,6 +201,25 @@ export interface HotSearchesParam {
   [key: string]: string[] | number | string | undefined;
 }
 
+// Optional body fields of POST /v1/callout/get_record (chain + call_wallet are positional).
+export interface CalloutRecordExtra {
+  call_token?: string;
+  limit?: number;         // 0–50, 0 = server default
+  page_token?: string;    // opaque next_page_token from the previous page, valid 24h
+}
+
+// Optional body fields of POST /v1/callout/global (chains is positional).
+// Holding bounds are decimal strings; the service parses them with shopspring/decimal.
+export interface CalloutGlobalExtra {
+  limit?: number;         // 0–50; filtered pages may return more than limit
+  page_token?: string;
+  only_kol?: boolean;
+  only_declaration?: boolean;
+  only_safe?: boolean;
+  min_holding_usd?: string;
+  max_holding_usd?: string;
+}
+
 export interface PumpFeeShareInfo {
   provider: string;       // "solana" | "twitter" | "github"
   username: string;       // platform username; a SOL address when provider = "solana"
@@ -505,6 +524,16 @@ export class OpenApiClient {
 
   async getCreatedTokens(chain: string, walletAddress: string, extra: Record<string, string | number> = {}): Promise<unknown> {
     return this.authExistRequest("GET", "/v1/user/created_tokens", { chain, wallet_address: walletAddress, ...extra });
+  }
+
+  // ---- Callout endpoints (exist auth, read-only) ----
+
+  async getCalloutRecord(chain: string, callWallet: string, extra: CalloutRecordExtra = {}): Promise<unknown> {
+    return this.authExistRequest("POST", "/v1/callout/get_record", {}, { chain, call_wallet: callWallet, ...extra });
+  }
+
+  async getCalloutGlobal(chains: string[], extra: CalloutGlobalExtra = {}): Promise<unknown> {
+    return this.authExistRequest("POST", "/v1/callout/global", {}, { chains, ...extra });
   }
 
   async quoteOrder(

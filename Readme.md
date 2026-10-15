@@ -103,6 +103,7 @@ No more scraping web pages or getting blocked by Cloudflare. Query all the profe
 | [`/gmgn-wallet-style`](skills/gmgn-wallet-style/SKILL.md) | Wallet trading-style tags — 20-cell frequency × P&L title, speed subtitle, badges, each with its triggering number | [SKILL.md](skills/gmgn-wallet-style/SKILL.md) |
 | [`/gmgn-wallet-review`](skills/gmgn-wallet-review/SKILL.md) | Wallet trading portrait — one style tag, a one-sentence recap and a one-sentence next step, per 1D / 7D / 30D / all | [SKILL.md](skills/gmgn-wallet-review/SKILL.md) |
 | [`/gmgn-track`](skills/gmgn-track/SKILL.md) | Follow-wallet trades, KOL trades, Smart Money trades | [SKILL.md](skills/gmgn-track/SKILL.md) |
+| [`/gmgn-callout`](skills/gmgn-callout/SKILL.md) | Call-outs (喊单) — one wallet's call-out history and 7d/30d hit rate, global call-out feed with KOL / declaration / safe / holding filters | [SKILL.md](skills/gmgn-callout/SKILL.md) |
 | [`/gmgn-token-buy`](skills/gmgn-token-buy/SKILL.md) | Buy-side due diligence — resolves a token name to the right contract, three hard gates, slippage and gas sizing, order card handed to gmgn-swap | [SKILL.md](skills/gmgn-token-buy/SKILL.md) |
 | [`/gmgn-swap`](skills/gmgn-swap/SKILL.md) | Swap submission + limit orders + strategy orders + order query | [SKILL.md](skills/gmgn-swap/SKILL.md) |
 | [`/gmgn-cooking`](skills/gmgn-cooking/SKILL.md) | One-command cooking orders (buy + take-profit/stop-loss in a single flow) | [SKILL.md](skills/gmgn-cooking/SKILL.md) |
@@ -547,6 +548,21 @@ gmgn-cli track kol --chain sol --side buy --limit 50 --raw
 # Smart Money trade records
 gmgn-cli track smartmoney --limit 100 --raw
 gmgn-cli track smartmoney --chain sol --side sell --limit 50 --raw
+```
+
+### Callout
+
+```bash
+# One wallet's call-out history (last 30 days) + 7d/30d summary
+gmgn-cli callout record --chain sol --wallet <wallet_address>
+gmgn-cli callout record --chain sol --wallet <wallet_address> --token <token_address> --raw
+
+# Global call-out feed (repeat --chain for multiple chains)
+gmgn-cli callout global --chain sol --chain bsc --limit 20 --raw
+gmgn-cli callout global --chain sol --only-kol --only-safe --min-holding-usd 1000 --raw
+
+# Next page: pass next_page_token back verbatim
+gmgn-cli callout global --chain sol --page-token <next_page_token> --raw
 ```
 
 ### Swap / Quote / Query

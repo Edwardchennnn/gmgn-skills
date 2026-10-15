@@ -106,6 +106,7 @@ SOL / BSC / Base / ETH 多链数据每次查询均为实时，支持多参数个
 | [`/gmgn-wallet-style`](skills/gmgn-wallet-style/SKILL.md) | 钱包交易风格标签——20 格频次×盈亏主标题、速度副标题、徽章，每个标签附触发数字 | [SKILL.md](skills/gmgn-wallet-style/SKILL.md) |
 | [`/gmgn-wallet-review`](skills/gmgn-wallet-review/SKILL.md) | 钱包交易画像——一个风格标签、一句战绩复盘、一句下一步建议，支持 1D / 7D / 30D / 全部 | [SKILL.md](skills/gmgn-wallet-review/SKILL.md) |
 | [`/gmgn-track`](skills/gmgn-track/SKILL.md) | 追踪关注钱包交易动态、KOL 交易动态、聪明钱交易动态 | [SKILL.md](skills/gmgn-track/SKILL.md) |
+| [`/gmgn-callout`](skills/gmgn-callout/SKILL.md) | 喊单——单个钱包的喊单历史与 7d/30d 命中率，全局喊单流，支持只看 KOL / 宣言 / 安全代币 / 持仓区间 | [SKILL.md](skills/gmgn-callout/SKILL.md) |
 | [`/gmgn-token-buy`](skills/gmgn-token-buy/SKILL.md) | 买入尽调——把代币名字解析成正确合约，三道硬门槛，算好滑点与 gas，产出订单卡交给 gmgn-swap | [SKILL.md](skills/gmgn-token-buy/SKILL.md) |
 | [`/gmgn-swap`](skills/gmgn-swap/SKILL.md) | 兑换提交 + 限价单 + 策略单 + 订单查询 | [SKILL.md](skills/gmgn-swap/SKILL.md) |
 | [`/gmgn-cooking`](skills/gmgn-cooking/SKILL.md) | 一键 Cooking 策略单（买入 + 止盈止损条件单一体化） | [SKILL.md](skills/gmgn-cooking/SKILL.md) |
@@ -571,6 +572,21 @@ gmgn-cli track kol --chain sol --side buy --limit 50 --raw
 # 聪明钱交易动态
 gmgn-cli track smartmoney --limit 100 --raw
 gmgn-cli track smartmoney --chain sol --side sell --limit 50 --raw
+```
+
+### Callout
+
+```bash
+# 单个钱包的喊单历史（近 30 天）+ 7d/30d 汇总
+gmgn-cli callout record --chain sol --wallet <wallet_address>
+gmgn-cli callout record --chain sol --wallet <wallet_address> --token <token_address> --raw
+
+# 全局喊单流（多链重复传 --chain）
+gmgn-cli callout global --chain sol --chain bsc --limit 20 --raw
+gmgn-cli callout global --chain sol --only-kol --only-safe --min-holding-usd 1000 --raw
+
+# 翻页：把 next_page_token 原样传回
+gmgn-cli callout global --chain sol --page-token <next_page_token> --raw
 ```
 
 ### Swap / Quote / Query
