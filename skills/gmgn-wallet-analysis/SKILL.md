@@ -374,7 +374,10 @@ live-positions section is missing rather than letting its absence read as "no po
 **On `429`:** stop. Read `X-RateLimit-Reset` or `reset_at`, convert to the user's local time and
 state it: *"Rate-limited — retry this wallet after 14:32:05 (~4 minutes)."* Report whatever tiers
 succeeded rather than discarding the run. Repeated requests during a cooldown extend the ban by
-5 seconds each, up to 5 minutes — never loop retries.
+5 seconds each, up to 5 minutes — never loop retries. `RATE_LIMIT_BANNED_MAX` means the ban already
+hit that 5-minute ceiling: stop every remaining call, not just the failing tier. `403
+PLAN_UPGRADE_REQUIRED` means the endpoint is unavailable on the user's plan — don't retry; record
+the gap and show the response's `upgrade_message`.
 
 **The 1d window is rolling.** A `profits --period 1d` pull minutes after a screenshot reads 15–20%
 lower because profitable trades roll out of the window. 7d/30d are stable — which is why the
