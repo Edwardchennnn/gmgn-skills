@@ -180,7 +180,7 @@ than, what the count test alone gives.
 | Bucket | Rule |
 |--------|------|
 | **own** | The contract is in `created-tokens`, or `token info` → `dev.creator_address` is this wallet |
-| **suspect** | Not in the list, the list is not provably complete, and the first buy landed within 5 s either side of the token's creation (clock skew between sources), or the timing is unknown — the creator's launch buy, or a sniper's. `created-tokens` returns at most 100 rows; the list counts as complete only when it names at least `max(inner_count + open_count, created_token_count)` well-formed addresses, and a missing or non-numeric total never counts as complete |
+| **suspect** | Not in the list, the list is not provably complete, and the first buy landed within 5 s either side of the token's creation (clock skew between sources), or the timing is unknown — the creator's launch buy, or a sniper's. `created-tokens` returns at most 100 rows; the list counts as complete only when it names at least `max(inner_count + open_count, created_token_count)` well-formed addresses; a missing or non-numeric count is ignored, and with neither count usable the list never counts as complete |
 | **external** | Everything else |
 
 That gives a range: **lo** = own ÷ gains, **hi** = (own + suspect) ÷ gains. The three largest
@@ -217,8 +217,9 @@ The rules that hold it together:
   wallet's own and suspected launches left out: a launch buy costs almost nothing, so its gain
   always "nets more than its cost basis" and would refute the tag with the wallet's own launch.
   When a wallet launched tokens but its launch list could not be read, a share high enough to
-  refute the tag is not trusted: G1 is left ⚪ and says why — and for a launcher by count the
-  count veto decides instead.
+  refute the tag is not trusted: G1 is left ⚪ and says why. That ⚪ ranks with the other open
+  questions, below every measured G1 failure — the count veto, a thin sample, one coin,
+  concentration — so it can only stop a pass.
 - **A measured finding outranks an unmeasured one.** A confirmed self-launch share ≥ 50% decides
   G1 even when a `wash_trader` tag could not be checked.
 

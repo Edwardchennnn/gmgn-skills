@@ -866,7 +866,7 @@ def read_tags(raw_tags):
     """Return [{key, emoji, sev, name, meaning, known}] — unknown tags kept verbatim."""
     out = []
     for t in raw_tags or []:
-        key = clean_text(t, 32).strip()
+        key = clean_text(t, 64).strip()
         row = TAGS.get(key.lower())
         if row:
             emoji, sev, name, meaning = row
@@ -1062,8 +1062,10 @@ def conviction_of(rows):
     for x in rows:
         # `realized_profit` is the right numerator — a wash trader's closed loops are what the
         # tag is about. Fall back to `total_profit` only when the row omits it.
+        # Exactly main's arithmetic, a non-finite row included: the wash test must never pass
+        # a record that main's own computation could not read.
         rp = f(h_get(x, "realized_profit", "total_profit"))
-        if not math.isfinite(rp) or rp <= 0:
+        if rp <= 0:
             continue
         gains += rp
         gainers += 1
@@ -1074,7 +1076,7 @@ def conviction_of(rows):
             conv += rp
             tok = x.get("token") if isinstance(x.get("token"), dict) else {}
             conv_syms.append((clean_sym(tok.get("symbol")) or "?", rp))
-    if gains <= 0:
+    if not gains > 0:
         return None, []
     return (conv / gains if gainers >= 3 else None), sorted(conv_syms, key=lambda kv: -kv[1])[:3]
 
@@ -1302,7 +1304,7 @@ def collect(chain, wallet, gaps):
             if cut is not None:
                 pages_read, why = cut
                 # Cut short before the page floor, the rows are a thin early sample: the share
-                # is not measured (the rows still feed conviction_share). Past the floor, the
+                # is not measured (the rows still feed the launch exclusion of the wash test). Past the floor, the
                 # pages read are a valid recency sample.
                 if pages_read < SELF_MIN_PAGES:
                     d["self_partial"] = True
@@ -1427,8 +1429,8 @@ def compute(d, latency_s, my_size):
     m["created_tokens_n"] = i(common.get("created_token_count"))
     m["created_at"] = i(common.get("created_at"))
     m["age_days"] = (time.time() - m["created_at"]) / 86400 if m["created_at"] else None
-    m["fund_from"] = clean_text(common.get("fund_from") or "", 80)
-    m["fund_from_address"] = clean_text(common.get("fund_from_address") or "", 80)
+    m["fund_from"] = clean_text(common.get("fund_from") or "", 120)
+    m["fund_from_address"] = clean_text(common.get("fund_from_address") or "", 120)
     m["fund_amount"] = f(common.get("fund_amount"))
     m["follow_count"] = i(common.get("follow_count"))
     m["is_dev"] = m["created_tokens_n"] > 0 and m["created_tokens_n"] > 0.5 * max(1, m["token_num"])
@@ -1691,9 +1693,6 @@ def compute(d, latency_s, my_size):
     # volume nets to roughly zero minus fees, so its per-exit figure is small or negative.
     # `conviction_share` is the fraction of all realized gains that came from such
     # positions. High share → the record is NOT explained by round-tripping.
-    #
-    # The open book alone under-reads this: a wallet's biggest wins are usually closed. So
-    # when the self-launch pull fetched closed rows, they are read here too.
     m["conviction_share"], m["conviction_top"] = conviction_of(h)
     #
     # The wash test reads the same share minus the wallet's own and suspected launches: a
@@ -1712,7 +1711,7 @@ def compute(d, latency_s, my_size):
         ex_share, ex_top = conviction_of(
             [x for x in h if not (isinstance(x, dict) and isinstance(x.get("token"), dict)
                                   and norm_addr(x["token"].get("token_address")) in launch)])
-        if ex_share is not None and ex_share < m["conviction_share"]:
+        if ex_share is not None and math.isfinite(m["conviction_share"]) and ex_share < m["conviction_share"]:
             m["wash_share"], m["wash_top"] = ex_share, ex_top
 
     # ── where the money came from ───────────────────────────────────────────────
@@ -1926,14 +1925,13 @@ def gates(m):
     # G1 before a wash tag that cannot be checked would leave it open.
     # A wash check blocked only by an unreadable launch list is no reason to hold open a
     # launcher by count: the count veto below is a measured finding and outranks it.
-    if wash and m["wash_share"] is None and not self_veto \
-            and not (m.get("conviction_blocked") and m["is_dev"]):
+    # A check blocked only by an unreadable launch list is not "holdings unavailable": it is
+    # an open question, ranked below every measured failure (see the branch before the pass).
+    if wash and m["wash_share"] is None and not self_veto and not m.get("conviction_blocked"):
         # Tag present and uncheckable. This is exactly the ⚪ case: "we could not verify" is
         # not "confirmed fake", and it is not "fine" either. Do not manufacture a ❌.
         g["G1"] = (
             None,
-            T('where the profit came from cannot be checked — its launch list could not be read, so its own tokens cannot be told apart from the rest; the {0} in this window is neither confirmed nor refuted', usd(m['realized_7d']))
-            if m.get("conviction_blocked") else
             T('where the profit came from cannot be checked (holdings unavailable) — the {0} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run', usd(m['realized_7d'])),
         )
     elif wash and m["wash_share"] is not None:
@@ -1976,6 +1974,13 @@ def gates(m):
             None,
             T('{0}–{1} of realized gains may come from tokens it deployed — its launch list is truncated and the rest could not be confirmed{2}',
               pct(m['self_lo']), pct(m['self_hi']), self_window(m)),
+        )
+    elif wash and m.get("conviction_blocked"):
+        # The open book would refute the tag, but its own launches cannot be told apart from
+        # the rest. Same rank as the range above: it only stops a pass.
+        g["G1"] = (
+            None,
+            T('where the profit came from cannot be checked — its launch list could not be read, so its own tokens cannot be told apart from the rest; the {0} in this window is neither confirmed nor refuted', usd(m['realized_7d'])),
         )
     else:
         if m["pcr_represents_record"]:
