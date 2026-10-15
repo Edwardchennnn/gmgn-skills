@@ -31,6 +31,7 @@ This is a **Claude Code plugin** — a collection of GMGN OpenAPI skills for on-
 | `gmgn-portfolio` | Wallet holdings, activity, trading stats, token balance | User asks about a wallet's holdings, P&L, transaction history, trading statistics, or token balance; user wants to analyze a wallet; user asks "what tokens does this wallet hold", "show me recent trades", "what's the win rate of this wallet" |
 | `gmgn-wallet-score` | Wallet scoring across three angles — profitability (track-record score), copy-tradeability (score + latency/slippage/gas backtest), and Dev reputation for token-creator wallets — plus trading-style tags | User asks about a wallet's profitability ("钱包盈利能力怎么样", "is this wallet profitable"), copy-trade worthiness ("is this wallet worth copying", "跟单评分", "钱包评分", "值不值得跟单", "if I copy this wallet what's my real return"), or launch/Dev reputation ("钱包发盘情况怎么样", "是不是发币方钱包", "dev 信誉怎么样"); user gives a wallet address and wants any of these judgments |
 | `gmgn-track` | Track trade activity of wallets I follow, KOL trades, Smart Money trades across chains | User asks about trades from wallets they follow; user wants to see what KOLs or Smart Money are buying/selling; user asks "show me what wallets I follow have traded recently", "what are KOLs buying", "show me smart money moves on BSC" |
+| `gmgn-callout` | Call-outs (喊单) — one wallet's call-out history with 7d/30d hit rate, and the global call-out feed with KOL / declaration / safe / holding filters. Read-only | User asks about 喊单 / call-outs / calls: "这个钱包喊过什么单", "他喊单准不准", "最新喊单", "KOL 在喊什么", "who is calling tokens right now", "show paid declarations". Trades (buys/sells) of KOLs stay with `gmgn-track` |
 | `gmgn-swap` | Token swap execution + order status query | User wants to swap tokens, execute a trade, or check an order status; user asks "swap SOL for USDC", "check my order", or "buy this token" **only when they also say to skip the checks**; a plain buy request with no skip instruction is `gmgn-token-buy`; **requires private key configured in `.env`** |
 | `gmgn-kline-pattern` | Names the chart pattern (uptrend channel / breakdown / bounce off the lows / distribution / basing / chop) and scores it 0-100 from six measurements computed off the kline response | User asks about 走势, 趋势, 形态, price action, chart pattern, "is it breaking down", "is it consolidating"; user wants a read of the chart rather than the raw candles |
 | `gmgn-token-buy` | Resolves a token NAME to the one right contract, then sizes the buy order | User names a token by name/symbol (not only an address) and wants to buy it, or gives an address plus an amount and wants the order sized: 能不能买, 能不能冲, 我想梭, 帮我买 200u 的 XX, 确认是正主不是仿盘再买. Owns copycat disambiguation and position/slippage/gas sizing; hands execution to `gmgn-swap` after explicit confirmation. |
@@ -58,6 +59,8 @@ Match the user's request to the right skill and workflow:
 | "early project screening", "新币筛选", "值得埋伏吗", "哪些新项目有聪明钱" | `gmgn-market trenches` → `docs/workflow-early-project-screening.md` |
 | "daily brief", "today's market", "每日简报", "今天市场怎么样", "聪明钱今天买了什么" | `gmgn-market` + `gmgn-track` → `docs/workflow-daily-brief.md` |
 | "what is smart money buying", "what are KOLs trading" | `gmgn-track smartmoney` / `gmgn-track kol` |
+| "最新喊单", "KOL 在喊什么", "who is calling tokens", "喊单宣言" | `gmgn-callout global` |
+| "这个钱包喊过什么单", "他喊单准不准", "what has this wallet called", wallet address + call-outs | `gmgn-callout record` |
 | "wallets I follow", "my followed wallets traded" | `gmgn-track follow-wallet` |
 | "analyze this wallet", "is this wallet worth following", wallet address provided | `gmgn-portfolio` → full workflow: `docs/workflow-wallet-analysis.md` |
 | "这个钱包什么风格", "交易风格", "是不是机器人", "是不是狙击盘的", "帮我给这个钱包打标签", "wallet style", "tag this wallet" — wallet address + wants the style tags themselves | `gmgn-wallet-style`. A bare address with no question stays with `gmgn-wallet-analysis` |
@@ -111,7 +114,7 @@ EOF
 
 | Mode | Commands | Requirements |
 |------|----------|--------------|
-| Normal | token / market / portfolio (except holdings) / track kol / track smartmoney / **order quote** | `GMGN_API_KEY` only, no signature |
+| Normal | token / market / portfolio (except holdings) / track kol / track smartmoney / callout / **order quote** | `GMGN_API_KEY` only, no signature |
 | Critical | swap / order (except order quote) / portfolio holdings / track follow-wallet | `GMGN_API_KEY` + `GMGN_PRIVATE_KEY` — CLI handles signing automatically |
 
 ## SKILL.md Authoring Rules

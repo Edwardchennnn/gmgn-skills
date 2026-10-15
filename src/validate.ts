@@ -66,6 +66,50 @@ export function validatePercent(value: number): void {
   }
 }
 
+// ---- `callout` input validation ----
+//
+// Call-outs are read-only data, so the service accepts a wider chain list than
+// the tradable VALID_CHAINS (mirrors calloutChains in gmgn-openapi-service).
+// Keep the two lists independent.
+const CALLOUT_CHAINS = new Set([
+  "sol", "bsc", "eth", "base", "megaeth", "hyperevm",
+  "tron", "monad", "xlayer", "robinhood", "arbitrum", "arc", "stable",
+]);
+const CALLOUT_MAX_CHAINS = 20;
+const CALLOUT_MAX_LIMIT = 50;
+const NON_NEGATIVE_DECIMAL_RE = /^\d+(\.\d+)?$/;
+
+export function validateCalloutChains(chains: string[]): string[] {
+  const unique = [...new Set(chains.map((c) => c.trim().toLowerCase()))];
+  for (const chain of unique) {
+    if (!CALLOUT_CHAINS.has(chain)) {
+      console.error(
+        `[gmgn-cli] Invalid chain: "${chain}". Must be one of: ${[...CALLOUT_CHAINS].join(", ")}`
+      );
+      process.exit(1);
+    }
+  }
+  if (unique.length === 0 || unique.length > CALLOUT_MAX_CHAINS) {
+    console.error(`[gmgn-cli] Invalid --chain: pass 1-${CALLOUT_MAX_CHAINS} chains.`);
+    process.exit(1);
+  }
+  return unique;
+}
+
+export function validateCalloutLimit(limit: number): void {
+  if (!Number.isInteger(limit) || limit < 0 || limit > CALLOUT_MAX_LIMIT) {
+    console.error(`[gmgn-cli] Invalid --limit: "${limit}". Must be an integer between 0 and ${CALLOUT_MAX_LIMIT}.`);
+    process.exit(1);
+  }
+}
+
+export function validateNonNegativeDecimal(value: string, label: string): void {
+  if (!NON_NEGATIVE_DECIMAL_RE.test(value)) {
+    console.error(`[gmgn-cli] Invalid ${label}: "${value}". Must be a non-negative decimal number.`);
+    process.exit(1);
+  }
+}
+
 // ---- `market search` input validation ----
 //
 // Search is deliberately more permissive about chains than the other commands:
