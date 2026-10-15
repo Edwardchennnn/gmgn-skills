@@ -22,12 +22,14 @@ Read-only. Never signs, never trades.
 """
 
 import json
+import math
 import os
 import re
 import statistics
 import subprocess
 import sys
 import time
+import unicodedata
 
 # ─────────────────────────── plumbing ───────────────────────────
 
@@ -178,10 +180,14 @@ ZH = {
     "{0} of realized gains ({1}) came from {2:,} tokens it deployed itself, led by {3}{4}": "{0} 的已实现盈利（{1}）来自它自己部署的 {2:,} 个币，最大的是 {3}{4}",
     "{0}–{1} of realized gains may come from tokens it deployed — its launch list is truncated and the rest could not be confirmed{2}": "{0}–{1} 的已实现盈利可能来自它自己部署的币 —— 发币列表不全，其余无法确认{2}",
     "⚠️ {0} of realized gains came from tokens it deployed itself — on other people's tokens it made {1}{2}": "⚠️ {0} 的已实现盈利来自它自己发的币 —— 在别人的盘上赚了 {1}{2}",
-    "launched {0:,} tokens, but only {1} of realized gains came from them — the profit is from trading {2}{3}": "发过 {0:,} 个币，但只有 {1} 的已实现盈利来自这些币 —— 盈利来自交易 {2}{3}",
+    "⚠️ {0}–{1} of realized gains may come from tokens it deployed itself — on other people's tokens it made {2}{3}": "⚠️ {0}–{1} 的已实现盈利可能来自它自己发的币 —— 在别人的盘上赚了 {2}{3}",
+    "launched {0:,} tokens, but at most {1} of realized gains came from them — the profit is from trading {2}{3}": "发过 {0:,} 个币，但最多只有 {1} 的已实现盈利来自这些币 —— 盈利来自交易 {2}{3}",
+    "per-token realized P&L stopped after {0} pages: {1} — the self-launch share was read on those pages only": "按币的已实现盈亏读到第 {0} 页时中断：{1} —— 自发币盈利占比只按已读到的仓位计算",
     " (positions active since {0})": "（统计 {0} 之后活跃过的仓位）",
     "per-token realized P&L unavailable: {0} — the share of profit from its own launches was not measured": "按币的已实现盈亏未取到：{0} —— 自发币盈利占比本次未评估",
     "🏭 launches tokens, profits from trading": "🏭 发币方（但盈利靠交易）",
+    "where the profit came from cannot be checked — its launch list could not be read, so its own tokens cannot be told apart from the rest; the {0} in this window is neither confirmed nor refuted": "盈利来源无法核验 —— 它的发币列表没有取到，自己发的币和其他币分不开；这个窗口的 {0} 既不能确认也不能排除",
+    "launched {0:,} tokens — the share of profit from them was not measured (it needs at least 3 winning positions and the per-token P&L pull)": "发过 {0:,} 个币 —— 来自这些币的盈利占比本次未评估（需要至少 3 个盈利仓位，并取到按币的盈亏数据）",
     "DO NOT COPY · one token made all the money": "别跟 · 全靠一个币赚钱，复制不了",
     "DO NOT COPY · the profit is self-dealt": "别跟 · 它的盈利是自己刷出来的",
     "DO THIS  ": "怎么办  ",
@@ -621,7 +627,9 @@ def f(v, default=0.0):
 
 
 def i(v, default=0):
-    return int(f(v, default))
+    x = f(v, default)
+    # int() of "inf" / "nan" raises — a malformed field must not take the report down.
+    return int(x) if math.isfinite(x) else default
 
 
 def _b(v):
@@ -754,6 +762,48 @@ def safe_div(a, b, default=0.0):
     return a / b if b else default
 
 
+# Markdown and HTML metacharacters that third-party text must never carry into the report:
+# brackets build a clickable link, angle brackets raw HTML, `*` and backticks break the
+# formatting around them. None of them occurs in a real token symbol.
+_MD_META = str.maketrans("", "", "[]<>*`")
+_URL_RE = re.compile(r"(?i)(://|www\.)")
+
+
+def clean_text(v, limit):
+    """Third-party text, safe to print. A token symbol is picked by whoever launched the token
+    and an X display name by the wallet's owner; either can carry a line break (a fake verdict
+    heading on the next line), a markdown link to a phishing page, or raw HTML. Control and
+    line-separator and format characters become spaces, markdown/HTML metacharacters are dropped, URL
+    schemes are broken so nothing autolinks, and the length is capped. Nothing else is touched —
+    ordinary text, spacing included, prints exactly as the API sent it."""
+    # Cf covers bidi overrides (U+202E) and zero-width characters that reorder or hide text;
+    # the zero-width joiner alone is kept, because emoji sequences need it. Cs (a lone
+    # surrogate) would make print() raise. Cn is left alone: on an older Unicode database it
+    # would also catch emoji newer than the interpreter.
+    # Cut the raw input first so a huge field costs nothing to clean.
+    v = str(v or "")[: limit * 8]
+    t = "".join(" " if (unicodedata.category(ch) in ("Cc", "Cs", "Co", "Zl", "Zp")
+                        or (unicodedata.category(ch) == "Cf" and ch != "\u200d")) else ch
+                for ch in v)
+    t = _URL_RE.sub(" ", t.translate(_MD_META))
+    return t[:limit] + "…" if len(t) > limit else t
+
+
+def clean_sym(v):
+    # Generous on purpose: the cap guards against pathological input, not real symbols.
+    return clean_text(v, 64)
+
+
+def clean_gap(v):
+    """A data-gap line embeds CLI and API error text. It keeps its length, its backticks (the
+    script's own remedies quote commands in them) and plain URLs (GMGN's own rate-limit
+    errors carry the upgrade link), but loses line breaks, control and format characters,
+    link brackets, angle brackets and emphasis markers."""
+    t = "".join(" " if unicodedata.category(ch) in ("Cc", "Cs", "Co", "Cf", "Zl", "Zp") else ch
+                for ch in str(v or ""))
+    return t.translate(str.maketrans("", "", "[]<>*"))
+
+
 # ─── GMGN wallet tags ────────────────────────────────────────────
 # `common.tags` is third-party data. Known tags get a meaning and a severity; anything
 # unrecognised is printed verbatim and treated as neutral — never silently dropped, and
@@ -810,7 +860,7 @@ def read_tags(raw_tags):
     """Return [{key, emoji, sev, name, meaning, known}] — unknown tags kept verbatim."""
     out = []
     for t in raw_tags or []:
-        key = str(t).strip()
+        key = clean_text(t, 32)
         row = TAGS.get(key.lower())
         if row:
             emoji, sev, name, meaning = row
@@ -874,14 +924,21 @@ SELF_VETO = 0.50      # lo at or above this -> G1 ❌
 SELF_WARN = 0.20      # hi below this -> the launch count stops vetoing; above -> a warning
 LAUNCH_BUY_S = 5
 SELF_VERIFY = 3       # largest suspects resolved via token info, only when the range straddles a line
+SELF_MIN_GAINERS = 3  # below this many winning positions a share is arithmetic, not evidence
 # `holdings --order-by last_active_timestamp` is the only sort that walks every position.
 # Every other sort returns at most 400 rows, and for a wallet with more positions than that
 # those are not the global top, so the largest closed gains can be missing. Recency paging
-# is complete but long, so it stops once the verdict class has held for SELF_STABLE pages
-# past SELF_MIN_PAGES — the floor keeps a thin early sample from deciding on its own.
+# is complete but long, so it stops at page SELF_MIN_PAGES at the earliest, once the last
+# SELF_STABLE pages agree on the verdict class — the floor keeps a thin early sample from
+# deciding on its own.
 SELF_MIN_PAGES = 6
 SELF_STABLE = 3
 SELF_MAX_PAGES = 20
+SELF_ROWS_PER_PAGE = 100  # `--limit 50` asked for; a page claiming more is cut, not trusted
+# A clear reading on a truncated sample only lifts the count veto once the sample's gains
+# cover this share of the wallet's all-time realized profit — otherwise older own-token
+# gains beyond the last page read could be what the record is made of.
+SELF_COVER = 0.50
 # A token address from an API row goes into a `token info` argv. It is third-party data, so it
 # must look like an address before it gets there — never like a flag.
 TOKEN_ADDR_RE = re.compile(r"^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$")
@@ -890,37 +947,95 @@ TOKEN_ADDR_RE = re.compile(r"^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$")
 def self_launch_split(rows, own, list_complete, wallet, creator_of):
     """Attribute positive realized gains to own / external / suspect. Pure."""
     out = {"own": 0.0, "ext": 0.0, "sus": 0.0, "own_n": 0,
-           "own_top": [], "ext_top": [], "suspects": []}
-    seen = set()
+           "own_top": [], "ext_top": [], "suspects": [], "launch_addrs": set()}
+    seen, seen_gain = set(), []
     for r in rows:
-        tok = r.get("token") or {}
-        addr = tok.get("token_address")
+        if not isinstance(r, dict):
+            continue
+        tok = r.get("token") if isinstance(r.get("token"), dict) else {}
+        raw_addr = tok.get("token_address")
+        addr = norm_addr(raw_addr)
         gain = f(r.get("realized_profit"))
-        if gain <= 0 or addr in seen:
+        # A row with no address cannot be attributed to anyone, so it is left out rather
+        # than counted external — counting it would fail open toward "clear". A non-finite
+        # gain ("nan" / "inf") would poison every sum it touches.
+        if addr is None or not math.isfinite(gain) or gain <= 0 or addr in seen:
             continue
         seen.add(addr)
-        sym = tok.get("symbol") or "?"
-        creator = creator_of.get(addr)
+        seen_gain.append(addr)
+        sym = clean_sym(tok.get("symbol")) or "?"
+        creator = creator_of.get(raw_addr)
+        creator = creator if isinstance(creator, str) else None
         born, entered = f(tok.get("creation_timestamp")), f(r.get("start_holding_at"))
-        if addr in own or (creator and creator.lower() == wallet.lower()):
+        if addr in own or (creator and norm_addr(creator) == norm_addr(wallet)):
+            out["launch_addrs"].add(addr)
             out["own"] += gain
             out["own_n"] += 1
             out["own_top"].append((sym, gain))
         elif (not creator and not list_complete and born and entered
               and 0 <= entered - born <= LAUNCH_BUY_S):
+            out["launch_addrs"].add(addr)
             out["sus"] += gain
-            out["suspects"].append((addr, gain))
+            out["suspects"].append((raw_addr, gain))
         else:
             out["ext"] += gain
             out["ext_top"].append((sym, gain))
     gains = out["own"] + out["ext"] + out["sus"]
     out["gains"] = gains
-    out["lo"] = out["own"] / gains if gains > 0 else None
-    out["hi"] = (out["own"] + out["sus"]) / gains if gains > 0 else None
+    # Same floor as conviction_share: a single small winner is 100% of the gains by arithmetic. Too
+    # few winners reads as not measured, and G1 falls back to the launch-count test.
+    winners = len(seen_gain)
+    if math.isfinite(gains) and gains > 0 and winners >= SELF_MIN_GAINERS:
+        out["lo"] = out["own"] / gains
+        out["hi"] = (out["own"] + out["sus"]) / gains
+    else:
+        out["lo"] = out["hi"] = None
     for k in ("own_top", "ext_top"):
         out[k] = sorted(out[k], key=lambda kv: -kv[1])[:3]
     out["suspects"].sort(key=lambda kv: -kv[1])
     return out
+
+
+def norm_addr(a):
+    """A comparable contract address: EVM hex is case-insensitive (checksum casing varies
+    between routes), base58 is not and is left exactly as it is."""
+    if not (isinstance(a, str) and a):
+        return None
+    return a.lower() if a[:2] in ("0x", "0X") else a
+
+
+def own_token_set(ct):
+    """Contract addresses from a created-tokens payload, whatever shape it arrived in."""
+    toks = ct.get("tokens") if isinstance(ct, dict) else None
+    return {norm_addr(t["token_address"]) for t in (toks if isinstance(toks, list) else [])
+            if isinstance(t, dict) and norm_addr(t.get("token_address"))}
+
+
+def launch_list_complete(own, ct, created_n):
+    """True only when the list provably names every launch. Both totals are consulted —
+    the payload's inner+open and the stats' created_token_count — and a missing or
+    non-numeric total never counts as complete: an unprovable list must leave suspects
+    possible, or the wallet's own launches would be counted external."""
+    def count(v):
+        x = f(v, float("nan"))
+        return int(x) if math.isfinite(x) and x >= 0 else None
+    inner, opened = count(ct.get("inner_count")), count(ct.get("open_count"))
+    totals = [t for t in ((inner + opened) if inner is not None and opened is not None else None,
+                          created_n if created_n and created_n > 0 else None) if t]
+    return bool(totals) and len(own) >= max(totals)
+
+
+def launch_context(d, created_n):
+    """The attribution inputs, computed once and shared by conviction_share and G1."""
+    ct = d.get("created_tokens") if isinstance(d.get("created_tokens"), dict) else {}
+    rr = [r for r in (d.get("realized_rows") or []) if isinstance(r, dict)] \
+        if isinstance(d.get("realized_rows"), list) else []
+    own = own_token_set(ct)
+    complete = launch_list_complete(own, ct, created_n)
+    creator_of = d.get("creator_of") if isinstance(d.get("creator_of"), dict) else {}
+    wallet = d.get("_wallet") if isinstance(d.get("_wallet"), str) else ""
+    return {"ct": ct, "rows": rr, "own": own, "complete": complete,
+            "sp": self_launch_split(rr, own, complete, wallet, creator_of)}
 
 
 def self_launch_class(lo, hi):
@@ -944,31 +1059,33 @@ def self_window(m):
 def collect(chain, wallet, gaps):
     """Tiered pull, ordered by how much each call decides.
 
-    One full dossier costs weight 26-28 against a rate-limit bucket of 20, so on a
-    cold-ish bucket SOMETHING is refused — the only question is what. The old order spent
-    its budget on the two curve-shape windows first and issued `holdings` last, at
-    cumulative weight 26, which made the single most decisive call the guaranteed
+    One full dossier costs weight 23 against a rate-limit bucket of 20 — more for a wallet
+    that launched tokens — so on a cold-ish bucket SOMETHING is refused; the only question
+    is what. The old order spent its budget on the two curve-shape windows first and issued
+    `holdings` last, at cumulative weight 23, which made the single most decisive call the guaranteed
     casualty: without it G1 cannot corroborate a `wash_trader` tag (the verdict falls to
     HOLD OFF), G4's honeypot half never runs, and the profit engine is dropped. Observed
-    live five runs in a row. Meanwhile `stats_30d` and `profits_1d` only add depth to
-    readings that already exist.
+    live five runs in a row. Meanwhile `profits_1d` only adds depth to a reading that
+    already exists; `stats_30d` feeds G2's 30d veto, so it sits just after activity.
 
     So the gate-critical set goes first and fits inside one bucket:
 
-      stats_7d(3) -> profits_all(3) -> holdings(5) = 11   <- verdict decidable here
-      activity(3 x 3 = 9)                          = 20   <- copy window, entry band
-      created-tokens(2) + holdings 6-20 pages(2 each) + token info(0-3)
+      stats_7d(3) -> profits_all(3) -> holdings(2) = 8    <- verdict decidable here
+      activity(3 x 3 = 9)                          = 17   <- copy window, entry band
+      stats_30d(3)                                 = 20   <- G2's 30d veto reads it
+      created-tokens(2) + holdings 1-20 pages(2 each) + token info(0-3)
                                                    <- only when it launched anything:
                                                       decides G1's self-launch share
-      stats_30d(3), profits_1d(3)                  <- depth only, best-effort
+      profits_1d(3)                                = 23 + the above <- depth only
 
-    The self-launch pull sits after activity and ahead of the depth tier: it can veto G1,
-    so it outranks depth, but it only runs for launchers while activity runs for every
-    wallet. Its pages are weight 2.
+    The self-launch pull sits after activity and stats_30d and ahead of profits_1d: it can
+    veto G1, so it outranks depth, but it only runs for launchers while the tiers above it
+    serve every wallet. Its pages are weight 2.
     """
     d = {"_wallet": wallet}
+    holdings_auth_failed = False
 
-    # ── Tier 1: the verdict cannot be issued without these. Weight 11, inside one bucket.
+    # ── Tier 1: the verdict cannot be issued without these. Weight 8, inside one bucket.
     d["stats_7d"] = first_row(
         cli(["portfolio", "stats", "--chain", chain, "--wallet", wallet, "--period", "7d"])
     )
@@ -1007,6 +1124,7 @@ def collect(chain, wallet, gaps):
                 T('holdings refused by the rate limiter (not an auth problem): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing. Re-run once the limit resets.', e)
             )
         elif "SIGNATURE_INVALID" in txt or "signature invalid" in txt.lower():
+            holdings_auth_failed = True
             gaps.append(
                 T('holdings refused: the private key IS configured, but its signature was '
                   'rejected: {0} — check GMGN_PRIVATE_KEY holds the full PEM (BEGIN/END lines '
@@ -1016,6 +1134,7 @@ def collect(chain, wallet, gaps):
                   'check missing', e)
             )
         elif "PRIVATE_KEY" in txt or "401" in txt or "403" in txt:
+            holdings_auth_failed = True
             gaps.append(
                 T('holdings unavailable (needs GMGN_PRIVATE_KEY / critical auth): {0} — profit concentration falls back to bucket inference; live book and honeypot check missing', e)
             )
@@ -1048,22 +1167,35 @@ def collect(chain, wallet, gaps):
             T('activity empty — copy window, entry band and scale-in/out shape were not evaluated')
         )
 
+    # ── Tier 2a: stats_30d. Not depth only: G2's second veto ("7d and 30d both negative")
+    # reads it, so it goes ahead of the self-launch tier, which can run to 20+ weight.
+    try:
+        d["stats_30d"] = first_row(cli(["portfolio", "stats", "--chain", chain, "--wallet", wallet,
+                                        "--period", "30d"]))
+    except Gap as e:
+        d["stats_30d"] = {}
+        gaps.append(f"stats_30d: {e}")
+
     # ── Tier 2b: self-launch attribution — any wallet that launched a token, not only a
     # launcher by count. See self_launch_split() for why the count is the wrong test.
     common = d["stats_7d"].get("common") or {}
     d["created_tokens"], d["realized_rows"], d["creator_of"] = {}, [], {}
     if i(common.get("created_token_count")) > 0:
         try:
-            d["created_tokens"] = unwrap(
-                cli(["portfolio", "created-tokens", "--chain", chain, "--wallet", wallet])
-            )
-        except Gap as e:
+            ct = unwrap(cli(["portfolio", "created-tokens", "--chain", chain, "--wallet", wallet]))
+            # Every shape below is checked before use: a malformed response on these routes
+            # must cost the self-launch reading, never the whole report.
+            d["created_tokens"] = ct if isinstance(ct, dict) else {}
+        except (Gap, subprocess.TimeoutExpired) as e:
             gaps.append(f"created-tokens: {e}")
         ct = d["created_tokens"]
-        own = {t.get("token_address") for t in ct.get("tokens") or [] if t.get("token_address")}
-        complete = len(own) >= i(ct.get("inner_count")) + i(ct.get("open_count"))
-        rows, cursor, classes = [], None, []
-        if ct:
+        own = own_token_set(ct)
+        complete = launch_list_complete(own, ct, i(common.get("created_token_count")))
+        all_time = f(((d.get("profits_all") or {}).get("total_realized_profit")), 0.0)
+        rows, cursor, classes, cursors, cut = [], None, [], set(), None
+        # Every page is the same critical-auth route that just failed for want of a key —
+        # skip it rather than fail again and print the same gap twice.
+        if ct and not holdings_auth_failed:
             for page in range(SELF_MAX_PAGES):
                 args = ["portfolio", "holdings", "--chain", chain, "--wallet", wallet,
                         "--limit", "50", "--order-by", "last_active_timestamp",
@@ -1072,39 +1204,76 @@ def collect(chain, wallet, gaps):
                     args += ["--cursor", str(cursor)]
                 try:
                     raw = unwrap(cli(args))
-                except Gap as e:
-                    gaps.append(T('per-token realized P&L unavailable: {0} — the share of profit from its own launches was not measured', e))
+                except (Gap, subprocess.TimeoutExpired) as e:
+                    cut = (page, str(e))
                     break
-                batch = raw.get("list") or []
+                batch = raw.get("list") if isinstance(raw, dict) else None
+                nxt = raw.get("next") if isinstance(raw, dict) else None
+                has_next = nxt is not None and nxt != ""
+                if not isinstance(batch, list):
+                    cut = (page, "malformed page")
+                    break
+                batch = [x for x in batch if isinstance(x, dict)][:SELF_ROWS_PER_PAGE]
+                if not batch:
+                    # An empty page that still points onward is a cut-off, not the end.
+                    if has_next:
+                        cut = (page, "empty page with a next cursor")
+                    else:
+                        cursor = None
+                    break
                 rows += batch
-                cursor = raw.get("next")
-                if not batch or not cursor:
-                    cursor = None
+                if not has_next:
+                    cursor = None  # the natural end: the whole book was read
                     break
+                # A cursor that repeats, or is not a cursor, is a cut-off too — never a
+                # complete book, and never a second read of the same rows.
+                if isinstance(nxt, bool) or not isinstance(nxt, (str, int)) or str(nxt) in cursors:
+                    cut = (page + 1, "pagination cursor repeated or malformed")
+                    break
+                cursor = nxt
+                cursors.add(str(nxt))
                 sp = self_launch_split(rows, own, complete, wallet, {})
-                classes.append(self_launch_class(sp["lo"], sp["hi"]))
-                if (page + 1 >= SELF_MIN_PAGES and len(set(classes[-SELF_STABLE:])) == 1
-                        and classes[-1] is not None):
+                cls = self_launch_class(sp["lo"], sp["hi"])
+                classes.append(cls)
+                # Stable includes stably unmeasurable (None): past the floor, a book with too
+                # few winners will not grow a verdict, so reading 20 pages would be waste. A
+                # stable "clear" also needs the sample to cover the all-time record.
+                covered = cls != "clear" or (all_time > 0 and sp["gains"] >= SELF_COVER * all_time)
+                if page + 1 >= SELF_MIN_PAGES and len(set(classes[-SELF_STABLE:])) == 1 and covered:
                     break
+            if cut is not None:
+                pages_read, why = cut
+                # Cut short before the page floor, the rows are a thin early sample: the share
+                # is not measured (the rows still feed conviction_share). Past the floor, the
+                # pages read are a valid recency sample.
+                if pages_read < SELF_MIN_PAGES:
+                    d["self_partial"] = True
+                    gaps.append(T('per-token realized P&L unavailable: {0} — the share of profit from its own launches was not measured', why))
+                else:
+                    gaps.append(T('per-token realized P&L stopped after {0} pages: {1} — the self-launch share was read on those pages only', pages_read, why))
+                cursor = cursor or "cut"
         d["realized_rows"] = rows
         d["realized_truncated"] = bool(cursor)
+        d["realized_all_time"] = all_time
         # Resolve the largest suspects only when they could move the verdict: a range that
         # straddles a line. Weight 1 each; an unresolved one stays a suspect.
         sp = self_launch_split(rows, own, complete, wallet, {})
         if sp["lo"] is not None and self_launch_class(sp["lo"], sp["lo"]) != self_launch_class(sp["lo"], sp["hi"]):
             for addr, _gain in sp["suspects"][:SELF_VERIFY]:
-                if not TOKEN_ADDR_RE.match(str(addr or "")):
+                if not TOKEN_ADDR_RE.fullmatch(str(addr or "")):
                     continue
                 try:
                     info = unwrap(cli(["token", "info", "--chain", chain, "--address", addr]))
-                    d["creator_of"][addr] = (info.get("dev") or {}).get("creator_address")
-                except Gap:
-                    pass
+                except (Gap, subprocess.TimeoutExpired):
+                    continue
+                dev = info.get("dev") if isinstance(info, dict) else None
+                creator = dev.get("creator_address") if isinstance(dev, dict) else None
+                if isinstance(creator, str) and creator:
+                    d["creator_of"][addr] = creator
 
-    # ── Tier 3: depth only. Both windows enrich readings that already exist above, so
-    # they are the correct things to lose when the bucket runs dry.
+    # ── Tier 3: depth only. This window enriches a reading that already exists above, so
+    # it is the correct thing to lose when the bucket runs dry.
     for key, args in (
-        ("stats_30d", ["portfolio", "stats", "--period", "30d"]),
         ("profits_1d", ["portfolio", "profits", "--period", "1d"]),
     ):
         try:
@@ -1190,15 +1359,18 @@ def compute(d, latency_s, my_size):
     m["tags"] = common.get("tags") or ([common["tag"]] if common.get("tag") else [])
     m["tag_info"] = read_tags(m["tags"])
     m["tag_sev"] = {t["sev"] for t in m["tag_info"]}
-    m["twitter"] = common.get("twitter_username") or ""
-    m["twitter_name"] = common.get("twitter_name") or common.get("name") or ""
+    # A valid X handle ([A-Za-z0-9_]) needs no cleaning; anything else is cleaned, not dropped.
+    handle = common.get("twitter_username")
+    m["twitter"] = (handle if isinstance(handle, str) and re.fullmatch(r"[A-Za-z0-9_]{1,30}", handle)
+                    else clean_text(handle or "", 40))
+    m["twitter_name"] = clean_text(common.get("twitter_name") or common.get("name") or "", 80)
     m["blue"] = bool(common.get("is_blue_verified"))
     m["followers"] = i(common.get("followers_count"))
     m["created_tokens_n"] = i(common.get("created_token_count"))
     m["created_at"] = i(common.get("created_at"))
     m["age_days"] = (time.time() - m["created_at"]) / 86400 if m["created_at"] else None
-    m["fund_from"] = common.get("fund_from") or ""
-    m["fund_from_address"] = common.get("fund_from_address") or ""
+    m["fund_from"] = clean_text(common.get("fund_from") or "", 80)
+    m["fund_from_address"] = clean_text(common.get("fund_from_address") or "", 80)
     m["fund_amount"] = f(common.get("fund_amount"))
     m["follow_count"] = i(common.get("follow_count"))
     m["is_dev"] = m["created_tokens_n"] > 0 and m["created_tokens_n"] > 0.5 * max(1, m["token_num"])
@@ -1349,7 +1521,7 @@ def compute(d, latency_s, my_size):
         c = f(a.get("cost_usd"))
         if ev_type(a) == "buy":
             b24 += c
-            sym = (a.get("token") or {}).get("symbol") or (tok_addr(a) or "?")[:6]
+            sym = clean_sym((a.get("token") or {}).get("symbol")) or clean_sym(tok_addr(a) or "?")[:6]
             prev = recent_buys.get(sym, (0.0, 0.0))
             sup = f((a.get("token") or {}).get("total_supply"))
             px = f(a.get("price_usd"))
@@ -1399,7 +1571,7 @@ def compute(d, latency_s, my_size):
         )
         m["open_book"] = [
             {
-                "sym": (x.get("token") or {}).get("symbol") or "?",
+                "sym": clean_sym((x.get("token") or {}).get("symbol")) or "?",
                 "usd": f(x.get("usd_value")),
                 "chg": f(h_get(x, "total_profit_pnl", "profit_change")),
                 "cost": f(h_get(x, "accu_cost", "cost", "history_bought_cost")),
@@ -1466,10 +1638,22 @@ def compute(d, latency_s, my_size):
     # when the self-launch pull fetched closed rows, they are read here too.
     m["conviction_share"] = None
     m["conviction_top"] = []
+    #
+    # The wallet's own launches are left out: a launch buy costs almost nothing, so every
+    # own-token gain would clear "netted more than its cost basis" and refute a corroborated
+    # wash tag with the wallet's own launch. Suspected launch buys are left out for the same
+    # reason. Whether those gains are self-made is the self-launch share's question.
+    lc = launch_context(d, m["created_tokens_n"])
+    launch = lc["own"] | lc["sp"]["launch_addrs"]
+    # A launcher whose launch list could not be read cannot have its own tokens told apart,
+    # so its conviction share may corroborate a wash tag but never refute one.
+    m["launch_unknown"] = m["created_tokens_n"] > 0 and not lc["own"]
     by_addr = {}
-    for x in list(h) + list(d.get("realized_rows") or []):
-        a = (x.get("token") or {}).get("token_address") or id(x)
-        by_addr.setdefault(a, x)
+    for x in [x for x in h if isinstance(x, dict)] + lc["rows"]:
+        a = norm_addr((x.get("token") or {}).get("token_address") if isinstance(x.get("token"), dict) else None)
+        if a is not None and a in launch:
+            continue
+        by_addr.setdefault(a if a is not None else id(x), x)
     conv_rows = list(by_addr.values())
     if conv_rows:
         gains, conv, conv_syms, gainers = 0.0, 0.0, [], 0
@@ -1477,7 +1661,7 @@ def compute(d, latency_s, my_size):
             # `realized_profit` is the right numerator — a wash trader's closed loops are
             # what the tag is about. Fall back to `total_profit` only when the row omits it.
             rp = f(h_get(x, "realized_profit", "total_profit"))
-            if rp <= 0:
+            if not math.isfinite(rp) or rp <= 0:
                 continue
             gains += rp
             gainers += 1
@@ -1486,7 +1670,8 @@ def compute(d, latency_s, my_size):
             per_exit = safe_div(rp, sells) if sells > 0 else rp
             if (cost > 0 and rp >= cost) or per_exit >= 1000:
                 conv += rp
-                conv_syms.append(((x.get("token") or {}).get("symbol") or "?", rp))
+                tok = x.get("token") if isinstance(x.get("token"), dict) else {}
+                conv_syms.append((clean_sym(tok.get("symbol")) or "?", rp))
         if gains > 0:
             if gainers >= 3:
                 m["conviction_share"] = conv / gains
@@ -1523,6 +1708,11 @@ def compute(d, latency_s, my_size):
     # a real net edge, demote the tag in place: it stays visible as a warning with the
     # number that refuted it, and it no longer vetoes G1. Mutating `tag_info` here means
     # every render site downstream follows automatically.
+    m["conviction_blocked"] = False
+    if (m["launch_unknown"] and m["conviction_share"] is not None and m["conviction_share"] >= 0.5
+            and any(t["sev"] == "veto_g1" for t in m["tag_info"])):
+        m["conviction_share"] = None
+        m["conviction_blocked"] = True
     m["wash_refuted"] = None
     cs = m["conviction_share"]
     if cs is not None and cs >= 0.5:
@@ -1536,7 +1726,7 @@ def compute(d, latency_s, my_size):
                 t["refuted"] = True
 
     # ── dev record ──
-    ct = d.get("created_tokens") or {}
+    ct = d.get("created_tokens") if isinstance(d.get("created_tokens"), dict) else {}
     if ct:
         m["dev_open"] = i(ct.get("open_count"))
         m["dev_inner"] = i(ct.get("inner_count"))
@@ -1553,22 +1743,25 @@ def compute(d, latency_s, my_size):
     # ── self-launch attribution (see self_launch_split) ──
     m["self_lo"] = m["self_hi"] = None
     m["self_clear"] = False
-    rr = d.get("realized_rows") or []
-    if ct and rr:
-        own = {t.get("token_address") for t in ct.get("tokens") or [] if t.get("token_address")}
-        complete = len(own) >= i(ct.get("inner_count")) + i(ct.get("open_count"))
-        sp = self_launch_split(rr, own, complete, d.get("_wallet") or "", d.get("creator_of") or {})
+    rr = lc["rows"]
+    if lc["ct"] and rr and not d.get("self_partial"):
+        sp = lc["sp"]
         m["self_lo"], m["self_hi"] = sp["lo"], sp["hi"]
         m["self_own_usd"], m["self_ext_usd"] = sp["own"], sp["ext"]
         m["self_own_n"] = sp["own_n"]
         m["self_own_top"] = [s for s, _ in sp["own_top"]]
         m["self_ext_top"] = [s for s, _ in sp["ext_top"]]
-        ts = [i(r.get("last_active_timestamp")) for r in rr if i(r.get("last_active_timestamp")) > 0]
+        # Only plausible epoch seconds (2009-2100): an out-of-range value would overflow gmtime().
+        ts = [t for t in (i(r.get("last_active_timestamp")) for r in rr) if 1_230_000_000 < t < 4_102_444_800]
         m["self_since"] = (time.strftime("%Y-%m-%d", time.gmtime(min(ts)))
                            if d.get("realized_truncated") and ts else None)
         # A launcher by count whose profit demonstrably comes from other people's tokens is
-        # a trader who also launches. The count stops vetoing; it is still printed.
-        m["self_clear"] = m["self_hi"] is not None and m["self_hi"] < SELF_WARN
+        # a trader who also launches. The count stops vetoing; it is still printed. On a
+        # truncated sample "demonstrably" needs the sample to cover the all-time record.
+        all_time = f(d.get("realized_all_time"), f(pall.get("total_realized_profit"), 0.0))
+        covered = (not d.get("realized_truncated")
+                   or (math.isfinite(sp["gains"]) and all_time > 0 and sp["gains"] >= SELF_COVER * all_time))
+        m["self_clear"] = m["self_hi"] is not None and m["self_hi"] < SELF_WARN and covered
 
     # ── friction: the numbers that decide whether the edge survives being copied ──
     # Per-trade net is the yardstick everything else is measured against. A wallet netting
@@ -1627,7 +1820,7 @@ def compute(d, latency_s, my_size):
         flagged += 1
         if not _b(tk.get("is_honeypot")):
             continue
-        sym = tk.get("symbol") or (tok_addr(h_row) or "?")[:6]
+        sym = clean_sym(tk.get("symbol")) or clean_sym(tok_addr(h_row) or "?")[:6]
         sells = i(h_get(h_row, "history_total_sells", "sell_tx_count"))
         # A honeypot is a token you CANNOT sell. When the same row records completed sells,
         # the flag is contradicted by this wallet's own history — the usual cause is a
@@ -1696,32 +1889,29 @@ def gates(m):
     # measuring the wallet trading against itself, and no amount of good-looking
     # distribution rescues that.
     wash = [t for t in m["tag_info"] if t["sev"] == "veto_g1"]
-    if wash and m["conviction_share"] is None:
+    self_veto = m["self_lo"] is not None and m["self_lo"] >= SELF_VETO
+    # A measured finding outranks an unmeasured one: a confirmed self-launch share decides
+    # G1 before a wash tag that cannot be checked would leave it open.
+    if wash and m["conviction_share"] is None and not self_veto:
         # Tag present and uncheckable. This is exactly the ⚪ case: "we could not verify" is
         # not "confirmed fake", and it is not "fine" either. Do not manufacture a ❌.
         g["G1"] = (
             None,
+            T('where the profit came from cannot be checked — its launch list could not be read, so its own tokens cannot be told apart from the rest; the {0} in this window is neither confirmed nor refuted', usd(m['realized_7d']))
+            if m.get("conviction_blocked") else
             T('where the profit came from cannot be checked (holdings unavailable) — the {0} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run', usd(m['realized_7d'])),
         )
-    elif wash:
+    elif wash and m["conviction_share"] is not None:
         g["G1"] = (
             False,
             T('only {0} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume, so the {1} realized P&L cannot be taken at face value', pct(m['conviction_share']), usd(m['realized_7d'])),
         )
-    elif m["self_lo"] is not None and m["self_lo"] >= SELF_VETO:
+    elif self_veto:
         g["G1"] = (
             False,
             T('{0} of realized gains ({1}) came from {2:,} tokens it deployed itself, led by {3}{4}',
               pct(m['self_lo']), usd(m['self_own_usd']), m['self_own_n'],
               joinsym(m['self_own_top']), self_window(m)),
-        )
-    elif m["self_hi"] is not None and m["self_hi"] >= SELF_VETO:
-        # Straddles the line on suspects that could not be resolved. Same rule as an
-        # unchecked wash tag: not measured is ⚪, never ❌.
-        g["G1"] = (
-            None,
-            T('{0}–{1} of realized gains may come from tokens it deployed — its launch list is truncated and the rest could not be confirmed{2}',
-              pct(m['self_lo']), pct(m['self_hi']), self_window(m)),
         )
     elif m["is_dev"] and not m["self_clear"]:
         g["G1"] = (
@@ -1739,6 +1929,16 @@ def gates(m):
         g["G1"] = (
             False,
             T('profit concentration {0} (across {1} positions) — one coin carried the record', pct(m['pcr']), m['holdings_n']),
+        )
+    elif m["self_hi"] is not None and m["self_hi"] >= SELF_VETO:
+        # Straddles the line on suspects that could not be resolved. Same rule as an
+        # unchecked wash tag: not measured is ⚪, never ❌. It sits below every measured
+        # failure above — the count veto included — so an open question can never soften
+        # a finding: it only stops a pass.
+        g["G1"] = (
+            None,
+            T('{0}–{1} of realized gains may come from tokens it deployed — its launch list is truncated and the rest could not be confirmed{2}',
+              pct(m['self_lo']), pct(m['self_hi']), self_window(m)),
         )
     else:
         if m["pcr_represents_record"]:
@@ -1764,10 +1964,18 @@ def gates(m):
             detail.append(T('{0} of realized gains came from size positions like {1} that netted more than their own cost basis — the profit is priced in, not churned',
                             pct(m['wash_refuted']['share']), top))
         if m["self_hi"] is not None and m["self_hi"] >= SELF_WARN:
-            detail.append(T('⚠️ {0} of realized gains came from tokens it deployed itself — on other people\'s tokens it made {1}{2}',
-                            pct(m['self_hi']), usd(m['self_ext_usd']), self_window(m)))
+            # `hi` includes unconfirmed suspects: a confirmed share is stated, a range is not.
+            if m['self_hi'] - m['self_lo'] < 0.0005:
+                detail.append(T('⚠️ {0} of realized gains came from tokens it deployed itself — on other people\'s tokens it made {1}{2}',
+                                pct(m['self_lo']), usd(m['self_ext_usd']), self_window(m)))
+            else:
+                detail.append(T('⚠️ {0}–{1} of realized gains may come from tokens it deployed itself — on other people\'s tokens it made {2}{3}',
+                                pct(m['self_lo']), pct(m['self_hi']), usd(m['self_ext_usd']), self_window(m)))
+        elif m["self_lo"] is None and m["created_tokens_n"] and not m["is_dev"]:
+            detail.append(T('launched {0:,} tokens — the share of profit from them was not measured (it needs at least 3 winning positions and the per-token P&L pull)',
+                            m['created_tokens_n']))
         elif m["self_clear"] and m["created_tokens_n"]:
-            detail.append(T('launched {0:,} tokens, but only {1} of realized gains came from them — the profit is from trading {2}{3}',
+            detail.append(T('launched {0:,} tokens, but at most {1} of realized gains came from them — the profit is from trading {2}{3}',
                             m['created_tokens_n'], pct(m['self_hi']),
                             joinsym(m['self_ext_top']), self_window(m)))
         g["G1"] = (True, detail)
@@ -1895,7 +2103,7 @@ def gates(m):
     # price, which it controls. Reporting them as ✅ would be reporting self-dealing
     # as skill — so they are marked unevaluated, not passed. Unless the attribution showed
     # its profit comes from other people's tokens: then those gates measure its trading.
-    if m["is_dev"] and not m["self_clear"]:
+    if (m["is_dev"] and not m["self_clear"]) or (m["self_lo"] is not None and m["self_lo"] >= SELF_VETO):
         na = T('launcher wallet — this measures its handling of its own token, so it does not apply')
         g["G3"] = (None, na)
         g["G4"] = (None, na)
@@ -1921,7 +2129,7 @@ def verdict(m, g):
                 T('First confirm this is a wallet, not a token contract. Three checks below.'))
 
     if p["G1"] is False:
-        if any(t["sev"] == "veto_g1" for t in m["tag_info"]):
+        if any(t["sev"] == "veto_g1" for t in m["tag_info"]) and m["conviction_share"] is not None:
             return ("🔴",
                     T('DO NOT COPY · the profit is self-dealt'),
                     T('Treat its P&L as if it were not there. Watch what it buys; do not use these numbers.'))
@@ -2970,7 +3178,7 @@ def main(argv):
     if fixture:
         with open(fixture) as fh:
             d = json.load(fh)
-        wallet = d.get("_wallet", "FIXTURE")
+        wallet = d.get("_wallet") if isinstance(d.get("_wallet"), str) and d.get("_wallet") else "FIXTURE"
         chain = d.get("_chain", "sol")
         gaps += d.get("_gaps", [])
     else:
@@ -2988,6 +3196,7 @@ def main(argv):
 
     m = compute(d, latency_s, my_size)
     g = gates(m)
+    gaps = [clean_gap(gp) for gp in gaps]
     print(report(wallet, chain, m, g, gaps, brief))
     return 0
 
