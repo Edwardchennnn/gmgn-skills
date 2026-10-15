@@ -176,19 +176,17 @@ ZH = {
     "DO NOT COPY · it is a launcher trading its own tokens": "别跟 · 它是发币方，赚的是自己发的币",
     "DO NOT COPY · most of its profit came from tokens it launched": "别跟 · 它的盈利大头来自自己发的币",
     "HOLD OFF · over half its profit may come from its own launches": "先别动 · 一半以上的盈利可能来自它自己发的币",
+    "for reference: in the positions read, at most {0} of realized gains came from its own launches — the rest is from trading {1}{2}": "供参考：在读到的仓位里，最多只有 {0} 的已实现盈利来自它自己发的币 —— 其余来自交易 {1}{2}",
+    "launched {0:,} tokens — the share of profit from them was not measured (its launch list could not be read)": "发过 {0:,} 个币 —— 来自这些币的盈利占比本次未评估（发币列表没有取到）",
     "Check its launch record before sizing off this one.": "先查它的发盘记录，再决定要不要按这份战绩下注。",
     "{0} of realized gains ({1}) came from {2:,} tokens it deployed itself, led by {3}{4}": "{0} 的已实现盈利（{1}）来自它自己发的 {2:,} 个币，最大的是 {3}{4}",
     "{0}–{1} of realized gains may come from tokens it deployed — its launch list is truncated and the rest could not be confirmed{2}": "{0}–{1} 的已实现盈利可能来自它自己发的币 —— 发币列表不全，其余无法确认{2}",
     "⚠️ {0} of realized gains came from tokens it deployed itself — on other people's tokens it made {1}{2}": "⚠️ {0} 的已实现盈利来自它自己发的币 —— 在别人的盘上赚了 {1}{2}",
     "⚠️ {0}–{1} of realized gains may come from tokens it deployed itself — on other people's tokens it made {2}{3}": "⚠️ {0}–{1} 的已实现盈利可能来自它自己发的币 —— 在别人的盘上赚了 {2}{3}",
     "launched {0:,} tokens, but at most {1} of realized gains came from them — the profit is from trading {2}{3}": "发过 {0:,} 个币，但最多只有 {1} 的已实现盈利来自这些币 —— 盈利来自交易 {2}{3}",
-    "per-token realized P&L stopped after {0} pages: {1} — the self-launch share was read on those pages only": "按币的已实现盈亏读到第 {0} 页时中断：{1} —— 自发币盈利占比只按已读到的仓位计算",
+    "per-token realized P&L stopped after {0} pages: {1} — the self-launch share was read on those pages only": "按币的已实现盈亏读完 {0} 页后中断：{1} —— 自发币盈利占比只按已读到的仓位计算",
     " (positions active since {0})": "（统计 {0} 之后活跃过的仓位）",
     "per-token realized P&L unavailable: {0} — the share of profit from its own launches was not measured": "按币的已实现盈亏未取到：{0} —— 自发币盈利占比本次未评估",
-    "🏭 launches tokens, profits from trading": "🏭 发币方（但盈利靠交易）",
-    "🏭 launches tokens, older record not verified": "🏭 发币方（更早的记录未核实）",
-    "launched {0:,} tokens; in the positions read, at most {1} of realized gains came from them — the profit there is from trading {2}{3}. Its older positions were not read, so they are not verified": "发过 {0:,} 个币；在读到的仓位里，最多只有 {1} 的已实现盈利来自这些币 —— 这部分盈利来自交易 {2}{3}。更早的仓位没有读到，无法核实",
-    "HOLD OFF · its launches look minor, but its older record was not read": "先别动 · 自发币占比看起来很小，但更早的记录没有读完",
     "Re-run once its launch list can be read. Do not size off this record first.": "等发币列表能取到时再跑一次。在那之前别按这份战绩下注。",
     "where the profit came from cannot be checked — its launch list could not be read, so its own tokens cannot be told apart from the rest; the {0} in this window is neither confirmed nor refuted": "盈利来源无法核验 —— 它的发币列表没有取到，自己发的币和其他币分不开；这个窗口的 {0} 既不能确认也不能排除",
     "launched {0:,} tokens — the share of profit from them was not measured (it needs at least 3 winning positions and the per-token P&L pull)": "发过 {0:,} 个币 —— 来自这些币的盈利占比本次未评估（需要至少 3 个盈利仓位，并取到按币的盈亏数据）",
@@ -929,7 +927,7 @@ def first_row(resp):
 # That is a suspect, not a finding: it widens hi, and only `lo` (matched by contract
 # address, or confirmed via `token info` -> dev.creator_address) may veto.
 SELF_VETO = 0.50      # lo at or above this -> G1 ❌
-SELF_WARN = 0.20      # hi below this -> the launch count stops vetoing; above -> a warning
+SELF_WARN = 0.20      # hi at or above this -> a warning line on a passing G1
 LAUNCH_BUY_S = 5
 SELF_VERIFY = 3       # largest suspects resolved via token info, only when the range straddles a line
 SELF_MIN_GAINERS = 3  # below this many winning positions a share is arithmetic, not evidence
@@ -943,10 +941,10 @@ SELF_MIN_PAGES = 6
 SELF_STABLE = 3
 SELF_MAX_PAGES = 20
 SELF_ROWS_PER_PAGE = 100  # 50 are asked for; a page with more than 100 rows is a cut-off
-# A clear reading lifts the count veto only when it is proven: the whole book was read, or
-# the launch list is complete and every listed launch was already seen (see all_own_seen).
-# Otherwise unread older positions can hold any amount of own-token gains, offset by losses
-# that net all-time profit cannot reveal — so no coverage ratio can bound them.
+# The attribution only ever ADDS a veto. It never lifts the launch-count veto and never
+# refutes a wash tag: proving a negative ("its profit is NOT from its own launches") needs
+# the whole book, a complete launch list and clean timing, and any inconsistency in those
+# would turn into a false pass. A missed own launch, by contrast, can only cost a veto.
 # A token address from an API row goes into a `token info` argv. It is third-party data, so it
 # must look like an address before it gets there — never like a flag.
 TOKEN_ADDR_RE = re.compile(r"^(0x[0-9a-fA-F]{40}|[1-9A-HJ-NP-Za-km-z]{32,44})$")
@@ -967,7 +965,9 @@ def self_launch_split(rows, own, list_complete, wallet, creator_of):
             continue
         tok = r.get("token") if isinstance(r.get("token"), dict) else {}
         raw_addr = tok.get("token_address")
-        addr = norm_addr(raw_addr)
+        # A malformed address cannot be matched against the launch list, so the row is left
+        # out rather than counted external.
+        addr = valid_addr(raw_addr)
         gain = f(r.get("realized_profit"))
         if addr is None or not math.isfinite(gain):
             continue
@@ -1027,7 +1027,7 @@ def norm_addr(a):
 def valid_addr(a):
     """A normalised address only if it has an address's shape; anything else is None."""
     n = norm_addr(a)
-    return n if n is not None and TOKEN_ADDR_RE.fullmatch(n if not n.startswith("0x") else n.lower()) else None
+    return n if n is not None and TOKEN_ADDR_RE.fullmatch(n) else None
 
 
 def own_token_set(ct):
@@ -1053,15 +1053,30 @@ def launch_list_complete(own, ct, created_n):
     return bool(totals) and len(own) >= max(totals)
 
 
-def all_own_seen(own, complete, rows):
-    """A truncated book still proves a clear reading when the launch list is complete and
-    every listed launch already appeared in the rows read: each own token's gain is then
-    known, and the unread rows can only be external, which lowers the share further."""
-    if not (complete and own):
-        return False
-    seen = {norm_addr((r.get("token") or {}).get("token_address"))
-            for r in rows if isinstance(r, dict) and isinstance(r.get("token"), dict)}
-    return own <= seen
+def conviction_of(rows):
+    """(share, top-3) of realized gains from positions with a genuine edge — see compute()."""
+    rows = [x for x in rows if isinstance(x, dict)]
+    if not rows:
+        return None, []
+    gains, conv, conv_syms, gainers = 0.0, 0.0, [], 0
+    for x in rows:
+        # `realized_profit` is the right numerator — a wash trader's closed loops are what the
+        # tag is about. Fall back to `total_profit` only when the row omits it.
+        rp = f(h_get(x, "realized_profit", "total_profit"))
+        if not math.isfinite(rp) or rp <= 0:
+            continue
+        gains += rp
+        gainers += 1
+        cost = f(h_get(x, "accu_cost", "cost", "history_bought_cost"))
+        sells = i(h_get(x, "history_total_sells", "sell_tx_count"))
+        per_exit = safe_div(rp, sells) if sells > 0 else rp
+        if (cost > 0 and rp >= cost) or per_exit >= 1000:
+            conv += rp
+            tok = x.get("token") if isinstance(x.get("token"), dict) else {}
+            conv_syms.append((clean_sym(tok.get("symbol")) or "?", rp))
+    if gains <= 0:
+        return None, []
+    return (conv / gains if gainers >= 3 else None), sorted(conv_syms, key=lambda kv: -kv[1])[:3]
 
 
 def launch_context(d, created_n):
@@ -1281,11 +1296,8 @@ def collect(chain, wallet, gaps):
                 cls = self_launch_class(sp["lo"], sp["hi"])
                 classes.append(cls)
                 # Stable includes stably unmeasurable (None): past the floor, a book with too
-                # few winners will not grow a verdict, so reading 20 pages would be waste. A
-                # "clear" keeps paging until it is proven — every listed launch seen — or the
-                # book ends: an own launch further back would otherwise go unread.
-                settled = cls != "clear" or all_own_seen(own, complete, rows)
-                if page + 1 >= SELF_MIN_PAGES and len(set(classes[-SELF_STABLE:])) == 1 and settled:
+                # few winners will not grow a verdict, so reading 20 pages would be waste.
+                if page + 1 >= SELF_MIN_PAGES and len(set(classes[-SELF_STABLE:])) == 1:
                     break
             if cut is not None:
                 pages_read, why = cut
@@ -1682,46 +1694,26 @@ def compute(d, latency_s, my_size):
     #
     # The open book alone under-reads this: a wallet's biggest wins are usually closed. So
     # when the self-launch pull fetched closed rows, they are read here too.
-    m["conviction_share"] = None
-    m["conviction_top"] = []
+    m["conviction_share"], m["conviction_top"] = conviction_of(h)
     #
-    # The wallet's own launches are left out: a launch buy costs almost nothing, so every
-    # own-token gain would clear "netted more than its cost basis" and refute a corroborated
-    # wash tag with the wallet's own launch. Suspected launch buys are left out for the same
-    # reason. Whether those gains are self-made is the self-launch share's question.
+    # The wash test reads the same share minus the wallet's own and suspected launches: a
+    # launch buy costs almost nothing, so its gain always "nets more than its cost basis" and
+    # would refute a wash tag with the wallet's own launch. Leaving launches out can only
+    # lower the share, so this never refutes a tag that the open book alone would not.
     lc = launch_context(d, m["created_tokens_n"])
     launch = lc["own"] | lc["sp"]["launch_addrs"]
-    # A launcher whose launch list could not be read cannot have its own tokens told apart,
-    # so its conviction share may corroborate a wash tag but never refute one.
+    # A launcher whose launch list could not be read cannot have its own tokens told apart.
     m["launch_unknown"] = m["created_tokens_n"] > 0 and not lc["own"]
-    by_addr = {}
-    for x in [x for x in h if isinstance(x, dict)] + lc["rows"]:
-        a = norm_addr((x.get("token") or {}).get("token_address") if isinstance(x.get("token"), dict) else None)
-        if a is not None and a in launch:
-            continue
-        by_addr.setdefault(a if a is not None else id(x), x)
-    conv_rows = list(by_addr.values())
-    if conv_rows:
-        gains, conv, conv_syms, gainers = 0.0, 0.0, [], 0
-        for x in conv_rows:
-            # `realized_profit` is the right numerator — a wash trader's closed loops are
-            # what the tag is about. Fall back to `total_profit` only when the row omits it.
-            rp = f(h_get(x, "realized_profit", "total_profit"))
-            if not math.isfinite(rp) or rp <= 0:
-                continue
-            gains += rp
-            gainers += 1
-            cost = f(h_get(x, "accu_cost", "cost", "history_bought_cost"))
-            sells = i(h_get(x, "history_total_sells", "sell_tx_count"))
-            per_exit = safe_div(rp, sells) if sells > 0 else rp
-            if (cost > 0 and rp >= cost) or per_exit >= 1000:
-                conv += rp
-                tok = x.get("token") if isinstance(x.get("token"), dict) else {}
-                conv_syms.append((clean_sym(tok.get("symbol")) or "?", rp))
-        if gains > 0:
-            if gainers >= 3:
-                m["conviction_share"] = conv / gains
-            m["conviction_top"] = sorted(conv_syms, key=lambda kv: -kv[1])[:3]
+    # The wash test uses the LOWER of the two shares. Leaving launches out could otherwise
+    # raise the share (when a launch was a weak position) and refute a tag the open book
+    # alone corroborates — the test must never be looser than it was without launches.
+    m["wash_share"], m["wash_top"] = m["conviction_share"], m["conviction_top"]
+    if launch and m["conviction_share"] is not None:
+        ex_share, ex_top = conviction_of(
+            [x for x in h if not (isinstance(x, dict) and isinstance(x.get("token"), dict)
+                                  and norm_addr(x["token"].get("token_address")) in launch)])
+        if ex_share is not None and ex_share < m["conviction_share"]:
+            m["wash_share"], m["wash_top"] = ex_share, ex_top
 
     # ── where the money came from ───────────────────────────────────────────────
     # "It made 15.8%" does not tell a reader whether the edge is speed or selection, and
@@ -1755,12 +1747,12 @@ def compute(d, latency_s, my_size):
     # number that refuted it, and it no longer vetoes G1. Mutating `tag_info` here means
     # every render site downstream follows automatically.
     m["conviction_blocked"] = False
-    if (m["launch_unknown"] and m["conviction_share"] is not None and m["conviction_share"] >= 0.5
+    if (m["launch_unknown"] and m["wash_share"] is not None and m["wash_share"] >= 0.5
             and any(t["sev"] == "veto_g1" for t in m["tag_info"])):
-        m["conviction_share"] = None
+        m["wash_share"] = None
         m["conviction_blocked"] = True
     m["wash_refuted"] = None
-    cs = m["conviction_share"]
+    cs = m["wash_share"]
     if cs is not None and cs >= 0.5:
         for t in m["tag_info"]:
             if t["sev"] == "veto_g1":
@@ -1788,10 +1780,9 @@ def compute(d, latency_s, my_size):
 
     # ── self-launch attribution (see self_launch_split) ──
     m["self_lo"] = m["self_hi"] = None
-    m["self_clear"] = m["self_clear_partial"] = False
     rr = lc["rows"]
     # An empty own set while it launched tokens means the list was not read: own tokens cannot
-    # be told apart, so nothing is measured (and nothing can be cleared).
+    # be told apart, so nothing is measured.
     if lc["ct"] and lc["own"] and rr and not d.get("self_partial"):
         sp = lc["sp"]
         m["self_lo"], m["self_hi"] = sp["lo"], sp["hi"]
@@ -1803,14 +1794,6 @@ def compute(d, latency_s, my_size):
         ts = [t for t in (i(r.get("last_active_timestamp")) for r in rr) if 1_230_000_000 < t < 4_102_444_800]
         m["self_since"] = (time.strftime("%Y-%m-%d", time.gmtime(min(ts)))
                            if d.get("realized_truncated") and ts else None)
-        # A launcher by count whose profit demonstrably comes from other people's tokens is
-        # a trader who also launches: the count stops vetoing; it is still printed. Only a
-        # fully read book is demonstrable. A clear reading on a truncated one is kept as
-        # `self_clear_partial`: it holds G1 open (⚪) instead of vetoing or passing it.
-        clear_reading = m["self_hi"] is not None and m["self_hi"] < SELF_WARN
-        proven = not d.get("realized_truncated") or all_own_seen(lc["own"], lc["complete"], rr)
-        m["self_clear"] = clear_reading and proven
-        m["self_clear_partial"] = clear_reading and not proven
 
     # ── friction: the numbers that decide whether the edge survives being copied ──
     # Per-trade net is the yardstick everything else is measured against. A wallet netting
@@ -1943,7 +1926,7 @@ def gates(m):
     # G1 before a wash tag that cannot be checked would leave it open.
     # A wash check blocked only by an unreadable launch list is no reason to hold open a
     # launcher by count: the count veto below is a measured finding and outranks it.
-    if wash and m["conviction_share"] is None and not self_veto \
+    if wash and m["wash_share"] is None and not self_veto \
             and not (m.get("conviction_blocked") and m["is_dev"]):
         # Tag present and uncheckable. This is exactly the ⚪ case: "we could not verify" is
         # not "confirmed fake", and it is not "fine" either. Do not manufacture a ❌.
@@ -1953,10 +1936,10 @@ def gates(m):
             if m.get("conviction_blocked") else
             T('where the profit came from cannot be checked (holdings unavailable) — the {0} in this window is neither confirmed nor refuted. Configure GMGN_PRIVATE_KEY and re-run', usd(m['realized_7d'])),
         )
-    elif wash and m["conviction_share"] is not None:
+    elif wash and m["wash_share"] is not None:
         g["G1"] = (
             False,
-            T('only {0} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume, so the {1} realized P&L cannot be taken at face value', pct(m['conviction_share']), usd(m['realized_7d'])),
+            T('only {0} of realized gains came from positions netting more than their own cost basis — the rest is round-tripped volume, so the {1} realized P&L cannot be taken at face value', pct(m['wash_share']), usd(m['realized_7d'])),
         )
     elif self_veto:
         g["G1"] = (
@@ -1965,11 +1948,13 @@ def gates(m):
               pct(m['self_lo']), usd(m['self_own_usd']), m['self_own_n'],
               joinsym(m['self_own_top']), self_window(m)),
         )
-    elif m["is_dev"] and not m["self_clear"] and not m["self_clear_partial"]:
-        g["G1"] = (
-            False,
-            T('launcher wallet: created {0} vs traded {1} — its win rate and entry timing are self-authored, not a market read', m['created_tokens_n'], m['token_num']),
-        )
+    elif m["is_dev"]:
+        why = [T('launcher wallet: created {0} vs traded {1} — its win rate and entry timing are self-authored, not a market read', m['created_tokens_n'], m['token_num'])]
+        # The attribution is printed for reference only: it never lifts the count veto.
+        if m["self_hi"] is not None and m["self_hi"] < SELF_WARN:
+            why.append(T('for reference: in the positions read, at most {0} of realized gains came from its own launches — the rest is from trading {1}{2}',
+                         pct(m['self_hi']), joinsym(m['self_ext_top']), self_window(m)))
+        g["G1"] = (False, why if len(why) > 1 else why[0])
     elif m["token_num"] < 5:
         g["G1"] = (
             False,
@@ -1992,14 +1977,6 @@ def gates(m):
             T('{0}–{1} of realized gains may come from tokens it deployed — its launch list is truncated and the rest could not be confirmed{2}',
               pct(m['self_lo']), pct(m['self_hi']), self_window(m)),
         )
-    elif m["is_dev"] and m["self_clear_partial"]:
-        # Recent positions clear it, older ones were not read: neither the count veto nor a
-        # pass is earned. Ranked with the other open questions, below every measured failure.
-        g["G1"] = (
-            None,
-            T('launched {0:,} tokens; in the positions read, at most {1} of realized gains came from them — the profit there is from trading {2}{3}. Its older positions were not read, so they are not verified',
-              m['created_tokens_n'], pct(m['self_hi']), joinsym(m['self_ext_top']), self_window(m)),
-        )
     else:
         if m["pcr_represents_record"]:
             pcr_txt = T('profit concentration {0}', pct(m['pcr']))
@@ -2020,7 +1997,7 @@ def gates(m):
         detail = [T('{0:,} tokens, {1:,} in profit, {2}, {3}',
                      m['token_num'], m['winners'], wr_txt, pcr_txt)]
         if m["wash_refuted"]:
-            top = joinsym(sym for sym, _v in m["conviction_top"])
+            top = joinsym(sym for sym, _v in m["wash_top"])
             detail.append(T('{0} of realized gains came from size positions like {1} that netted more than their own cost basis — the profit is priced in, not churned',
                             pct(m['wash_refuted']['share']), top))
         if m["self_hi"] is not None and m["self_hi"] >= SELF_WARN:
@@ -2031,13 +2008,12 @@ def gates(m):
             else:
                 detail.append(T('⚠️ {0}–{1} of realized gains may come from tokens it deployed itself — on other people\'s tokens it made {2}{3}',
                                 pct(m['self_lo']), pct(m['self_hi']), usd(m['self_ext_usd']), self_window(m)))
-        elif m["self_lo"] is None and m["created_tokens_n"] and not m["is_dev"]:
-            detail.append(T('launched {0:,} tokens — the share of profit from them was not measured (it needs at least 3 winning positions and the per-token P&L pull)',
+        elif m["self_lo"] is None and m["created_tokens_n"]:
+            detail.append(T('launched {0:,} tokens — the share of profit from them was not measured (its launch list could not be read)', m['created_tokens_n'])
+                          if m["launch_unknown"] else
+                          T('launched {0:,} tokens — the share of profit from them was not measured (it needs at least 3 winning positions and the per-token P&L pull)',
                             m['created_tokens_n']))
-        elif m["self_clear_partial"] and m["created_tokens_n"]:
-            detail.append(T('launched {0:,} tokens; in the positions read, at most {1} of realized gains came from them — the profit there is from trading {2}{3}. Its older positions were not read, so they are not verified',
-                            m['created_tokens_n'], pct(m['self_hi']), joinsym(m['self_ext_top']), self_window(m)))
-        elif m["self_clear"] and m["created_tokens_n"]:
+        elif m["created_tokens_n"]:
             detail.append(T('launched {0:,} tokens, but at most {1} of realized gains came from them — the profit is from trading {2}{3}',
                             m['created_tokens_n'], pct(m['self_hi']),
                             joinsym(m['self_ext_top']), self_window(m)))
@@ -2164,9 +2140,9 @@ def gates(m):
 
     # A launcher's entry timing and loss-cutting are measurements of its own token's
     # price, which it controls. Reporting them as ✅ would be reporting self-dealing
-    # as skill — so they are marked unevaluated, not passed. Unless the attribution showed
-    # its profit comes from other people's tokens: then those gates measure its trading.
-    if (m["is_dev"] and not m["self_clear"]) or (m["self_lo"] is not None and m["self_lo"] >= SELF_VETO):
+    # as skill — so they are marked unevaluated, not passed. The same holds for a wallet whose
+    # gains the attribution traced to its own launches.
+    if m["is_dev"] or (m["self_lo"] is not None and m["self_lo"] >= SELF_VETO):
         na = T('launcher wallet — this measures its handling of its own token, so it does not apply')
         g["G3"] = (None, na)
         g["G4"] = (None, na)
@@ -2192,7 +2168,7 @@ def verdict(m, g):
                 T('First confirm this is a wallet, not a token contract. Three checks below.'))
 
     if p["G1"] is False:
-        if any(t["sev"] == "veto_g1" for t in m["tag_info"]) and m["conviction_share"] is not None:
+        if any(t["sev"] == "veto_g1" for t in m["tag_info"]) and m["wash_share"] is not None:
             return ("🔴",
                     T('DO NOT COPY · the profit is self-dealt'),
                     T('Treat its P&L as if it were not there. Watch what it buys; do not use these numbers.'))
@@ -2201,7 +2177,7 @@ def verdict(m, g):
                     T('DO NOT COPY · most of its profit came from tokens it launched'),
                     T('Do not read its trading — what matters is how many of the tokens it '
                       'launched survived. Want me to look at its launch record?'))
-        if m["is_dev"] and not m["self_clear"] and not m["self_clear_partial"]:
+        if m["is_dev"]:
             return ("🔴",
                     T('DO NOT COPY · it is a launcher trading its own tokens'),
                     T('Do not read its trading — what matters is how many of the tokens it '
@@ -2238,11 +2214,6 @@ def verdict(m, g):
             and not any(t["sev"] == "veto_g1" for t in m["tag_info"])):
         return ("🟡",
                 T('HOLD OFF · over half its profit may come from its own launches'),
-                T('Check its launch record before sizing off this one.'))
-    if (p["G1"] is None and m.get("self_clear_partial")
-            and not any(t["sev"] == "veto_g1" for t in m["tag_info"])):
-        return ("🟡",
-                T('HOLD OFF · its launches look minor, but its older record was not read'),
                 T('Check its launch record before sizing off this one.'))
     if p["G1"] is None:
         return ("🟡",
@@ -2501,13 +2472,7 @@ def profit_engine(m):
 def archetype(m):
     """Say what kind of counterparty this is, before any number gets interpreted."""
     tags = []
-    if m["self_lo"] is not None and m["self_lo"] >= SELF_VETO:
-        tags.append(T('🏭 launcher (marks its own homework)'))
-    elif m["is_dev"] and m["self_clear"]:
-        tags.append(T('🏭 launches tokens, profits from trading'))
-    elif m["is_dev"] and m["self_clear_partial"]:
-        tags.append(T('🏭 launches tokens, older record not verified'))
-    elif m["is_dev"]:
+    if m["is_dev"] or (m["self_lo"] is not None and m["self_lo"] >= SELF_VETO):
         tags.append(T('🏭 launcher (marks its own homework)'))
     if m["per_day"] > 50:
         tags.append(T('🤖 bot-tier {0:,.0f} trades/day', m['per_day']))

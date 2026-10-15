@@ -48,7 +48,7 @@ Each gate returns ✅ pass, ❌ fail, or ⚪ unevaluated. **⚪ never renders as
 
 | Gate | Question | Fails when |
 |------|----------|-----------|
-| **G1 Authenticity** | Is the record real, or manufactured? | A `wash_trader`-class tag is present **and corroborated** by the profit attribution below; or ≥ 50% of realized gains are confirmed to come from tokens it deployed itself (see *Where a launcher's profit came from*); or it is a launcher by count (`created_token_count` > half of `token_num`) and that attribution did not clear it; or `token_num < 5`; or one token carried the whole result |
+| **G1 Authenticity** | Is the record real, or manufactured? | A `wash_trader`-class tag is present **and corroborated** by the profit attribution below; or ≥ 50% of realized gains are confirmed to come from tokens it deployed itself (see *Where a launcher's profit came from*); or it is a launcher (`created_token_count` > half of `token_num`); or `token_num < 5`; or one token carried the whole result |
 | **G2 Currency** | Is the edge still working? | 7d ROI ≤ −10% while all-time ROI > +10% (broken down); or both 7d and 30d are negative; or it never worked |
 | **G3 Reachability** | Can *you* get filled? | Median copy window < 3× your latency; or median entry mcap < $30k; or a `sandwich_bot`/`mev_bot` tag; or ≥10k followers while trading sub-$1M caps; or gas ≥25% of profit; or average buy < $50; or > 100 trades/day |
 | **G4 Survivability** | Does it cut losses? | ≥ 2 live positions are honeypots; or ≥ 35% of its tokens are down more than 50%; or ≥ 3 positions down 90%+ with zero sells |
@@ -59,20 +59,19 @@ detail.
 
 Verdict is a pure function of the gates — G1 and G2 are vetoes, G3 and G4 change *what you do* rather than whether you act:
 
-Sixteen outcomes, short-circuited in this order:
+Fifteen outcomes, short-circuited in this order:
 
 | # | Gates | Verdict | Fixture |
 |---|-------|---------|---------|
 | 1 | no trades in the window | ⚪ NO READ · no trades in 7 days | `empty` |
 | 2 | G1 ❌ via a corroborated `wash_trader` | 🔴 DO NOT COPY · the profit is self-dealt | `wash-trader-kol` |
 | 2b | G1 ❌ via self-launch share ≥ 50% (confirmed) | 🔴 DO NOT COPY · most of its profit came from tokens it launched | — |
-| 3 | G1 ❌ via launcher by count, not cleared by attribution | 🔴 DO NOT COPY · it is a launcher trading its own tokens | `dev-launcher` |
+| 3 | G1 ❌ via launcher by count | 🔴 DO NOT COPY · it is a launcher trading its own tokens | `dev-launcher` |
 | 4 | G1 ❌ via one-coin | 🔴 DO NOT COPY · one token made all the money | `lucky-one-coin` |
 | 4b | G1 ❌ via profit concentration ≥ 75% | 🔴 DO NOT COPY · one position carried the whole result | — |
 | 5 | G1 ❌ via `token_num < 5` | ⚪ NO READ · only N tokens traded | `thin-sample` |
 | 6 | G2 ❌ | 🔴 DO NOT COPY · it has stopped making money | `cooled-star` |
 | 10b | G1 ⚪ via a self-launch range straddling 50% | 🟡 HOLD OFF · over half its profit may come from its own launches | — |
-| 10c | G1 ⚪ via an unproven clear reading of a launcher by count | 🟡 HOLD OFF · its launches look minor, but its older record was not read | — |
 | 10 | G1 ⚪ | 🟡 HOLD OFF · a wash-trading flag we cannot check | `unverifiable-wash` |
 | 7 | G3 ❌ **and** G4 ❌ | 🟡 WATCH, DO NOT COPY · you cannot get its fills, and it never cuts | `unreachable-and-no-cut` |
 | 8 | G3 ❌ | 🟡 WATCH, DO NOT COPY · you cannot get its fills | `sniper-bot` |
@@ -167,9 +166,16 @@ relying on it to make sense.**
 ## Where a launcher's profit came from
 
 `is_dev` is a count — launches against tokens traded — and the count does not say where the
-money came from. A wallet can launch many tokens and earn on other people's, or launch few and
-earn mostly on its own. So for any wallet with `created_token_count ≥ 1`, G1 attributes positive
-realized gains by token contract:
+money came from. A wallet can launch fewer tokens than half its traded count and still earn
+mostly on its own launches, and the count never looks. So for any wallet with
+`created_token_count ≥ 1`, G1 also attributes positive realized gains by token contract.
+
+**This attribution only ever adds a veto.** It never lifts the launch-count veto and never
+refutes a `wash_trader` tag: proving the negative — "its profit is not from its own launches" —
+would need the whole book, a complete launch list and clean timing, and any inconsistency in
+those would turn into a false pass. A missed own launch, by contrast, only costs a veto that
+the count test may still apply. So for every wallet the verdict is the same as, or stricter
+than, what the count test alone gives.
 
 | Bucket | Rule |
 |--------|------|
@@ -184,13 +190,10 @@ then can they move the verdict.
 | Range | G1 | Report |
 |-------|----|--------|
 | lo ≥ 50% | ❌ | `DO NOT COPY · most of its profit came from tokens it launched` |
-| lo < 50% ≤ hi | ⚪ — only when no measured G1 failure applies; a launcher by count still fails on the count | `HOLD OFF · over half its profit may come from its own launches` |
-| 20% ≤ hi < 50% | ✅ — but a launcher by count still fails on the count | A warning line with the share (a range when suspects remain) and what it made on other people's tokens |
-| hi < 20% | ✅ — when proven | The launch count stops vetoing — G1 says the profit is from trading, and G3/G4 are evaluated instead of marked not-applicable. Proven means the whole book was read, or the launch list is complete and every listed launch already appeared in the rows read (each own token's gain is then known, and unread rows can only be external). Unproven, a launcher by count gets ⚪ instead and any other launcher passes with a line saying its older positions were not verified: unread positions can hold any amount of own-token gains, offset by losses the all-time net cannot reveal |
-| not measured — fewer than 3 winning positions, `created-tokens` or `holdings` unavailable, or the paging cut off before page 6 (a failed call, an empty or malformed page that still points onward, a repeated cursor) | — | Falls back to the count test, unchanged |
-
-Only positive realized gains are attributed. A launcher by count whose own tokens netted zero or
-less, and whose gains come from at least 3 external winners, is cleared like any other.
+| lo < 50% ≤ hi | ⚪ — only when no measured G1 failure applies (a launcher by count still fails on the count) | `HOLD OFF · over half its profit may come from its own launches` |
+| 20% ≤ hi < 50% | unchanged | A warning line with the share (a range when suspects remain) and what it made on other people's tokens |
+| hi < 20% | unchanged | A reference line with the share; a launcher by count still fails on the count |
+| not measured — fewer than 3 winning positions, `created-tokens` or `holdings` unavailable, or the paging cut off before page 6 | unchanged | The count test decides, exactly as without the attribution; G1 says why the share was not measured |
 
 The rules that hold it together:
 
@@ -202,23 +205,20 @@ The rules that hold it together:
   --order-by last_active_timestamp`. Every other sort returns at most 400 rows, and for a wallet
   with more positions than that those are not the global top, so the largest closed gains can
   be missing. Paging stops at page 6 at the earliest, once the last 3 pages agree on the verdict
-  class, at 20 pages at most; a clear reading keeps paging until it is proven (above) or the
-  book ends. A cut-off (failed call, timeout, malformed page, a page longer than 100 rows, an
-  empty page that still points onward, a repeated cursor) is never read as the end of the book.
-  A truncated sample names its start date. For a wallet that is not a launcher by count, a share
-  that could not be measured is said so in G1. A token that appears more than once counts once,
-  at its largest realized gain. Contract addresses are stripped and must be well-formed; EVM
-  addresses are compared case-insensitively, base58 exactly, and a `token info` creator only
-  counts when it is a well-formed address — anything else leaves the token a suspect.
-- **Those closed rows also feed the conviction share — minus the wallet's own launches.** A
-  wallet's biggest wins are usually closed, so the open book alone under-reads it and can
-  corroborate `wash_trader` on a record that its closed positions refute. Own and suspected
-  launch tokens are left out of that test: a launch buy costs almost nothing, so its gain
-  would always "net more than its cost basis" and refute the tag with the wallet's own launch.
-  When a wallet launched tokens but its launch list could not be read, its own tokens cannot be
-  told apart, so the conviction share may still corroborate the tag but can no longer refute
-  it — G1 is left ⚪ and says why. For a launcher by count the count veto still decides; the
-  open wash question never softens it.
+  class, at 20 pages at most. A cut-off (failed call, timeout, malformed page, a page longer
+  than 100 rows, an empty page that still points onward, a repeated cursor) is never read as
+  the end of the book. A truncated sample names its start date. A token that appears more than
+  once counts once, at its largest realized gain. Contract addresses are stripped and must be
+  well-formed (a malformed row is left out, not counted external); EVM addresses are compared
+  case-insensitively, base58 exactly, and a `token info` creator only counts when it is a
+  well-formed address — anything else leaves the token a suspect.
+- **The wash test never gets looser.** The conviction share is computed on the open book
+  exactly as before. The wash test uses the lower of that share and the same share with the
+  wallet's own and suspected launches left out: a launch buy costs almost nothing, so its gain
+  always "nets more than its cost basis" and would refute the tag with the wallet's own launch.
+  When a wallet launched tokens but its launch list could not be read, a share high enough to
+  refute the tag is not trusted: G1 is left ⚪ and says why — and for a launcher by count the
+  count veto decides instead.
 - **A measured finding outranks an unmeasured one.** A confirmed self-launch share ≥ 50% decides
   G1 even when a `wash_trader` tag could not be checked.
 
@@ -302,8 +302,8 @@ The script computes these; know what they mean so you can answer a question abou
 | **Copy window** | Median seconds from the wallet's first buy of a token to its first sell | The budget you have to land an order. Compared against `--latency` at a **3×** margin — a 4-second window against 3-second latency technically "passes" and is not tradeable |
 | **Entry mcap band** | p25/p50/p75 of `price_usd × total_supply` on buy rows | A median under $30k means it buys pre-graduation and you enter at 5–10× its cost |
 | **Profit concentration** | Largest winning position's share of all gains | Trusted only with **≥3 winners across ≥8 positions** — with one winner in the page it is 100% by arithmetic, not by evidence |
-| **Conviction share** | Gains from positions netting more than their own cost basis, or ≥$1k per exit, over open and (for launchers) closed positions | The corroboration test for `wash_trader` |
-| **Self-launch share** | lo–hi share of positive realized gains from tokens the wallet deployed — see *Where a launcher's profit came from* | Whether a launcher's record measures its trading or its own tokens |
+| **Conviction share** | Gains from positions netting more than their own cost basis, or ≥$1k per exit, over the open book | The corroboration test for `wash_trader`; for a launcher the test uses the lower of this and the same share without its own launches |
+| **Self-launch share** | lo–hi share of positive realized gains from tokens the wallet deployed — see *Where a launcher's profit came from* | Adds a veto when a wallet's record is mostly its own launches; never lifts one |
 | **Top position / ladder depth** | Largest live position; median `history_total_buys` across the 5 largest | `avg_buy_usd` measures the *clip*, not the *position*. A wallet laddering $54K out of $3.4K clips reads as a small trader on clip size alone |
 | **Gas drag** | Sample gas × window trades ÷ realized profit | An estimate, labelled as one. At ≥25% the wallet gave away most of its edge before your slippage |
 | **Net per exit** | Realized profit ÷ sell count | The yardstick gas and slippage are measured against |
@@ -334,7 +334,7 @@ issues zero API calls and finishes in seconds.
 Restore it rather than testing on live wallets alone. Live data moves — the 1d window is
 rolling and `activity` is a sample — so two runs minutes apart differ for reasons unrelated to
 your change, and a full dossier costs weight 23 or more against a bucket of 20, so a handful of
-verification runs rate-limits the account. Most of the sixteen verdict branches are also
+verification runs rate-limits the account. Most of the fifteen verdict branches are also
 close to impossible to reach on demand: you would need to find a wallet whose wash-trade flag
 is corroborated *right now*.
 
@@ -416,7 +416,7 @@ roughly **weight 23**, plus the self-launch tier for a wallet that launched toke
 | 2 | `portfolio activity` ×1–3 pages | 3 each | exist | Copy window, entry band, 24h posture | G3 → ⚪ |
 | 2a | `portfolio stats --period 30d` | 3 | exist | Mid-window ROI — G2's "7d and 30d both negative" veto | G2 degrades to 7d vs all-time |
 | 2b | `portfolio created-tokens` | 2 | exist | Launch record and own-token list — whenever `created_token_count ≥ 1` | Dev record omitted; self-launch share not measured |
-| 2b | `portfolio holdings --hide-closed false --order-by last_active_timestamp` ×1–20 pages | 2 each | **critical** | Per-token realized P&L, closed positions included — self-launch share and conviction share | G1 falls back to the launch-count test |
+| 2b | `portfolio holdings --hide-closed false --order-by last_active_timestamp` ×1–20 pages | 2 each | **critical** | Per-token realized P&L, closed positions included — the self-launch share | G1 falls back to the launch-count test |
 | 2b | `token info` ×0–3 | 1 each | exist | Creator of the largest suspects, only when they could move the verdict | Suspects stay suspects (⚪ at worst) |
 | 3 | `portfolio profits --period 1d` | 3 | exist | Today's ROI | Form curve loses a point |
 
