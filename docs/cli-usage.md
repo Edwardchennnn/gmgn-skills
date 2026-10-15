@@ -937,7 +937,7 @@ Token creation is asynchronous. Poll `order get` with the returned `order_id` if
 
 All business routes are protected by GMGN's leaky-bucket limiter. Current production behavior is:
 
-- `rate=10`, `capacity=10`
+- plan-based `rate`/`capacity`: Free `5/5`, Plus `20/20`, Pro `50/50`; each route charges its own weight
 - every limited `429` response includes `X-RateLimit-Reset`
 - `X-RateLimit-Reset` is a Unix timestamp in seconds, representing when the current cooldown is expected to end
 
@@ -951,6 +951,9 @@ Important notes:
 
 - `RATE_LIMIT_EXCEEDED` and `RATE_LIMIT_BANNED` are request-frequency limits. Continuing to send requests during the cooldown can extend the ban by 5 seconds each time, up to 5 minutes.
 - `ERROR_RATE_LIMIT_BLOCKED` is an error-count block on `POST /v1/trade/swap`. It is triggered by repeatedly hitting the same business error and should be treated as "fix the request first, then retry after reset".
+- `RATE_LIMIT_BANNED_MAX` means continued requests pushed the ban to its 5-minute ceiling. Stop all requests until `reset_at`; every request sent before then resets the ban to 5 minutes. The CLI never auto-retries it.
+- `PLAN_UPGRADE_REQUIRED` (HTTP 403) means the route's weight exceeds the plan's bucket capacity (for example Free calling `swap`, `multi-swap`, `order quote` or `track follow-wallet`). It can never succeed on the current plan, so it is not retried and does not trigger a ban; the CLI prints the upgrade link.
+- Every rate-limited response carries `X-RateLimit-Limit` (plan capacity) and `X-RateLimit-Remaining` (budget left after this request); `RATE_LIMIT_EXCEEDED` bodies also include `remaining`, `limit` and `weight`.
 
 ---
 
@@ -967,6 +970,8 @@ Important notes:
 | `AUTH_REPLAY_CHECK_UNAVAILABLE` | 503 | Anti-replay Redis unavailable (signed auth only) |
 | `RATE_LIMIT_EXCEEDED` | 429 | Rate limit exceeded |
 | `RATE_LIMIT_BANNED` | 429 | Temporarily banned due to repeated rate limit violations |
+| `RATE_LIMIT_BANNED_MAX` | 429 | Ban reached the 5-minute ceiling; stop all requests until `reset_at` |
+| `PLAN_UPGRADE_REQUIRED` | 403 | Endpoint unavailable on the current plan (weight exceeds plan capacity); upgrade required |
 | `ERROR_RATE_LIMIT_BLOCKED` | 429 | Temporarily blocked after repeated business errors on `swap` |
 | `TRADE_WALLET_MISMATCH` | 403 | `--from` address does not match the wallet bound to the API Key |
 | `CHAIN_NOT_SUPPORTED` | 400 | Unsupported chain |

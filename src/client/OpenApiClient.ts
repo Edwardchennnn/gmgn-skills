@@ -787,6 +787,11 @@ function buildOpenApiErrorMessage(params: OpenApiErrorParams): string {
 
   let message = parts.join(" ");
 
+  if (params.apiError === "PLAN_UPGRADE_REQUIRED") {
+    const upgrade = params.upgradeMessage ?? params.upgradeUrl ?? "Upgrade your plan to use this endpoint.";
+    return `${message}. This endpoint is unavailable on your current plan; retrying will not help. ${upgrade}`;
+  }
+
   if (params.status !== 429) {
     return message;
   }
@@ -797,6 +802,10 @@ function buildOpenApiErrorMessage(params: OpenApiErrorParams): string {
 
   if (params.apiError === "ERROR_RATE_LIMIT_BLOCKED") {
     return `${message}. Repeated business errors triggered a temporary block until ${resetText}. Fix the underlying request before retrying.`;
+  }
+
+  if (params.apiError === "RATE_LIMIT_BANNED_MAX") {
+    return `${message}. The ban has reached the 5-minute maximum. Stop ALL requests until ${resetText}; every request sent before then resets the ban to 5 minutes.`;
   }
 
   if (params.apiError === "RATE_LIMIT_EXCEEDED" || params.apiError === "RATE_LIMIT_BANNED") {
