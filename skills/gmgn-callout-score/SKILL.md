@@ -193,7 +193,10 @@ scoring, and the resolution is echoed in the report.
    carry `['gmgn']` or nothing. This discriminator held on every handle tested.
 4. Probe the top two candidates with `callout record --limit 50`, and take the
    `(chain, wallet)` whose `summary.30d.total_calls` is largest. Report the runners-up and
-   their counts.
+   their counts. **On a tie**, take the candidate whose newest `create_time` is more recent —
+   an active record beats a dormant one of the same size; if that is also tied, take the
+   richer `wallet_tags`; if still tied, take the lexicographically first address and say in
+   the report that the tie was broken that way.
 
 **Given a bare wallet address with no chain:** a base58 address is `sol`; a `0x` address is
 probed on **`bsc` then `robinhood` first**, and only if both are empty on the rest. Every
@@ -204,7 +207,8 @@ the BSC wallet that actually made its 706 calls did not. A tag belongs to the ad
 returned for.
 
 **Multi-chain callers: score the main chain only** and state the other chains' counts in one
-line. Merging chains mixes observation windows.
+line. Merging chains mixes observation windows. When two chains carry the same number of
+calls, score the one whose newest call is more recent and name the other with its count.
 
 **If every candidate returns zero call-outs, stop here.** This address has never published a
 call-out on the chains probed, so there is nothing for this skill to score — measured: one
@@ -298,7 +302,10 @@ Tiers, in order — the first one that matches wins:
   **(a)** `post_call_sold_ratio ≥ 0.8` **and** `minutes_to_first_sell ≤ 15`, or
   **(b)** `lead_seconds ≤ 60` **and** at least one post-call sell.
 
-  The tier fires when **at least half** of the sampled contracts count. Clause (b) exists
+  The tier fires when **at least half** of the sampled contracts count, counted as
+  `counting × 2 ≥ sampled` — so 2 of 3, 2 of 4, 3 of 5. One of three does **not** fire it.
+  This is the single threshold that separates 回避 from 不可跟, so it is arithmetic, not
+  judgement. Clause (b) exists
   because a caller who builds a position and calls it 12 seconds later is front-running his
   own audience whether or not the first sell lands inside 15 minutes. A contract whose ratio
   is not applicable under the $20 floor **can still satisfy (b)** — so an empty bag at the
@@ -341,6 +348,13 @@ only gates that still return a verdict when the selection axis cannot be issued.
   Otherwise intersect `created-tokens` with the called contracts: **any overlap → exclude**
   (calling your own launch is naked promotion). No overlap but many launches at
   `open_ratio = 0` → deduction for a record of shipping dead tokens.
+  **The `tokens` array is capped at 100 while `inner_count + open_count` is the real total,
+  so an empty intersection is only evidence when the array covers the whole career.** A
+  caller measured at **1,551 launches with 101 rows returned (6.5% coverage)** had an empty
+  intersection that proves nothing; in that situation report the launch record and state
+  that the self-launch check could not be completed, never that he passed it. If
+  `created_token_count > 0` but `tokens` comes back empty, the gate is likewise not
+  evaluable — say so rather than reading it as no overlap.
 - **Funding cluster.** Only `fund_from` **empty** counts — a labelled CEX hot wallet funds
   thousands of wallets and flags nothing. Also exclude the caller's **own other wallets**
   under the same handle: one caller's funder was its own second address. A cluster claim
@@ -562,6 +576,16 @@ the one this skill acts on. Reading `multiplier` as a current ratio would turn "
 
 ## Fields read
 
+These are the API fields the skill reads for its judgement. Quantities it derives itself —
+`lead_seconds`, `hold_at_call`, `post_call_net`, `post_call_sold_ratio`,
+`post_call_sell_count`, `post_call_buy_count`, `minutes_to_first_sell`,
+`exit_vs_call_price`, `never_held`, `first_call_hit_rate`, `dead_call_share`,
+`calls_per_token`, the survival rate — are defined in the steps above and are not API
+fields. Fields named in Core Concepts only to say they are empty or excluded
+(`call_unrealized_profit_pnl`, `accu_cost`, `bought_amount`, `sold_amount`,
+`transfer_out_amount`, `current_holding_usd`) are not read. Error-response keys (`reset_at`,
+`upgrade_message`) are read only on `429` / `403`.
+
 `callout record`: `ulid`, `chain`, `call_wallet`, `call_token`, `call_price`, `call_mc`,
 `token_price`, `multiplier`, `price_change`, `holding_percentage`, `create_time`,
 `token_creation_timestamp`, `token_symbol`, `is_safe`, `launchpad_platform`,
@@ -575,7 +599,9 @@ the one this skill acts on. Reading `multiplier` as a current ratio would turn "
 `native_balance`, `pnl_stat` (`winrate`, `token_num`, `avg_holding_period`,
 `pnl_lt_nd5_num`, `pnl_nd5_0x_num`, `pnl_0x_2x_num`, `pnl_2x_5x_num`, `pnl_gt_5x_num`),
 `common` (`created_at`, `tags`, `created_token_count`, `fund_from`, `fund_from_address`,
-`twitter_bind`, `twitter_fans_num`, `is_blue_verified`, `follow_count`, `remark_count`).
+`twitter_bind`, `twitter_fans_num`, `is_blue_verified`, `follow_count`, `remark_count`), and
+the name fields `name` / `nick_name` / `twitter_name` / `twitter_username` only where one is
+displayed, each through the cleaning in Display Templates.
 
 `market search`: `data.wallets[].address` / `.chain` / `.twitter_username` / `.wallet_tags`.
 
@@ -620,6 +646,9 @@ and 2026-10-16 across SOL and BSC, not chosen a priori.
 
 - `callout record` covers the last 30 days only. Anything older cannot be scored.
 - `next_page_token` is opaque and expires in 24 h; pass it back verbatim, never build one.
+  If a page returns HTTP 400 `invalid or expired page_token` part-way through, **stop paging
+  and score what was already fetched** — do not restart from page one and do not retry the
+  token. Record the coverage reached, and say in the limits section that it is a floor.
 - There is no per-token caller list in the CLI, so "who else called this coin" and "was he
   first or late" cannot be computed. Do not imply either.
 - `is_safe` is a live field, not a default filter: `risk` values do occur (1 in 200 and 2 in
