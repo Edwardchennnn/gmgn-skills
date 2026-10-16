@@ -893,7 +893,7 @@ const TRENCHES_QUOTE_ADDRESS_TYPES: Record<string, number[]> = {
   bsc:  [6, 7, 1, 16, 8, 3, 9, 10, 2, 17, 18, 0],
   base: [11, 3, 12, 13, 0],
   eth:  [20, 11, 8, 3, 12, 1, 0],
-  robinhood: [11, 20, 24, 12, 0],
+  robinhood: [11, 20, 24, 12, 26, 0],
 };
 
 function buildTrenchesBody(chain: string, types?: string[], platforms?: string[], limit?: number, filters?: Record<string, number | string>): Record<string, unknown> {
