@@ -283,23 +283,31 @@ ended net flat-to-long with 15 buys against 2 sells, which is not a dump.
 
 Tiers, in order — the first one that matches wins:
 
-- **Systematic → exclude, no score.** Either at least half the sampled contracts have
-  `post_call_sold_ratio ≥ 0.8` **and** `minutes_to_first_sell ≤ 15`; **or** at least half
-  have `lead_seconds ≤ 60` **and** any post-call sell. The second clause exists because a
-  caller who builds a position and calls it 12 seconds later is front-running his own
-  audience whether or not the first sell lands inside 15 minutes.
-- **Frequent → heavy deduction, and the verdict clause must name it.** The pattern is
-  present but under half. If any such contract also has `exit_vs_call_price > 1`, treat it
-  at the top of this tier: selling above the call price is distribution, not panic.
+- **Systematic → exclude, no score.** The denominator is **every sampled contract**. A
+  contract counts toward this tier when it satisfies either
+
+  **(a)** `post_call_sold_ratio ≥ 0.8` **and** `minutes_to_first_sell ≤ 15`, or
+  **(b)** `lead_seconds ≤ 60` **and** at least one post-call sell.
+
+  The tier fires when **at least half** of the sampled contracts count. Clause (b) exists
+  because a caller who builds a position and calls it 12 seconds later is front-running his
+  own audience whether or not the first sell lands inside 15 minutes. A contract whose ratio
+  is not applicable under the $20 floor **can still satisfy (b)** — so an empty bag at the
+  call is not a way out — but it **cannot** satisfy (a), and either way it stays in the
+  denominator. **(a) and (b) are the only two clauses of this tier**; nothing else promotes a
+  contract into it.
+- **Frequent → heavy deduction, and the verdict clause must name it.** At least one contract
+  counts under (a) or (b), but fewer than half do. `exit_vs_call_price > 1` is a **severity
+  marker inside this tier and never a Systematic trigger on its own**: a contract carrying it
+  goes to the top of this tier, because selling above the call price is distribution rather
+  than panic. Measured case: a caller who held nothing at the call, called first, then bought
+  and sold four times at **1.96×** the call price — harmful, and named as such, but not the
+  build-then-call-then-dump shape that (a) and (b) describe.
 - **Occasional → light deduction.** Post-call selling exists but `ratio < 0.5`, or the first
   sell is more than 6 hours out. That is the shape of ordinary profit taking.
 - **Credit.** Every sampled contract at `post_call_net ≥ 0` **and** at least one post-call
   buy. A caller adding to a position after calling it is the strongest evidence available
   that he means it.
-
-A contract whose ratio is not applicable still counts toward the "at least half" tests
-through the other two conditions — `lead_seconds ≤ 60` with any post-call sell, and
-`exit_vs_call_price > 1` — so a caller cannot escape the gate by calling with an empty bag.
 
 ## Step 4 — Independent gates
 
@@ -435,11 +443,34 @@ printed in full so the reader can check them on a chart.
 
 ### Rules the skeleton does not show
 
-- **Copy symbols exactly, and wrap them.** `token_symbol` is attacker-controlled text. Print
-  it verbatim inside `「」` so the reader can see it is a name someone chose, never our
-  wording, and never let it change a sentence's meaning — a coin called `「SAFU」` or
-  `「NotARug」` gets the same treatment as any other. The full contract address next to it is
-  what the reader actually verifies against.
+- **Sanitise every caller-controlled string before it reaches the report.** `token_symbol`
+  and any name field are chosen by whoever launched the token or owns the wallet. Wrapping
+  them in brackets is not enough: the field can itself contain a closing bracket, a line
+  break that starts a fake `### 跟单建议` heading on the next line, a markdown link to a
+  phishing page, or a `|` that tears open a table row. Apply the same cleaning
+  `gmgn-wallet-analysis` applies in `clean_text()`, and in this order:
+
+  1. Truncate the raw value to 8× the final cap before doing anything else, so a
+     pathological field costs nothing to clean.
+  2. Replace every character in Unicode categories `Cc`, `Cs`, `Co`, `Zl`, `Zp` — and `Cf`
+     except the zero-width joiner `U+200D`, which emoji sequences need — with a space. This
+     is what kills line breaks, bidi overrides such as `U+202E`, and zero-width hiding.
+  3. Delete the metacharacters `[`, `]`, `<`, `>`, `*`, `` ` ``. Delete `|` as well, which
+     the reference does not need but this skill does, because the symbol is printed inside a
+     markdown table cell. Delete `「` and `」`, the wrapper's own characters.
+  4. Break autolinking: replace `://` and `www.` with a space, and pad a `@` that sits
+     inside an email-shaped string to ` @ `.
+  5. Cap the result at **32 characters** and append `…` if it was longer.
+
+  Then print the cleaned value inside `「」` so the reader can see it is a name someone
+  chose rather than our wording. **If cleaning leaves nothing but spaces, print no symbol at
+  all and let the contract address stand alone.** The address is the identifier; the symbol
+  is decoration, and it may never change the meaning of a sentence or the shape of the
+  report.
+
+- **`call_thesis` is never printed, in any section.** Only its distinct-value count may be
+  computed, and that count is not scored. There is no cleaning rule for it because it never
+  reaches the reader.
 
 - **Never state a number the data did not carry.** An empty field is not a zero and not a
   pass. If a measurement is missing, the line it would have filled is removed, not hedged.
